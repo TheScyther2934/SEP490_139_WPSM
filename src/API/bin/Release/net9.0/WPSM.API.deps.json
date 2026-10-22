@@ -1,0 +1,72 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "WPSM.API/1.0.0": {
+        "dependencies": {
+          "WPSM.Application": "1.0.0",
+          "WPSM.Infrastructure": "1.0.0"
+        },
+        "runtime": {
+          "WPSM.API.dll": {}
+        }
+      },
+      "WPSM.Application/1.0.0": {
+        "dependencies": {
+          "WPSM.Domain": "1.0.0"
+        },
+        "runtime": {
+          "WPSM.Application.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "WPSM.Domain/1.0.0": {
+        "runtime": {
+          "WPSM.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "WPSM.Infrastructure/1.0.0": {
+        "dependencies": {
+          "WPSM.Application": "1.0.0"
+        },
+        "runtime": {
+          "WPSM.Infrastructure.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "WPSM.API/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "WPSM.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "WPSM.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "WPSM.Infrastructure/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

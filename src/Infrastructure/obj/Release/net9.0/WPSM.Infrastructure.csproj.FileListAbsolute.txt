@@ -1,0 +1,17 @@
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Infrastructure.deps.json
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Infrastructure.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Infrastructure.pdb
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Application.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Domain.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Application.pdb
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\bin\Release\net9.0\WPSM.Domain.pdb
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.csproj.AssemblyReference.cache
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.AssemblyInfoInputs.cache
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.AssemblyInfo.cs
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.csproj.CoreCompileInputs.cache
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Inf.BB59629B.Up2Date
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\refint\WPSM.Infrastructure.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\WPSM.Infrastructure.pdb
+D:\Ky9\SEP\SEP490_139_WPSM\src\WPSM.Infrastructure\obj\Release\net9.0\ref\WPSM.Infrastructure.dll

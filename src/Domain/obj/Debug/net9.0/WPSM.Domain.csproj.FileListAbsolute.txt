@@ -1,0 +1,11 @@
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\bin\Debug\net9.0\WPSM.Domain.deps.json
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\bin\Debug\net9.0\WPSM.Domain.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\bin\Debug\net9.0\WPSM.Domain.pdb
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\WPSM.Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\WPSM.Domain.AssemblyInfoInputs.cache
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\WPSM.Domain.AssemblyInfo.cs
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\WPSM.Domain.csproj.CoreCompileInputs.cache
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\WPSM.Domain.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\refint\WPSM.Domain.dll
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\WPSM.Domain.pdb
+D:\Ky9\SEP\SEP490_139_WPSM\src\Domain\obj\Debug\net9.0\ref\WPSM.Domain.dll
