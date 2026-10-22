@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {
+      "WPSM.Domain/1.0.0": {
+        "runtime": {
+          "WPSM.Domain.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "WPSM.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
