@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-surface">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(ViewData["Title"] ?? "WPSM")</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="~/js/wpsm-theme.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/css/wpsm.css" asp-append-version="true" />
+</head>
+<body class="min-h-full bg-surface text-on-surface antialiased">
+    <div id="wpsm-api-status" class="wpsm-api-status" role="status" aria-live="polite">Đang kết nối WPSM API…</div>
+    <main>
+        @RenderBody()
+    </main>
+    <script src="~/js/wpsm-api.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
