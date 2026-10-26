@@ -11,6 +11,16 @@ out/
 publish/
 artifacts/
 
+# --- Compiled binaries and build metadata ---
+*.dll
+*.pdb
+*.exe
+*.binlog
+*.vsidx
+*.dtbcache*
+*.runtimeconfig.json
+*.deps.json
+
 # --- Visual Studio / VS Code / Rider ---
 .vs/
 .vscode/*
