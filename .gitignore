@@ -1,0 +1,110 @@
+# ===== WPSM .gitignore (.NET / Visual Studio / VS Code / Rider) =====
+
+# --- Build output ---
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Ll]og/
+[Ll]ogs/
+out/
+publish/
+artifacts/
+
+# --- Visual Studio / VS Code / Rider ---
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.DotSettings.user
+*.csproj.user
+launchSettings.json.user
+
+# --- Test results / coverage ---
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+TestResults/
+coverage/
+
+# --- NuGet ---
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+.nuget/
+
+# --- EF Core: keep Migrations in git, ignore local scripts/db files ---
+*.mdf
+*.ldf
+*.ndf
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.bacpac
+
+# --- Secrets & environment config (NEVER commit) ---
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+*.env
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+*.pem
+
+# --- Uploaded files in dev (receipts, proof photos, addenda, BEO PDFs) ---
+**/App_Data/
+**/Uploads/
+**/uploads/
+**/storage/
+wwwroot/uploads/
+wwwroot/files/
+
+# --- Front-end (Bootstrap / Tailwind / npm) ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.sass-cache/
+*.css.map
+# Compiled CSS from Sass/Tailwind (uncomment if built in CI, keep tracked if not)
+# wwwroot/css/site.css
+# wwwroot/lib/
+
+# --- Tools ---
+tools/tailwindcss*.exe
+tools/tailwindcss*
+
+# --- OS / editor junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# --- Logs & temp ---
+*.log
+*.tmp
+*.temp
+*.cache
+*.orig
+*.rej
+
+# --- Docs: keep Stitch exports and reports tracked; ignore Office lock files ---
+~$*
+*.tmp.docx
