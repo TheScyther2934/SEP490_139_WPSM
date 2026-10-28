@@ -11,6 +11,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPSM.Domain", "src\Domain\WPSM.Domain.csproj", "{37FEC45E-D3ED-4CFB-8EFF-0D700475A088}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPSM.Infrastructure", "src\Infrastructure\WPSM.Infrastructure.csproj", "{D7800DA3-294A-4137-B1B0-6FFF29F61B18}"
+	ProjectSection(ProjectDependencies) = postProject
+		{37FEC45E-D3ED-4CFB-8EFF-0D700475A088} = {37FEC45E-D3ED-4CFB-8EFF-0D700475A088}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPSM.Web", "WPSM.Web\WPSM.Web.csproj", "{2CE9450D-568F-4937-B5EF-B821F4D6FDAB}"
 EndProject
