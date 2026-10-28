@@ -1,0 +1,248 @@
+@page "/G01"
+@{ ViewData["Title"] = "Đăng nhập"; }
+<div data-wpsm-screen="G01">
+
+<!-- Top Minimal App Bar (Shared Anchor for Brand Identification) -->
+<header class="w-full bg-surface border-b border-outline-variant py-2.5 px-4 sticky top-0 z-30">
+<div class="flex items-center justify-between max-w-[420px] mx-auto">
+<div class="flex items-center gap-1.5 text-primary">
+<span class="material-symbols-outlined text-[20px]" data-icon="diamond">diamond</span>
+<span class="font-headline-sm text-headline-sm tracking-wider font-semibold">WPSM</span>
+</div>
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-primary text-label-md font-label-md transition-colors px-2 py-1 rounded-lg" onclick="openSupportModal()">
+<span class="material-symbols-outlined text-[18px]" data-icon="help_outline">help_outline</span>
+<span>Hỗ trợ</span>
+</button>
+</div>
+</header>
+<!-- Main Canvas: Mobile Centric Viewport container (max-w ~390px - 420px) -->
+<main class="w-full flex-1 flex flex-col items-center justify-start px-4 py-4 max-w-[420px] mx-auto">
+<!-- Top Card / Hero Banner with Deep Burgundy Overlay -->
+<div class="w-full relative rounded-xl overflow-hidden shadow-luxury-warm mb-4 border border-outline-variant bg-surface-container-highest">
+<!-- Venue Background Image -->
+<div class="relative w-full h-44 bg-cover bg-center overflow-hidden">
+<img alt="Không gian sảnh tiệc cưới sang trọng WPSM" class="w-full h-full object-cover transform scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-fYiq_Ug5FFreL7-02ZkZsU5nBfw3QAFYe604azGcIzw5VtJGSf2fLggqqbjPcyQ-lCr6QstMDv6os0lVhTqTAwUBBJItew2fL8dkmEyIj_fMsyZXhvxOKTTUCV2s3KGPNSPiaiGmNAHAHNa0ItwrRJCJJknPcj9clsoPqAN_KQ1be9KtT_KebORADMz1J0wkXG5gJMsNTTkeeCOum47gtb7_sx64xV4_SIpF_cwe1vvcDyyC2QB8Rg"/>
+<!-- Deep Burgundy Gradient Overlay -->
+<div class="absolute inset-0 bg-gradient-to-t from-[#6d1634] via-[#8b2e4ae0] to-[#5d1f3199] mix-blend-multiply"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60"></div>
+</div>
+<!-- Banner Text Content -->
+<div class="absolute inset-0 p-4 flex flex-col justify-end text-white">
+<div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-secondary/30 backdrop-blur-sm border border-secondary-fixed/30 w-fit mb-1.5">
+<span class="material-symbols-outlined material-symbols-fill text-[#ffdea9] text-[13px]" data-icon="stars">stars</span>
+<span class="font-label-sm text-label-sm text-[#fed798] tracking-widest uppercase">Cổng điều hành sự kiện</span>
+</div>
+<h1 class="font-headline-sm text-headline-sm text-white font-semibold leading-tight drop-shadow-sm">
+          WPSM – Quản lý &amp; lập kế hoạch dịch vụ đám cưới
+        </h1>
+<p class="font-body-sm text-body-sm text-surface-container-low/90 mt-1 line-clamp-2">
+          Theo dõi lộ trình, chi phí và vận hành đám cưới của bạn trong một nơi duy nhất
+        </p>
+</div>
+</div>
+<!-- Login Card (Form Container) -->
+<div class="w-full bg-surface-container-lowest rounded-xl border border-outline-variant p-5 shadow-luxury-warm">
+<!-- Card Title & Subtitle -->
+<div class="mb-5 pb-3 border-b border-surface-container-high">
+<div class="flex items-center justify-between">
+<h2 class="font-headline-sm text-headline-sm text-primary font-semibold">
+            Đăng nhập
+          </h2>
+<span class="px-2 py-0.5 rounded text-[11px] font-label-sm uppercase bg-surface-container text-on-surface-variant font-medium border border-outline-variant">
+            Mã G-01
+          </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+          Sử dụng tài khoản do trung tâm tiệc cưới cung cấp
+        </p>
+</div>
+<!-- Form Elements -->
+<form class="space-y-4" id="loginForm" onsubmit="handleLoginSubmit(event)">
+<!-- Email Field -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface mb-1" for="email">
+            Email <span class="text-error font-bold">*</span>
+</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[18px]" data-icon="mail">mail</span>
+</div>
+<input class="w-full h-10 pl-9 pr-3 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline-variant" id="email" name="email" placeholder="email@@example.com" required="" type="email" value="dieuhanh.sanhkimgcuong@@wpsm.vn"/>
+</div>
+</div>
+<!-- Password Field with Show/Hide toggle -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface mb-1" for="password">
+            Mật khẩu <span class="text-error font-bold">*</span>
+</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[18px]" data-icon="lock">lock</span>
+</div>
+<input class="w-full h-10 pl-9 pr-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline-variant" id="password" name="password" placeholder="Nhập mật khẩu được cấp" required="" type="password" value="Wedding2025!"/>
+<button aria-label="Ẩn hiện mật khẩu" class="absolute inset-y-0 right-0 pr-3 flex items-center text-outline hover:text-primary transition-colors focus:outline-none" id="togglePasswordBtn" onclick="togglePasswordVisibility()" type="button">
+<span class="material-symbols-outlined text-[19px]" data-icon="visibility" id="pwdIcon">visibility</span>
+</button>
+</div>
+</div>
+<!-- Inline Error / Warning Notification Area (Sample state rendered as requested) -->
+<div class="space-y-2 pt-1" id="errorNotificationArea">
+<!-- Error 1: Incorrect credentials state -->
+<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-error-container/60 border border-error/30 text-error animate-fadeIn">
+<span class="material-symbols-outlined text-[18px] shrink-0 mt-0.5" data-icon="error">error</span>
+<div class="flex-1 text-label-md font-label-md leading-snug">
+              Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.
+            </div>
+</div>
+<!-- Error 2: Account deactivated notice -->
+<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[#991B1B]">
+<span class="material-symbols-outlined text-[18px] shrink-0 mt-0.5" data-icon="gpp_maybe">gpp_maybe</span>
+<div class="flex-1 text-label-md font-label-md leading-snug">
+              Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ trung tâm.
+            </div>
+</div>
+</div>
+<!-- Primary Full-Width Button -->
+<div class="pt-2">
+<button class="w-full h-11 bg-primary-container hover:bg-[#5D1F31] active:scale-[0.98] text-on-primary font-title-sm text-title-sm font-semibold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer" type="submit">
+<span>Đăng nhập</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- Helper Link for Credentials (Explicitly states venue contact, no reset form) -->
+<div class="text-center pt-2">
+<button class="font-label-md text-label-md text-primary hover:text-[#5D1F31] transition-colors inline-flex items-center gap-1.5 focus:outline-none py-1" onclick="openSupportModal()" type="button">
+<span class="material-symbols-outlined text-[16px]" data-icon="contact_support">contact_support</span>
+<span>Quên thông tin đăng nhập? Liên hệ trung tâm để được cấp lại</span>
+</button>
+</div>
+</form>
+<!-- Hall Accreditation & Privacy Notice Tag -->
+<div class="mt-5 pt-3 border-t border-surface-container-high flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-secondary" data-icon="verified">verified</span>
+          Hệ thống bảo mật nội bộ
+        </span>
+<span class="text-outline">Phiên bản v2.4</span>
+</div>
+</div>
+<!-- Contact & Hotline Bottom Banner -->
+<div class="w-full mt-3 px-3 py-2.5 bg-surface-container rounded-lg border border-outline-variant flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]" data-icon="headset_mic">headset_mic</span>
+</div>
+<div class="text-left">
+<p class="font-label-sm text-label-sm text-on-surface font-semibold">Hotline hỗ trợ điều phối</p>
+<p class="font-body-sm text-[11px] text-on-surface-variant">1900 886 928 (8:00 - 22:00)</p>
+</div>
+</div>
+<a class="text-xs px-2.5 py-1 bg-surface-container-lowest border border-outline-variant text-primary font-label-md rounded-md hover:bg-primary hover:text-white transition-colors" href="tel:1900886928">
+        Gọi ngay
+      </a>
+</div>
+</main>
+<!-- Shared Footer (Derived from Design System Specs) -->
+<footer class="w-full bg-surface border-t border-outline-variant py-3 px-4 mt-auto">
+<div class="max-w-[420px] mx-auto flex flex-col items-center gap-1.5 text-center">
+<div class="flex items-center gap-3 text-body-sm font-body-sm text-on-surface-variant">
+<a class="hover:text-primary transition-colors" href="javascript:void(0)" onclick="openSupportModal()">Hỗ trợ khẩn cấp</a>
+<span>•</span>
+<a class="hover:text-primary transition-colors" href="javascript:void(0)">Chính sách bảo mật</a>
+<span>•</span>
+<a class="hover:text-primary transition-colors" href="javascript:void(0)">Điều khoản dịch vụ</a>
+</div>
+<p class="font-body-sm text-body-sm text-outline text-[11px]">
+        © WPSM – SEP490-G139
+      </p>
+</div>
+</footer>
+<!-- Modal: Liên hệ Ban Quản Lý (Explicit venue assistance modal instead of public reset) -->
+<div class="fixed inset-0 z-50 bg-[#2b2625]/60 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-3 sm:p-4 transition-opacity duration-200" id="supportModal">
+<div class="bg-surface-container-lowest w-full max-w-sm rounded-xl border border-outline-variant p-5 shadow-2xl space-y-4">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-2 text-primary">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" data-icon="business">business</span>
+</div>
+<div>
+<h3 class="font-title-md text-title-md font-semibold">Cấp lại tài khoản WPSM</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Hỗ trợ điều phối viên &amp; Cặp đôi</p>
+</div>
+</div>
+<button class="text-outline hover:text-on-surface p-1 rounded" onclick="closeSupportModal()">
+<span class="material-symbols-outlined text-[20px]" data-icon="close">close</span>
+</button>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg border border-outline-variant text-body-sm font-body-sm text-on-surface space-y-2">
+<p class="text-on-surface-variant">
+          Hệ thống <strong class="text-on-surface">WPSM</strong> không hỗ trợ tạo hoặc tự đặt lại tài khoản công khai để đảm bảo an ninh vận hành tiệc cưới.
+        </p>
+<p class="text-on-surface-variant">
+          Vui lòng gửi yêu cầu cấp lại mã đăng nhập trực tiếp qua các kênh phụ trách:
+        </p>
+</div>
+<div class="space-y-2 font-label-md text-label-md">
+<div class="flex items-center justify-between p-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="call">call</span>
+<span>Tổng đài Ban Quản Trị</span>
+</div>
+<span class="font-semibold text-primary">028 7300 8899</span>
+</div>
+<div class="flex items-center justify-between p-2.5 rounded-lg border border-outline-variant bg-surface-container-lowest">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="mail">mail</span>
+<span>Email hỗ trợ kỹ thuật</span>
+</div>
+<span class="font-semibold text-on-surface">hotro@@wpsm.vn</span>
+</div>
+</div>
+<button class="w-full py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface font-title-sm text-title-sm font-semibold rounded-lg transition-colors border border-outline-variant" onclick="closeSupportModal()" type="button">
+        Đã hiểu, đóng cửa sổ
+      </button>
+</div>
+</div>
+<!-- Micro-interactions Script -->
+<script>
+    // Password visibility toggle
+    function togglePasswordVisibility() {
+      const pwdInput = document.getElementById('password');
+      const pwdIcon = document.getElementById('pwdIcon');
+      
+      if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        pwdIcon.textContent = 'visibility_off';
+      } else {
+        pwdInput.type = 'password';
+        pwdIcon.textContent = 'visibility';
+      }
+    }
+
+    // Modal helpers
+    function openSupportModal() {
+      document.getElementById('supportModal').classList.remove('hidden');
+    }
+
+    function closeSupportModal() {
+      document.getElementById('supportModal').classList.add('hidden');
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSupportModal();
+    });
+
+    // Form submit interaction simulator
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      const notifyArea = document.getElementById('errorNotificationArea');
+      // Subtle pulse on active error cards
+      notifyArea.classList.add('animate-pulse');
+      setTimeout(() => {
+        notifyArea.classList.remove('animate-pulse');
+      }, 400);
+    }
+  </script>
+
+</div>
