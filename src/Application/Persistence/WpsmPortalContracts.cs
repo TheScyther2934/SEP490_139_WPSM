@@ -40,7 +40,7 @@ public sealed record CatalogItemView(string Id, string Name, string Category, st
 public sealed record PriceFrameView(string Id, string ServiceName, string Variant, decimal MinPrice, decimal MaxPrice, string Currency);
 public sealed record PolicyView(decimal NrdRatio, decimal T30Ratio, decimal FinalRatio, int CrPenaltyDays, decimal CrPenaltyPercent);
 public sealed record ProfileView(string FullName, string Email, string Phone, string Role);
-public sealed record RoadmapTaskView(string Milestone, string Title, string AssigneeRole, DateOnly DueDate, string Status);
+public sealed record RoadmapTaskView(int TaskId, string Milestone, string Title, string AssigneeRole, DateOnly DueDate, string Status, DateTime? CompletedAt, string? Description = null, IReadOnlyList<string>? Checklist = null);
 
 public sealed record CreateProjectCommand(
     string CoupleName,

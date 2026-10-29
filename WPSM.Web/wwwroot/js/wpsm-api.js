@@ -1,6 +1,64 @@
 (() => {
   const status = document.getElementById("wpsm-api-status");
   const formatMoney = value => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
+  const bindRoadmapEvents = () => {
+    document.querySelectorAll('[data-wpsm-screen="C03"] [data-toggle-milestone]').forEach(button => {
+      button.addEventListener("click", () => {
+        const body = button.closest("article").querySelector("[data-milestone-body]");
+        body.hidden = !body.hidden;
+        button.setAttribute("aria-expanded", String(!body.hidden));
+      });
+    });
+    document.querySelectorAll('[data-wpsm-screen="C03"] [data-task-id]').forEach(button => {
+      button.addEventListener("click", () => {
+        const taskId = Number(button.dataset.taskId);
+        const task = window.wpsm?.roadmap?.find(item => item.taskId === taskId);
+        if (!task) return;
+        openRoadmapTaskDialog(task);
+      });
+    });
+  };
+  const openRoadmapTaskDialog = task => {
+    document.getElementById("wpsm-roadmap-dialog")?.remove();
+    const statusText = task.status === "Done" ? "Đã hoàn thành" : task.status === "Overdue" ? "Quá hạn" : "Chờ thực hiện";
+    const dueText = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${task.dueDate}T00:00:00`));
+    const completedText = task.completedAt ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(task.completedAt)) : "";
+    const canComplete = task.assigneeRole === "Customer" && task.status !== "Done";
+    const dialog = document.createElement("div");
+    dialog.id = "wpsm-roadmap-dialog";
+    dialog.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+    dialog.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Chi tiết task" class="w-full max-w-lg rounded-2xl bg-surface-container-lowest shadow-xl border border-outline-variant/40 p-6">
+      <div class="flex justify-between gap-4"><div><p class="text-xs font-semibold text-primary">${escapeHtml(task.milestone)}</p><h2 class="text-xl font-bold text-on-surface mt-1">${escapeHtml(task.title)}</h2></div><button type="button" data-close-dialog class="text-on-surface-variant hover:text-primary material-symbols-outlined">close</button></div>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 text-sm"><div><dt class="text-on-surface-variant">Phụ trách</dt><dd class="font-semibold">${task.assigneeRole === "Customer" ? "Khách hàng" : "Quản lý"}</dd></div><div><dt class="text-on-surface-variant">Deadline</dt><dd class="font-semibold">${dueText}</dd></div><div><dt class="text-on-surface-variant">Trạng thái</dt><dd class="font-semibold">${statusText}</dd></div><div><dt class="text-on-surface-variant">Hoàn thành lúc</dt><dd class="font-semibold">${completedText || "Chưa hoàn thành"}</dd></div></dl>
+      <div class="mt-5 space-y-3"><section><h3 class="font-semibold">Hướng dẫn</h3><p class="text-sm text-on-surface-variant mt-1">Thông tin mô tả chưa được cấu hình.</p></section><section><h3 class="font-semibold">Checklist</h3><p class="text-sm text-on-surface-variant mt-1">Checklist guidance chưa được cấu hình.</p></section></div>
+      <p data-dialog-error class="text-sm text-error mt-4 min-h-5"></p>
+      <div class="flex justify-end gap-2 mt-2"><button type="button" data-close-dialog class="px-4 py-2 rounded-lg border border-outline-variant/60">Đóng</button>${canComplete ? `<button type="button" data-complete-task class="px-4 py-2 rounded-lg bg-primary text-on-primary disabled:opacity-60">Xác nhận hoàn thành</button>` : ""}</div></div>`;
+    document.body.appendChild(dialog);
+    dialog.querySelectorAll("[data-close-dialog]").forEach(button => button.addEventListener("click", () => dialog.remove()));
+    dialog.addEventListener("click", event => { if (event.target === dialog) dialog.remove(); });
+    const completeButton = dialog.querySelector("[data-complete-task]");
+    completeButton?.addEventListener("click", async () => {
+      if (completeButton.disabled) return;
+      completeButton.disabled = true;
+      completeButton.textContent = "Đang cập nhật…";
+      const errorText = dialog.querySelector("[data-dialog-error]");
+      errorText.textContent = "";
+      try {
+        const projectCode = window.wpsm.project.id;
+        const result = await send(`customer/projects/${encodeURIComponent(projectCode)}/roadmap/tasks/${task.taskId}/complete`, "POST", {});
+        const index = window.wpsm.roadmap.findIndex(item => item.taskId === task.taskId);
+        if (index >= 0) window.wpsm.roadmap[index] = result;
+        window.wpsm.project.roadmapProgress = window.wpsm.roadmap.length ? Math.round(window.wpsm.roadmap.filter(item => item.status === "Done").length * 100 / window.wpsm.roadmap.length) : 0;
+        dialog.remove();
+        window.wpsmRenderRoadmap?.();
+        message("Đã xác nhận hoàn thành task.");
+      } catch (error) {
+        completeButton.disabled = false;
+        completeButton.textContent = "Xác nhận hoàn thành";
+        errorText.textContent = error.message;
+      }
+    });
+  };
   const replaceText = (root, values) => {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
@@ -76,10 +134,40 @@
 
     const roadmapSection = document.querySelector('[data-wpsm-screen="C03"] main section');
     if (roadmapSection && data.project) {
-      const roadmap = data.roadmap || [];
-      roadmapSection.innerHTML = roadmap.length ? roadmap.map(task => `<article class="relative z-10 bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-title-lg font-title-lg text-primary font-bold">${escapeHtml(task.milestone)} · ${escapeHtml(task.title)}</h3><p class="text-body-sm text-on-surface-variant mt-1">Phụ trách: ${task.assigneeRole === "Customer" ? "Khách hàng" : "Quản lý"}</p></div>
-        <div class="text-right"><div class="font-semibold">Hạn: ${new Intl.DateTimeFormat("vi-VN").format(new Date(`${task.dueDate}T00:00:00`))}</div><span class="text-sm">${task.status === "Done" ? "Đã hoàn thành" : task.status === "Overdue" ? "Quá hạn" : "Chờ thực hiện"}</span></div></div></article>`).join("") : `<p class="rounded-xl bg-surface-container-low p-5">Roadmap sẽ được tạo sau khi Manager đóng băng baseline.</p>`;
+      const milestones = ["T-90", "T-30", "T-7", "Event Day"];
+      const roadmap = Array.isArray(data.roadmap) ? data.roadmap : [];
+      const renderRoadmap = () => {
+        if (!roadmap.length) {
+          roadmapSection.innerHTML = `<p class="rounded-xl bg-surface-container-low p-5">Roadmap sẽ được tạo sau khi Manager đóng băng baseline.</p>`;
+          return;
+        }
+        roadmapSection.innerHTML = milestones.map((milestone, index) => {
+          const tasks = roadmap.filter(task => task.milestone === milestone).sort((a, b) => `${a.dueDate}`.localeCompare(`${b.dueDate}`));
+          const done = tasks.filter(task => task.status === "Done").length;
+          const eventDate = milestone === "Event Day" ? data.project.eventDate : null;
+          const relatedDate = eventDate || tasks[0]?.dueDate;
+          const completedClass = done === tasks.length && tasks.length ? "bg-emerald-100 text-emerald-800" : "bg-primary-container text-on-primary";
+          return `<article class="relative z-10 bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm" data-milestone="${milestone}">
+            <button type="button" class="w-full flex items-center justify-between gap-3 text-left" data-toggle-milestone aria-expanded="${index !== 0 || done !== tasks.length}">
+              <div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full flex items-center justify-center ${completedClass}">${done === tasks.length && tasks.length ? "✓" : escapeHtml(String(index + 1))}</span>
+                <div><h3 class="text-title-lg font-bold text-primary">${escapeHtml(milestone)}</h3><p class="text-sm text-on-surface-variant">${relatedDate ? `Ngày liên quan: ${new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${relatedDate}T00:00:00`))}` : "Ngày liên quan chưa cấu hình"}</p></div>
+              </div><div class="text-right"><div class="font-semibold">${done}/${tasks.length} nhiệm vụ hoàn thành</div><span class="text-sm text-on-surface-variant">${done === tasks.length && tasks.length ? "Đã hoàn thành" : "Đang tiến hành"}</span></div>
+            </button>
+            <div class="mt-4 space-y-2" data-milestone-body ${index === 0 && done === tasks.length && tasks.length ? "hidden" : ""}>
+              ${tasks.length ? tasks.map(task => {
+                const status = task.status === "Done" ? "Đã hoàn thành" : task.status === "Overdue" ? "Quá hạn" : "Chờ thực hiện";
+                const statusClass = task.status === "Done" ? "bg-emerald-100 text-emerald-800" : task.status === "Overdue" ? "bg-error/10 text-error" : "bg-surface-container text-on-surface-variant";
+                return `<button type="button" class="w-full grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-center rounded-lg border border-outline-variant/30 px-4 py-3 text-left hover:bg-surface-container-low transition-colors" data-task-id="${task.taskId}">
+                  <div><div class="font-semibold text-on-surface">${escapeHtml(task.title)}</div><div class="text-sm text-on-surface-variant">Phụ trách: ${task.assigneeRole === "Customer" ? "Khách hàng" : "Quản lý"}</div></div>
+                  <div class="text-sm"><span class="font-medium">Hạn:</span> ${new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${task.dueDate}T00:00:00`))}</div>
+                  <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">${status}</span></button>`;
+              }).join("") : `<p class="text-sm text-on-surface-variant px-3 py-2">Không có task trong mốc này.</p>`}
+            </div></article>`;
+        }).join("");
+        bindRoadmapEvents();
+      };
+      renderRoadmap();
+      window.wpsmRenderRoadmap = renderRoadmap;
     }
   };
   const showError = error => { status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
