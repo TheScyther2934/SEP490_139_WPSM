@@ -5,4 +5,6 @@ public interface ISpecificationRoadmapRepository
     Task<WeddingProjectView?> UpdateSpecificationAsync(string projectCode, SpecificationCommand command, CancellationToken cancellationToken = default);
     Task<WeddingProjectView?> FreezeBaselineAsync(string projectCode, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<RoadmapTaskView>> GetRoadmapAsync(string projectCode, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RoadmapTaskView>?> GetCustomerRoadmapAsync(string projectCode, int customerId, CancellationToken cancellationToken = default);
+    Task<RoadmapTaskView?> CompleteCustomerTaskAsync(string projectCode, int taskId, int customerId, CancellationToken cancellationToken = default);
 }

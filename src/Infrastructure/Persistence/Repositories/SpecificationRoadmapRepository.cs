@@ -112,9 +112,49 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
         var projectId = await db.WeddingProjects.AsNoTracking().Where(x => x.ProjectCode == projectCode)
             .Select(x => (int?)x.ProjectId).FirstOrDefaultAsync(cancellationToken);
         if (projectId is null) return [];
-        return await db.RoadmapTasks.AsNoTracking().Where(x => x.ProjectId == projectId)
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var tasks = await db.RoadmapTasks.AsNoTracking().Where(x => x.ProjectId == projectId)
             .OrderBy(x => x.DueDate)
-            .Select(x => new RoadmapTaskView(x.Milestone, x.Title, x.AssigneeRole, x.DueDate, x.Status))
+            .ThenBy(x => x.TaskId)
             .ToListAsync(cancellationToken);
+        return tasks.Select(x => MapTask(x, today)).ToList();
+    }
+
+    public async Task<IReadOnlyList<RoadmapTaskView>?> GetCustomerRoadmapAsync(string projectCode, int customerId, CancellationToken cancellationToken = default)
+    {
+        var project = await db.WeddingProjects.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.CustomerId == customerId, cancellationToken);
+        return project is null ? null : await GetRoadmapAsync(projectCode, cancellationToken);
+    }
+
+    public async Task<RoadmapTaskView?> CompleteCustomerTaskAsync(string projectCode, int taskId, int customerId, CancellationToken cancellationToken = default)
+    {
+        var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
+        if (project is null) return null;
+        if (project.CustomerId != customerId)
+            throw new InvalidOperationException("Bạn không có quyền truy cập roadmap của dự án này.");
+
+        var task = await db.RoadmapTasks.FirstOrDefaultAsync(x => x.TaskId == taskId && x.ProjectId == project.ProjectId, cancellationToken);
+        if (task is null)
+            throw new InvalidOperationException("Task không thuộc dự án hiện tại.");
+        if (!string.Equals(task.AssigneeRole, "Customer", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Task này thuộc quyền của Manager và không thể được Customer hoàn thành.");
+        if (string.Equals(task.Status, "Done", StringComparison.OrdinalIgnoreCase))
+            return MapTask(task, DateOnly.FromDateTime(DateTime.UtcNow));
+
+        task.Status = "Done";
+        task.CompletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return MapTask(task, DateOnly.FromDateTime(DateTime.UtcNow));
+    }
+
+    private static RoadmapTaskView MapTask(RoadmapTask x, DateOnly today)
+    {
+        var status = string.Equals(x.Status, "Done", StringComparison.OrdinalIgnoreCase)
+            ? "Done"
+            : x.Milestone == "Event Day"
+                ? "Pending"
+                : x.DueDate < today ? "Overdue" : "Pending";
+        return new RoadmapTaskView(x.TaskId, x.Milestone, x.Title, x.AssigneeRole, x.DueDate, status, x.CompletedAt);
     }
 }

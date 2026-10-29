@@ -93,6 +93,14 @@ api.MapPut("/projects/{id}/specification", async (string id, SpecificationReques
 api.MapPost("/projects/{id}/freeze", async (string id, ISpecificationRoadmapRepository repo, CancellationToken ct) =>
     await repo.FreezeBaselineAsync(id, ct) is { } project ? Results.Ok(project) : Results.NotFound())
     .RequireAuthorization(policy => policy.RequireRole("Manager"));
+api.MapGet("/customer/projects/{id}/roadmap", async (string id, ISpecificationRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    await repo.GetCustomerRoadmapAsync(id, UserId(user), ct) is { } roadmap ? Results.Ok(roadmap) : Results.Forbid())
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
+api.MapPost("/customer/projects/{id}/roadmap/tasks/{taskId:int}/complete", async (string id, int taskId, ISpecificationRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+{
+    var completed = await repo.CompleteCustomerTaskAsync(id, taskId, UserId(user), ct);
+    return completed is null ? Results.NotFound(new { message = "Không tìm thấy dự án." }) : Results.Ok(completed);
+}).RequireAuthorization(policy => policy.RequireRole("Customer"));
 api.MapPost("/projects/{id}/nrd-receipt", async (string id, IFormFile receipt, IProjectRepository repo, ClaimsPrincipal user, IWebHostEnvironment environment, CancellationToken ct) =>
 {
     var extension = Path.GetExtension(receipt.FileName).ToLowerInvariant();
