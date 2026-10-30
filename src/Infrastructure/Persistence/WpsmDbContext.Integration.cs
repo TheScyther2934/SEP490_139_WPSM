@@ -12,6 +12,8 @@ public partial class WpsmDbContext
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<SpecItem>().ToTable(table => table.HasTrigger("TR_SpecItems_BaselineImmutable"));
+
         modelBuilder.Entity<StoredFile>(entity =>
         {
             entity.HasKey(e => e.FileId);

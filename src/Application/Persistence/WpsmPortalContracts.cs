@@ -28,7 +28,8 @@ public sealed record WeddingProjectView(
     string SlotTime = "",
     DateTime? BaselineFrozenAt = null,
     string NrdStatus = "Due",
-    int AddendumCount = 0);
+    int AddendumCount = 0,
+    string? CredentialEmailStatus = null);
 
 public sealed record SpecificationLineView(
     int CatalogItemId,

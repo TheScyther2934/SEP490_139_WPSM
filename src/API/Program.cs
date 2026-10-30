@@ -123,7 +123,7 @@ api.MapGet("/projects", async (IProjectRepository repo, CancellationToken ct) =>
 api.MapGet("/projects/{id}", async (string id, IProjectRepository repo, CancellationToken ct) =>
     await repo.GetProjectAsync(id, ct) is { } project ? Results.Ok(project) : Results.NotFound())
     .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
-api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository repo, IAccountProfileRepository accounts, IPasswordHasher<User> hasher, ClaimsPrincipal user, CancellationToken ct) =>
+api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository repo, IAccountProfileRepository accounts, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
 {
     var temporaryPassword = RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*", 16);
     var newCustomer = await accounts.FindAccountAsync(request.CustomerEmail, ct) is null;
@@ -131,7 +131,15 @@ api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository
     var created = await repo.CreateProjectAsync(new CreateProjectCommand(request.CoupleName, request.CustomerEmail, request.CustomerPhone,
         request.Hall, request.Slot, request.EventDate, request.BaseValue, request.NrdAmount, request.PaymentMethod, request.ReceiptFilePath),
         UserId(user), passwordHash, temporaryPassword, ct);
-    return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, newCustomer ? created.TemporaryPassword : null));
+    return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, newCustomer && ShowsPasswordOnScreen(environment, email) ? created.TemporaryPassword : null));
+}).RequireAuthorization(policy => policy.RequireRole("Manager"));
+api.MapPost("/projects/{id}/resend-credentials", async (string id, IProjectRepository repo, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
+{
+    var temporaryPassword = RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*", 16);
+    var passwordHash = hasher.HashPassword(new User { Role = "Customer" }, temporaryPassword);
+    return await repo.ResendCredentialsAsync(id, UserId(user), passwordHash, temporaryPassword, ct)
+        ? Results.Ok(new { temporaryPassword = ShowsPasswordOnScreen(environment, email) ? temporaryPassword : null })
+        : Results.NotFound();
 }).RequireAuthorization(policy => policy.RequireRole("Manager"));
 api.MapPut("/projects/{id}/specification", async (string id, SpecificationRequest request, ISpecificationRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
     await repo.UpdateSpecificationAsync(id, UserId(user), new SpecificationCommand(request.Summary, request.GuestCount, request.Items), ct) is { } project
@@ -263,6 +271,10 @@ api.MapPost("/auth/change-password", async (ChangePasswordRequest request, IAcco
 }).RequireAuthorization();
 
 app.Run();
+
+// UC-19 delivers credentials by email; the screen is only a fallback for development without SMTP.
+static bool ShowsPasswordOnScreen(IWebHostEnvironment environment, EmailOptions email) =>
+    environment.IsDevelopment() && string.IsNullOrWhiteSpace(email.Host);
 
 static int UserId(ClaimsPrincipal user) => int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
     ? id : throw new InvalidOperationException("Phiên đăng nhập không hợp lệ.");

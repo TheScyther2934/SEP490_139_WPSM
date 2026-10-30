@@ -126,6 +126,20 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         return new CreatedProjectView(await readModel.MapProjectAsync(loaded, cancellationToken), newCustomer ? temporaryPassword : null);
     }
 
+    public async Task<bool> ResendCredentialsAsync(string projectCode, int managerId, string customerPasswordHash, string temporaryPassword, CancellationToken cancellationToken = default)
+    {
+        var project = await db.WeddingProjects.Include(x => x.Customer)
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
+        if (project is null) return false;
+        if (!project.Customer.MustChangePassword) throw new InvalidOperationException("Khách hàng đã kích hoạt tài khoản nên không cần gửi lại thông tin đăng nhập.");
+        project.Customer.PasswordHash = customerPasswordHash;
+        emailOutbox.Enqueue(project.Customer.Email, $"Tài khoản WPSM cho dự án {project.ProjectCode}",
+            EmailTemplates.Credentials(project.Customer.FullName, project.Customer.Email, temporaryPassword, project.ProjectCode, emailOptions.PublicBaseUrl),
+            "Credentials", project.ProjectId);
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> RecordNrdReceiptAsync(string projectCode, int managerId, string receiptPath, CancellationToken cancellationToken = default)
     {
         var payment = await db.Payments.Include(x => x.Project)

@@ -504,3 +504,13 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_EmailOutbox_Dispatch' AN
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_EmailOutbox_Provider' AND object_id=OBJECT_ID('dbo.EmailOutbox'))
     CREATE INDEX IX_EmailOutbox_Provider ON dbo.EmailOutbox(ProviderMessageId);
 GO
+
+-- GBR-01: baseline rows are read-only once the project has left Active Baseline.
+CREATE OR ALTER TRIGGER dbo.TR_SpecItems_BaselineImmutable ON dbo.SpecItems AFTER UPDATE, DELETE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM deleted d JOIN dbo.WeddingProjects w ON w.ProjectId = d.ProjectId
+               WHERE d.IsBaseline = 1 AND d.Version = 1 AND w.Status <> 'Active Baseline')
+        THROW 51001, 'The baseline is frozen and cannot be edited.', 1;
+END;
+GO

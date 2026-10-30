@@ -59,6 +59,11 @@
 
     if (document.querySelector('[data-wpsm-screen="C02"]')) renderCustomerContract(data.project);
 
+    const hub = document.querySelector('[data-wpsm-screen="M04"] main');
+    if (hub && data.project?.credentialEmailStatus === "Failed") hub.insertAdjacentHTML("afterbegin", `<div class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[#991B1B]" id="credentialAlert">
+      <span class="text-body-sm">Dự án đã tạo nhưng email thông tin đăng nhập gửi thất bại. Vui lòng gửi lại (MSG27).</span>
+      <button class="shrink-0 rounded-lg border border-[#991B1B] px-3 py-1.5 text-label-md font-semibold" data-action="resend-credentials">Gửi lại email</button></div>`);
+
     const roadmapSection = document.querySelector('[data-wpsm-screen="C03"] main section');
     if (roadmapSection && data.project) {
       const roadmap = data.roadmap || [];
@@ -429,8 +434,19 @@
         }
         message(temporaryPassword
           ? `Đã tạo ${project.id}, ghi nhận NRD${temporaryPassword ? `. Mật khẩu tạm của khách: ${temporaryPassword} (chỉ hiển thị lần này).` : ""}`
-          : `Đã tạo dự án ${project.id} và ghi nhận NRD qua database.`);
+          : `Đã tạo dự án ${project.id}. Thông tin đăng nhập sẽ được gửi tới email khách hàng.`);
       } catch (error) { showError(error); }
+    }
+    if (screen === "M04" && button.dataset.action === "resend-credentials") {
+      event.preventDefault(); event.stopImmediatePropagation();
+      const project = window.wpsm?.project;
+      if (!project) return;
+      try {
+        const result = await send(`projects/${encodeURIComponent(project.id)}/resend-credentials`, "POST", {});
+        document.getElementById("credentialAlert")?.remove();
+        message(result.temporaryPassword ? `Đã xếp lại email. Mật khẩu tạm: ${result.temporaryPassword} (chỉ hiển thị lần này).` : "Đã xếp lại email thông tin đăng nhập.");
+      } catch (error) { showError(error); }
+      return;
     }
     if (screen === "M05" && button.id === "btnOpenFreeze") {
       const consent = document.getElementById("freezeConsent");

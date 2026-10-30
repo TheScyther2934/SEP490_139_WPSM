@@ -33,6 +33,10 @@ public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStor
         var match = DetectType(buffer.GetBuffer());
         if (match.ContentType is null) throw new InvalidOperationException("Chỉ chấp nhận tệp JPG, PNG hoặc PDF hợp lệ (MSG17).");
 
+        var content = buffer.ToArray();
+        if (match.ContentType == "image/jpeg") content = ImageMetadataStripper.StripJpeg(content);
+        else if (match.ContentType == "image/png") content = ImageMetadataStripper.StripPng(content);
+
         var name = Path.GetFileName(command.OriginalName.Replace('\\', '/'));
         var entity = new StoredFile
         {
@@ -41,14 +45,14 @@ public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStor
             Purpose = command.Purpose,
             OriginalName = name.Length > 200 ? name[^200..] : name,
             ContentType = match.ContentType,
-            SizeBytes = buffer.Length,
+            SizeBytes = content.Length,
             UploadedBy = command.UploadedBy,
             UploadedAt = DateTime.UtcNow
         };
         entity.StorageKey = $"{entity.UploadedAt:yyyy}/{entity.UploadedAt:MM}/{entity.FileId:N}{match.Extension}";
 
-        buffer.Position = 0;
-        await storage.UploadAsync(buffer, entity.StorageKey, cancellationToken);
+        using (var stream = new MemoryStream(content, writable: false))
+            await storage.UploadAsync(stream, entity.StorageKey, cancellationToken);
         try
         {
             db.StoredFiles.Add(entity);
