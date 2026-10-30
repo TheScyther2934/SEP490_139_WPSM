@@ -11,10 +11,13 @@
       node.nodeValue = text;
     }
   };
+  let messageTimer;
   const message = text => {
     status.textContent = text;
+    status.classList.remove("is-error");
     status.classList.add("is-ready");
-    window.setTimeout(() => {
+    window.clearTimeout(messageTimer);
+    messageTimer = window.setTimeout(() => {
       if (window.wpsm?.project) status.textContent = `API kết nối · ${window.wpsm.project.id}`;
     }, 4500);
   };
@@ -52,14 +55,7 @@
     const priceBody = document.querySelector('[data-wpsm-screen="A04"] table tbody');
     if (priceBody) priceBody.innerHTML = data.priceFrames.map(frame => `<tr class="hover:bg-surface-container-low transition-colors"><td class="py-3.5 px-4"><div class="font-semibold text-primary">${escapeHtml(frame.serviceName)}</div><div class="text-xs text-on-surface-variant">${escapeHtml(frame.id)}</div></td><td class="py-3 px-3">${escapeHtml(frame.variant)}</td><td class="py-3 px-3 text-right">${money((frame.minPrice + frame.maxPrice) / 2)}</td><td class="py-3 px-4">${money(frame.minPrice)} – ${money(frame.maxPrice)}</td><td class="py-3 px-3">Đang hiệu lực</td><td class="py-3 px-3 text-center">—</td><td class="py-3 px-4 text-right">${escapeHtml(frame.currency)}</td></tr>`).join("");
 
-    const specBody = document.querySelector('[data-wpsm-screen="M05"] table tbody');
-    const specification = data.project?.specification || [];
-    if (specBody) specBody.innerHTML = specification.length ? specification.map((item, index) => `<tr class="hover:bg-surface-container-low/40 transition-colors" data-spec-item-id="${item.catalogItemId}">
-      <td class="py-3 px-3 text-center">${index + 1}</td><td class="py-3 px-3"><div class="font-semibold">${escapeHtml(item.name)}</div><span class="text-xs">${escapeHtml(item.category)}</span></td>
-      <td class="py-3 px-3"><input class="w-full rounded border px-2 py-1" data-spec-description value="${escapeHtml(item.description)}"></td>
-      <td class="py-3 px-3 text-center"><input class="w-20 rounded border px-2 py-1 text-center" data-spec-quantity type="number" min="1" value="${item.quantity}"></td>
-      <td class="py-3 px-3 text-right"><input class="w-32 rounded border px-2 py-1 text-right" data-spec-price type="text" value="${item.unitPrice}"></td>
-      <td class="py-3 px-3 text-right">${money(item.lineTotal)}</td><td class="py-3 px-3 text-center">—</td></tr>`).join("") : `<tr><td colspan="7" class="py-6 text-center text-on-surface-variant">Chưa có hạng mục đặc tả.</td></tr>`;
+    if (document.querySelector('[data-wpsm-screen="M05"]')) renderSpecificationEditor(data);
 
     const contract = document.querySelector('[data-wpsm-screen="C02"]');
     const categoriesContainer = contract?.querySelector(".category-block")?.parentElement;
@@ -82,7 +78,189 @@
         <div class="text-right"><div class="font-semibold">Hạn: ${new Intl.DateTimeFormat("vi-VN").format(new Date(`${task.dueDate}T00:00:00`))}</div><span class="text-sm">${task.status === "Done" ? "Đã hoàn thành" : task.status === "Overdue" ? "Quá hạn" : "Chờ thực hiện"}</span></div></div></article>`).join("") : `<p class="rounded-xl bg-surface-container-low p-5">Roadmap sẽ được tạo sau khi Manager đóng băng baseline.</p>`;
     }
   };
-  const showError = error => { status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
+  const showError = error => { window.clearTimeout(messageTimer); status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
+
+  // ---- M-05 Specification Editor & Freeze Baseline (UC-20, GBR-01/02/15) ----
+  const CORE_COMBO_CATEGORIES = ["Sảnh", "Ẩm thực", "Trang trí", "MC", "Âm thanh & ánh sáng"];
+  const SLOT_LABELS = { Lunch: "Trưa", Evening: "Tối" };
+  const setField = (root, name, text) => { const el = root.querySelector(`[data-field="${name}"]`); if (el) el.textContent = text; };
+  const specFilter = { category: "", query: "", catalogCategory: "", catalogQuery: "" };
+  const plainNumber = value => new Intl.NumberFormat("vi-VN").format(value);
+  const priceFrameFor = name => (window.wpsm?.priceFrames || []).find(frame => frame.serviceName === name);
+  const specRows = root => [...root.querySelectorAll("tr[data-spec-item-id]")];
+  // Rows are the source of truth while editing, so unsaved inputs survive add/remove/freeze.
+  const readSpecRows = root => specRows(root).map(row => ({
+    catalogItemId: Number(row.dataset.specItemId),
+    description: row.querySelector("[data-spec-description]")?.value || "",
+    quantity: Number(row.querySelector("[data-spec-quantity]")?.value || 0),
+    unitPrice: moneyValue(row.querySelector("[data-spec-price]"))
+  }));
+
+  const renderCoreCombo = (root, specification) => {
+    const present = new Set(specification.map(item => item.category));
+    const checklist = root.querySelector("#coreComboChecklist");
+    let ok = 0;
+    if (checklist) checklist.querySelectorAll("[data-combo-category]").forEach(li => {
+      const category = li.dataset.comboCategory;
+      const has = present.has(category);
+      if (has) ok++;
+      const icon = li.querySelector("[data-combo-icon]");
+      const note = li.querySelector("[data-combo-note]");
+      if (icon) { icon.textContent = has ? "check_circle" : "warning"; icon.className = `material-symbols-outlined text-lg shrink-0 mt-0.5 ${has ? "text-[#15803D]" : "text-[#C2410C]"}`; }
+      if (note) {
+        const items = specification.filter(item => item.category === category).map(item => item.name).join(", ");
+        note.textContent = has ? items : `Chưa cấu hình hạng mục ${category}.`;
+        note.className = has ? "text-on-surface-variant text-[12px] mt-0.5" : "text-[#C2410C] text-[12px] mt-0.5";
+      }
+    });
+    setField(root, "comboCount", `${ok}/${CORE_COMBO_CATEGORIES.length} Bắt buộc`);
+    const badge = root.querySelector('[data-field="comboCount"]');
+    if (badge) badge.className = ok === CORE_COMBO_CATEGORIES.length
+      ? "px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold"
+      : "px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA] font-bold";
+  };
+
+  const renderReconciliation = (root, project, specTotal) => {
+    const baseValue = project.baseValue || 0;
+    const delta = specTotal - baseValue;
+    setField(root, "specTotalFooter", money(specTotal));
+    setField(root, "reconBaseValue", money(baseValue));
+    setField(root, "reconSpecTotal", money(specTotal));
+    const deltaEl = root.querySelector('[data-field="reconDelta"]');
+    const badgeEl = root.querySelector('[data-field="reconMatchBadge"]');
+    const matched = delta === 0;
+    if (deltaEl) deltaEl.innerHTML = matched
+      ? `<span class="material-symbols-outlined text-sm">check</span>0 ₫ (Khớp 100%)`
+      : `<span class="material-symbols-outlined text-sm">${delta > 0 ? "trending_up" : "trending_down"}</span>${delta > 0 ? "+" : ""}${money(delta)}`;
+    if (deltaEl) deltaEl.className = `text-label-sm font-label-sm font-bold flex items-center gap-1 ${matched ? "text-[#15803D]" : "text-[#B91C1C]"}`;
+    if (badgeEl) { badgeEl.textContent = matched ? "Khớp 100%" : "Lệch số liệu"; badgeEl.className = `px-2 py-0.5 rounded-full text-label-sm font-label-sm border font-bold ${matched ? "bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]" : "bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]"}`; }
+  };
+
+  const renderCatalogPicker = (root, catalog, specification) => {
+    const list = root.querySelector("#catalogPickerList");
+    if (!list) return;
+    const usedIds = new Set(specification.map(item => item.catalogItemId));
+    const active = (catalog || []).filter(item => item.active);
+    const select = root.querySelector("#catalogCategoryFilter");
+    if (select) {
+      const categories = [...new Set(active.map(item => item.category))];
+      if (!categories.includes(specFilter.catalogCategory)) specFilter.catalogCategory = "";
+      select.innerHTML = `<option value="">Tất cả danh mục</option>${categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}`;
+      select.value = specFilter.catalogCategory;
+    }
+    const query = specFilter.catalogQuery.toLowerCase();
+    const visible = active.filter(item => (!specFilter.catalogCategory || item.category === specFilter.catalogCategory) && item.name.toLowerCase().includes(query));
+    list.innerHTML = visible.length ? visible.map(item => {
+      const used = usedIds.has(Number(item.id));
+      const frame = priceFrameFor(item.name);
+      const startPrice = frame ? Math.min(frame.maxPrice, Math.max(frame.minPrice, item.basePrice)) : item.basePrice;
+      return `<div class="p-3.5 rounded-xl border border-[#E8E2DD] ${used ? "" : "hover:border-primary/60"} transition-all flex items-center justify-between gap-4 bg-white">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0"><span class="material-symbols-outlined text-xl">inventory_2</span></div>
+          <div>
+            <div class="flex items-center gap-2"><h4 class="font-title-sm text-title-sm font-semibold text-on-surface">${escapeHtml(item.name)}</h4>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FAF7F5] text-secondary border border-[#C9A66B]/40">${escapeHtml(item.category)}</span></div>
+            <span class="text-[11px] font-medium text-primary mt-1 block">Đơn giá tham chiếu: ${money(item.basePrice)} / ${escapeHtml(item.unit)}${frame ? ` · Khung giá: ${money(frame.minPrice)} - ${money(frame.maxPrice)}` : ""}</span>
+          </div>
+        </div>
+        <button class="shrink-0 px-3 py-1.5 rounded-lg font-label-md text-label-md transition-colors ${used ? "border border-outline-variant text-on-surface-variant cursor-not-allowed" : "border border-primary text-primary hover:bg-primary hover:text-white"}"
+          data-action="add-catalog-item" data-catalog-id="${item.id}" data-catalog-name="${escapeHtml(item.name)}" data-catalog-price="${startPrice}" ${used ? "disabled" : ""}>
+          ${used ? "Đã thêm" : "+ Chọn dùng"}
+        </button>
+      </div>`;
+    }).join("") : `<p class="text-center text-on-surface-variant text-body-sm py-6">Không có hạng mục Catalog phù hợp.</p>`;
+  };
+
+  const applySpecFilter = root => {
+    const query = specFilter.query.toLowerCase();
+    specRows(root).forEach(row => {
+      const matches = (!specFilter.category || row.dataset.specCategory === specFilter.category) && row.dataset.specName.toLowerCase().includes(query);
+      row.classList.toggle("hidden", !matches);
+    });
+  };
+
+  const renderCategoryFilter = (root, specification) => {
+    const list = root.querySelector("#specCategoryList");
+    if (!list) return;
+    const counts = specification.reduce((result, item) => result.set(item.category, (result.get(item.category) || 0) + 1), new Map());
+    if (!counts.has(specFilter.category)) specFilter.category = "";
+    setField(root, "categoryCount", `${counts.size} mục`);
+    const entry = (category, label, count) => {
+      const selected = specFilter.category === category;
+      return `<li><button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${selected ? "bg-primary-container text-white font-medium shadow-sm" : "text-on-surface-variant hover:bg-surface-container hover:text-primary"}" data-action="filter-spec-category" data-category="${escapeHtml(category)}">
+        <span>${escapeHtml(label)}</span><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${selected ? "bg-white/20 text-white" : "bg-surface-container text-on-surface-variant"}">${count}</span></button></li>`;
+    };
+    list.innerHTML = entry("", "Tất cả hạng mục", specification.length) + [...counts].map(([category, count]) => entry(category, category, count)).join("");
+    applySpecFilter(root);
+  };
+
+  const applyFreezeState = (root, project) => {
+    const frozen = project.status !== "Active Baseline";
+    const banner = root.querySelector("#freezeBanner");
+    if (banner) banner.classList.toggle("hidden", !frozen);
+    const workspace = root.querySelector("#specWorkspace");
+    if (workspace) workspace.classList.toggle("opacity-60", frozen);
+    root.querySelectorAll("#specTableBody input").forEach(el => el.disabled = frozen);
+    for (const id of ["btnOpenCatalog", "btnSaveDraft", "btnOpenFreeze"]) {
+      const el = root.querySelector(`#${id}`);
+      if (el) { el.disabled = frozen; el.classList.toggle("opacity-50", frozen); el.classList.toggle("pointer-events-none", frozen); }
+    }
+    root.querySelectorAll('[data-action="remove-spec-item"]').forEach(el => { el.disabled = frozen; el.classList.toggle("opacity-30", frozen); });
+    setField(root, "statusLabel", frozen ? "Baseline Frozen (Đã đóng băng)" : "Active Baseline (Đang nhập đặc tả)");
+  };
+
+  const renderSpecificationEditor = data => {
+    const root = document.querySelector('[data-wpsm-screen="M05"]');
+    const project = data.project;
+    if (!root) return;
+    if (!project) {
+      const emptyBody = root.querySelector("#specTableBody");
+      if (emptyBody) emptyBody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-on-surface-variant">Chưa có dự án để nhập đặc tả.</td></tr>`;
+      return;
+    }
+    const specification = project.specification || [];
+    setField(root, "projectCode", project.id);
+    setField(root, "coupleName", project.coupleName);
+    setField(root, "coupleNameConfirm", project.coupleName);
+    setField(root, "hallName", project.hall);
+    setField(root, "slotLabel", SLOT_LABELS[project.slot] || project.slot);
+    setField(root, "eventDate", new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`)));
+    const daysLeft = Math.max(0, Math.ceil((new Date(`${project.eventDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
+    setField(root, "countdown", `T-${daysLeft} ngày`);
+    setField(root, "specItemCount", `${specification.length} hạng mục đã cấu hình`);
+    setField(root, "specRowCount", String(specification.length));
+    setField(root, "progressLabel", `${project.roadmapProgress}%`);
+    const progressBar = root.querySelector('[data-field="progressBar"]');
+    if (progressBar) progressBar.style.width = `${project.roadmapProgress}%`;
+    const nrdPercent = project.baseValue ? `${Math.round(project.nrdAmount * 100 / project.baseValue)}%` : "0%";
+    setField(root, "nrdAmount", money(project.nrdAmount));
+    setField(root, "nrdPercent", nrdPercent);
+    setField(root, "nrdPercentTier", nrdPercent);
+
+    const specBody = root.querySelector("#specTableBody") || root.querySelector("table tbody");
+    if (specBody) specBody.innerHTML = specification.length ? specification.map((item, index) => `<tr class="hover:bg-surface-container-low/40 transition-colors" data-spec-item-id="${item.catalogItemId}" data-spec-category="${escapeHtml(item.category)}" data-spec-name="${escapeHtml(item.name)}">
+      <td class="py-3 px-3 text-center">${index + 1}</td><td class="py-3 px-3"><div class="font-semibold">${escapeHtml(item.name)}</div><span class="text-xs">${escapeHtml(item.category)}</span></td>
+      <td class="py-3 px-3"><input class="w-full rounded border px-2 py-1" data-spec-description value="${escapeHtml(item.description)}"></td>
+      <td class="py-3 px-3 text-center"><input class="w-20 rounded border px-2 py-1 text-center" data-spec-quantity type="number" min="1" value="${item.quantity}"></td>
+      <td class="py-3 px-3 text-right"><input class="w-32 rounded border px-2 py-1 text-right" data-spec-price type="text" value="${plainNumber(item.unitPrice)}"></td>
+      <td class="py-3 px-3 text-right" data-spec-line-total>${money(item.lineTotal)}</td>
+      <td class="py-3 px-3 text-center"><button class="p-1 text-outline hover:text-error transition-colors rounded" data-action="remove-spec-item" data-spec-item-id="${item.catalogItemId}" title="Xóa hạng mục"><span class="material-symbols-outlined text-base">delete</span></button></td></tr>`).join("") : `<tr><td colspan="7" class="py-6 text-center text-on-surface-variant">Chưa có hạng mục đặc tả. Bấm "+ Thêm hạng mục từ Catalog" để bắt đầu.</td></tr>`;
+
+    renderCoreCombo(root, specification);
+    renderCategoryFilter(root, specification);
+    renderReconciliation(root, project, specification.reduce((sum, item) => sum + item.lineTotal, 0));
+    renderCatalogPicker(root, data.catalog, specification);
+    applyFreezeState(root, project);
+  };
+
+  const saveSpecification = async (project, items) => {
+    const updated = await send(`projects/${encodeURIComponent(project.id)}/specification`, "PUT", { summary: "Đặc tả baseline", guestCount: 0, items });
+    window.wpsm.project = updated;
+    renderSpecificationEditor(window.wpsm);
+    const root = document.querySelector('[data-wpsm-screen="M05"]');
+    setField(root, "lastSaved", `Đã lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`);
+    return updated;
+  };
 
   document.addEventListener("submit", async event => {
     const form = event.target;
@@ -210,13 +388,38 @@
           : `Đã tạo dự án ${project.id} và ghi nhận NRD qua database.`);
       } catch (error) { showError(error); }
     }
+    if (screen === "M05" && button.id === "btnOpenFreeze") {
+      const consent = document.getElementById("freezeConsent");
+      const confirm = document.getElementById("confirmFreezeBtn");
+      if (consent) consent.checked = false;
+      if (confirm) { confirm.disabled = true; confirm.classList.add("opacity-50"); }
+      return;
+    }
+    if (screen === "M05" && button.id === "btnBackToProject") {
+      event.preventDefault();
+      const project = window.wpsm?.project;
+      window.location.href = project ? `/M04?id=${encodeURIComponent(project.id)}` : "/M02";
+      return;
+    }
+    if (screen === "M05" && button.dataset.action === "filter-spec-category") {
+      event.preventDefault();
+      specFilter.category = button.dataset.category;
+      renderCategoryFilter(document.querySelector('[data-wpsm-screen="M05"]'), window.wpsm?.project?.specification || []);
+      return;
+    }
     if (screen === "M05" && button.id === "confirmFreezeBtn") {
       event.preventDefault(); event.stopImmediatePropagation();
       const project = window.wpsm?.project;
       if (!project) return showError(new Error("Không tìm thấy dự án để đóng băng."));
+      button.disabled = true;
+      document.getElementById("freezeModal")?.classList.add("hidden");
       try {
+        // Freeze what the manager sees: persist pending edits first so the baseline is not stale.
+        await saveSpecification(project, readSpecRows(document.querySelector('[data-wpsm-screen="M05"]')));
         const frozen = await send(`projects/${encodeURIComponent(project.id)}/freeze`, "POST", {});
         window.wpsm.project = frozen;
+        renderSpecificationEditor(window.wpsm);
+        window.scrollTo({ top: 0, behavior: "smooth" });
         message(`Đã đóng băng baseline ${frozen.id} và tạo roadmap.`);
       } catch (error) { showError(error); }
       return;
@@ -225,22 +428,67 @@
       event.preventDefault(); event.stopImmediatePropagation();
       try {
         const project = window.wpsm?.project;
-        if (project) {
-          const items = [...document.querySelectorAll('[data-wpsm-screen="M05"] tr[data-spec-item-id]')].map(row => ({
-            catalogItemId: Number(row.dataset.specItemId),
-            description: row.querySelector("[data-spec-description]")?.value || "",
-            quantity: Number(row.querySelector("[data-spec-quantity]")?.value || 0),
-            unitPrice: moneyValue(row.querySelector("[data-spec-price]"))
-          }));
-          const updated = await send(`projects/${encodeURIComponent(project.id)}/specification`, "PUT", { summary: "Đặc tả baseline", guestCount: 0, items });
-          window.wpsm.project = updated;
-          hydrateTables(window.wpsm);
-        }
+        if (project) await saveSpecification(project, readSpecRows(document.querySelector('[data-wpsm-screen="M05"]')));
         message("Đã lưu đặc tả vào database.");
       } catch (error) { showError(error); }
       return;
     }
+    if (screen === "M05" && button.dataset.action === "add-catalog-item") {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (button.disabled) return;
+      const project = window.wpsm?.project;
+      if (!project) return;
+      try {
+        const current = readSpecRows(document.querySelector('[data-wpsm-screen="M05"]'));
+        current.push({
+          catalogItemId: Number(button.dataset.catalogId),
+          description: button.dataset.catalogName,
+          quantity: 1,
+          unitPrice: Number(button.dataset.catalogPrice)
+        });
+        await saveSpecification(project, current);
+        document.getElementById("catalogModal")?.classList.add("hidden");
+        message("Đã thêm hạng mục từ Catalog vào đặc tả.");
+      } catch (error) { showError(error); }
+      return;
+    }
+    if (screen === "M05" && button.dataset.action === "remove-spec-item") {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (button.disabled) return;
+      const project = window.wpsm?.project;
+      if (!project) return;
+      try {
+        const removedId = Number(button.dataset.specItemId);
+        const remaining = readSpecRows(document.querySelector('[data-wpsm-screen="M05"]')).filter(item => item.catalogItemId !== removedId);
+        await saveSpecification(project, remaining);
+        message("Đã xóa hạng mục khỏi đặc tả.");
+      } catch (error) { showError(error); }
+      return;
+    }
   }, true);
+
+  document.addEventListener("input", event => {
+    const root = document.querySelector('[data-wpsm-screen="M05"]');
+    const project = window.wpsm?.project;
+    if (!root || !project) return;
+    const target = event.target;
+    if (target.id === "specSearch") { specFilter.query = target.value.trim(); applySpecFilter(root); return; }
+    if (target.id === "catalogSearch" || target.id === "catalogCategoryFilter") {
+      specFilter[target.id === "catalogSearch" ? "catalogQuery" : "catalogCategory"] = target.value.trim();
+      renderCatalogPicker(root, window.wpsm.catalog, project.specification || []);
+      return;
+    }
+    const row = target.closest("tr[data-spec-item-id]");
+    if (!row) return;
+    const line = readSpecRows(row.parentElement).find(item => item.catalogItemId === Number(row.dataset.specItemId));
+    row.querySelector("[data-spec-line-total]").textContent = money(line.quantity * line.unitPrice);
+    const frame = priceFrameFor(row.dataset.specName);
+    const priceInput = row.querySelector("[data-spec-price]");
+    const outOfFrame = !!frame && (line.unitPrice < frame.minPrice || line.unitPrice > frame.maxPrice);
+    priceInput.classList.toggle("text-[#B91C1C]", outOfFrame);
+    priceInput.title = outOfFrame ? `Ngoài khung giá ${money(frame.minPrice)} - ${money(frame.maxPrice)}` : "";
+    renderReconciliation(root, project, readSpecRows(root).reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
+  });
 
   const receiptInput = document.getElementById("nrdReceiptFile");
   const paymentSelector = document.getElementById("nrdPaymentMethod");
@@ -265,6 +513,7 @@
       hydrateTables(data);
       const project = data.project;
       if (project) {
+        document.querySelectorAll('a[href="/M04"], a[href="/M05"]').forEach(link => { link.href = `${link.getAttribute("href")}?id=${encodeURIComponent(project.id)}`; });
         const dateVi = new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`));
         const daysLeft = Math.max(0, Math.ceil((new Date(`${project.eventDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
         const displayValues = {

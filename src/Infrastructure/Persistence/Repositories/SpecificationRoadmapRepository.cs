@@ -23,9 +23,18 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
                 throw new InvalidOperationException("Đặc tả cần có mô tả, số lượng dương và đơn giá không âm.");
 
             var catalogIds = command.Items.Select(x => x.CatalogItemId).Distinct().ToArray();
-            var validIds = await db.ServiceCatalogItems.Where(x => catalogIds.Contains(x.ItemId) && x.Status == "Active")
-                .Select(x => x.ItemId).ToListAsync(cancellationToken);
-            if (validIds.Count != catalogIds.Length) throw new InvalidOperationException("Đặc tả chứa hạng mục không còn hoạt động trong Catalog.");
+            var catalogItems = await db.ServiceCatalogItems.Where(x => catalogIds.Contains(x.ItemId) && x.Status == "Active")
+                .ToDictionaryAsync(x => x.ItemId, cancellationToken);
+            if (catalogItems.Count != catalogIds.Length) throw new InvalidOperationException("Đặc tả chứa hạng mục không còn hoạt động trong Catalog.");
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var frames = await db.PriceFrames.AsNoTracking().Where(x => catalogIds.Contains(x.ItemId) && x.EffectiveFrom <= today)
+                .GroupBy(x => x.ItemId).Select(g => g.OrderByDescending(x => x.EffectiveFrom).First()).ToDictionaryAsync(x => x.ItemId, cancellationToken);
+            foreach (var item in command.Items)
+            {
+                if (frames.TryGetValue(item.CatalogItemId, out var frame) && (item.UnitPrice < frame.MinPrice || item.UnitPrice > frame.MaxPrice))
+                    throw new InvalidOperationException($"Đơn giá của '{catalogItems[item.CatalogItemId].Name}' phải nằm trong khoảng {frame.MinPrice:N0} - {frame.MaxPrice:N0} VND (MSG06).");
+            }
 
             var incomingIds = command.Items.Select(x => x.CatalogItemId).ToHashSet();
             db.SpecItems.RemoveRange(project.SpecItems.Where(x => !incomingIds.Contains(x.CatalogItemId)));
@@ -69,7 +78,7 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
         var required = new[] { "Hall", "Catering", "Decor", "MC", "AV" };
         var configuredCategories = project.SpecItems.Where(x => x.IsBaseline && x.Version == 1).Select(x => x.CatalogItem.Category).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = required.Where(x => !configuredCategories.Contains(x)).ToArray();
-        if (missing.Length > 0) throw new InvalidOperationException($"Cần cấu hình đủ 5 hạng mục nền tảng trước khi đóng băng: {string.Join(", ", missing)}.");
+        if (missing.Length > 0) throw new InvalidOperationException($"Cần cấu hình đủ 5 hạng mục nền tảng trước khi đóng băng: {string.Join(", ", missing.Select(WpsmCategoryNames.ToDisplay))}.");
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var frames = await db.PriceFrames.AsNoTracking().Where(x => x.EffectiveFrom <= today)

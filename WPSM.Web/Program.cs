@@ -8,7 +8,7 @@ builder.Services.AddHttpClient("WpsmApi", client =>
 {
     var apiBaseUrl = builder.Configuration["WpsmApi:BaseUrl"] ?? "http://localhost:5128/";
     client.BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
-    client.Timeout = TimeSpan.FromSeconds(5);
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
 var app = builder.Build();

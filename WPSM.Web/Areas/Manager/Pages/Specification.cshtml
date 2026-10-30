@@ -142,7 +142,7 @@
 <span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
 <a class="hover:text-primary transition-colors" href="#">Dự án đám cưới</a>
 <span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
-<span class="font-medium text-on-surface">WPSM-2026-014</span>
+<span class="font-medium text-on-surface" data-field="projectCode">WPSM-2026-014</span>
 <span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
 <span class="text-primary font-semibold">Đặc tả &amp; Chốt hợp đồng gốc (M-05)</span>
 </nav>
@@ -170,15 +170,15 @@
 <div class="flex flex-col gap-1">
 <div class="flex items-center gap-3 flex-wrap">
 <span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-surface-container text-on-surface-variant font-semibold border border-outline-variant">Mã: WPSM-2026-014</span>
-<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] font-semibold flex items-center gap-1">
+<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] font-semibold flex items-center gap-1" data-field="statusBadge">
 <span class="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse"></span>
-                Active Baseline (Đang nhập đặc tả)
+                <span data-field="statusLabel">Active Baseline (Đang nhập đặc tả)</span>
               </span>
-<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-bold">
+<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-bold" data-field="countdown">
                 T-58 ngày
               </span>
 </div>
-<h1 class="font-headline-md text-headline-md font-semibold text-primary mt-1">
+<h1 class="font-headline-md text-headline-md font-semibold text-primary mt-1" data-field="coupleName">
               Nguyễn Minh Anh &amp; Trần Thu Hà
             </h1>
 </div>
@@ -188,21 +188,21 @@
 <p class="text-label-sm font-label-sm text-on-surface-variant">Sảnh tiệc</p>
 <div class="inline-flex items-center gap-1 px-2 py-0.5 mt-0.5 bg-[#FAF7F5] rounded border border-[#C9A66B]/60 text-secondary font-title-sm text-title-sm font-semibold">
 <span class="material-symbols-outlined text-xs" data-icon="star">star</span>
-                Sảnh Hoa Hồng
+                <span data-field="hallName">Sảnh Hoa Hồng</span>
               </div>
 </div>
 <div>
 <p class="text-label-sm font-label-sm text-on-surface-variant">Thời gian &amp; Ca tiệc</p>
-<p class="text-title-sm font-title-sm font-semibold text-on-surface mt-0.5">Tối (17:30 - 22:00)</p>
-<p class="text-body-sm font-body-sm text-on-surface-variant">Ngày: 20/12/2026</p>
+<p class="text-title-sm font-title-sm font-semibold text-on-surface mt-0.5" data-field="slotLabel">Tối (17:30 - 22:00)</p>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Ngày: <span data-field="eventDate">20/12/2026</span></p>
 </div>
 <div class="col-span-2 sm:col-span-1">
 <p class="text-label-sm font-label-sm text-on-surface-variant">Tiến độ quy trình</p>
 <div class="flex items-center gap-2 mt-1">
 <div class="w-24 bg-surface-container h-2 rounded-full overflow-hidden">
-<div class="bg-primary h-full rounded-full" style="width: 80%"></div>
+<div class="bg-primary h-full rounded-full" data-field="progressBar" style="width: 0%"></div>
 </div>
-<span class="text-label-sm font-label-sm font-bold text-primary">80%</span>
+<span class="text-label-sm font-label-sm font-bold text-primary" data-field="progressLabel">0%</span>
 </div>
 <p class="text-[11px] text-on-surface-variant mt-0.5">Giai đoạn M-05</p>
 </div>
@@ -210,7 +210,7 @@
 </div>
 </section>
 <!-- ================= THREE-REGION WORKSPACE LAYOUT ================= -->
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start" id="specWorkspace">
 <!-- REGION 1: Left Narrow Column (Category Sidebar & Filter) -->
 <div class="xl:col-span-3 flex flex-col gap-4">
 <div class="bg-white rounded-xl border border-[#E8E2DD] p-4 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)]">
@@ -219,78 +219,15 @@
 <span class="material-symbols-outlined text-primary text-xl" data-icon="category">category</span>
 <h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Danh mục dịch vụ</h3>
 </div>
-<span class="text-label-sm font-label-sm font-semibold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">6 mục</span>
+<span class="text-label-sm font-label-sm font-semibold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full" data-field="categoryCount">0 mục</span>
 </div>
 <!-- Search inside categories -->
 <div class="relative mb-3">
 <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg" data-icon="search">search</span>
-<input class="w-full pl-9 pr-3 py-1.5 text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" placeholder="Tìm theo tên hạng mục..." type="text"/>
+<input class="w-full pl-9 pr-3 py-1.5 text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" id="specSearch" placeholder="Tìm theo tên hạng mục..." type="text"/>
 </div>
 <!-- Category List -->
-<ul class="flex flex-col gap-1 text-label-md font-label-md">
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-primary-container text-white font-medium transition-all shadow-sm">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base" data-icon="dataset">dataset</span>
-<span>Tất cả hạng mục</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-bold">6</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="meeting_room">meeting_room</span>
-<span>Thuê sảnh</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="restaurant_menu">restaurant_menu</span>
-<span>Thực đơn tiệc</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="palette">palette</span>
-<span>Trang trí sân khấu</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="mic">mic</span>
-<span>MC nghi thức</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="speaker">speaker</span>
-<span>Âm thanh &amp; ánh sáng (AV)</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="photo_camera">photo_camera</span>
-<span>Quay chụp &amp; Truyền thông</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
+<ul class="flex flex-col gap-1 text-label-md font-label-md" id="specCategoryList">
 </ul>
 <!-- Core Combo Policy Callout Note -->
 <div class="mt-4 p-3 bg-[#FFF8F5] rounded-lg border border-[#C9A66B]/40 text-on-surface">
@@ -312,12 +249,12 @@
 <div>
 <h2 class="font-title-md text-title-md font-bold text-on-surface flex items-center gap-2">
                   Danh sách đặc tả dịch vụ
-                  <span class="text-label-sm font-label-sm font-normal text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">6/6 Hạng mục đã cấu hình</span>
+                  <span class="text-label-sm font-label-sm font-normal text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full" data-field="specItemCount">6/6 Hạng mục đã cấu hình</span>
 </h2>
 <p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">Kiểm tra thông số kỹ thuật, số lượng và khung giá trước khi đóng băng baseline</p>
 </div>
 <!-- CTA to trigger catalog picker -->
-<button class="shrink-0 flex items-center gap-2 border border-secondary text-secondary hover:bg-secondary/10 px-3.5 py-2 rounded-lg text-label-md font-label-md font-medium active:scale-[0.98] transition-all" onclick="document.getElementById('catalogModal').classList.remove('hidden')">
+<button class="shrink-0 flex items-center gap-2 border border-secondary text-secondary hover:bg-secondary/10 px-3.5 py-2 rounded-lg text-label-md font-label-md font-medium active:scale-[0.98] transition-all" id="btnOpenCatalog" onclick="document.getElementById('catalogModal').classList.remove('hidden')">
 <span class="material-symbols-outlined text-base text-secondary" data-icon="add_circle">add_circle</span>
                 + Thêm hạng mục từ Catalog
               </button>
@@ -336,7 +273,7 @@
 <th class="py-3 px-3 text-center w-12">Thao tác</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-[#E8E2DD] text-body-sm font-body-sm">
+<tbody class="divide-y divide-[#E8E2DD] text-body-sm font-body-sm" id="specTableBody">
 <!-- ROW 1: Thuê sảnh -->
 <tr class="hover:bg-surface-container-low/40 transition-colors">
 <td class="py-3 px-3 text-center text-outline cursor-grab">
@@ -526,11 +463,11 @@
 <!-- Table Footer Quick Summary -->
 <div class="p-4 bg-surface-container-low flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-[#E8E2DD]">
 <span class="text-body-sm font-body-sm text-on-surface-variant">
-                Đang hiển thị <strong>6</strong> hạng mục hợp đồng
+                Đang hiển thị <strong data-field="specRowCount">6</strong> hạng mục hợp đồng
               </span>
 <div class="flex items-center gap-4">
 <span class="text-body-sm text-on-surface-variant">Tổng tạm tính:</span>
-<span class="font-title-lg text-title-lg font-bold text-primary">375.500.000 ₫</span>
+<span class="font-title-lg text-title-lg font-bold text-primary" data-field="specTotalFooter">375.500.000 ₫</span>
 </div>
 </div>
 </div>
@@ -544,48 +481,43 @@
 <span class="material-symbols-outlined text-primary text-xl" data-icon="checklist">checklist</span>
 <h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Kiểm tra Core Combo</h3>
 </div>
-<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold">5/5 Bắt buộc</span>
+<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold" data-field="comboCount">5/5 Bắt buộc</span>
 </div>
-<!-- Validation List Items -->
-<ul class="flex flex-col gap-3 my-4">
-<!-- Item 1: Hall -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
+<!-- Validation List Items (GBR-15 Core Combo: Hall, Catering, Decor, MC, AV) -->
+<ul class="flex flex-col gap-3 my-4" id="coreComboChecklist">
+<li class="flex items-start gap-2.5" data-combo-category="Sảnh">
+<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-combo-icon>warning</span>
 <div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">1. Thuê sảnh:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">Đã chọn Sảnh Hoa Hồng (Ca Tối)</p>
-</div>
-</li>
-<!-- Item 2: Menu -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
-<div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">2. Thực đơn tiệc:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">Set menu 8 món - 40 bàn chính</p>
+<span class="font-semibold text-on-surface" data-combo-title>1. Thuê sảnh:</span>
+<p class="text-on-surface-variant text-[12px] mt-0.5" data-combo-note>Chưa cấu hình hạng mục sảnh.</p>
 </div>
 </li>
-<!-- Item 3: Decor -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
+<li class="flex items-start gap-2.5" data-combo-category="Ẩm thực">
+<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-combo-icon>warning</span>
 <div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">3. Trang trí sân khấu:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">Gói Hoàng Kim cao cấp</p>
+<span class="font-semibold text-on-surface" data-combo-title>2. Thực đơn tiệc:</span>
+<p class="text-on-surface-variant text-[12px] mt-0.5" data-combo-note>Chưa cấu hình hạng mục ẩm thực.</p>
 </div>
 </li>
-<!-- Item 4: MC -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
+<li class="flex items-start gap-2.5" data-combo-category="Trang trí">
+<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-combo-icon>warning</span>
 <div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">4. MC nghi thức:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">MC Song ngữ dẫn lễ chuẩn 5 sao</p>
+<span class="font-semibold text-on-surface" data-combo-title>3. Trang trí sân khấu:</span>
+<p class="text-on-surface-variant text-[12px] mt-0.5" data-combo-note>Chưa cấu hình hạng mục trang trí.</p>
 </div>
 </li>
-<!-- Item 5: AV (Needs adjustment) -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-icon="warning">warning</span>
+<li class="flex items-start gap-2.5" data-combo-category="MC">
+<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-combo-icon>warning</span>
 <div class="text-[13px] leading-tight">
-<span class="font-semibold text-[#9A3412]">5. Âm thanh ánh sáng (AV):</span>
-<p class="text-[#C2410C] text-[12px] mt-0.5">Đã chọn gói nhưng cần chuẩn hóa khung giá</p>
+<span class="font-semibold text-on-surface" data-combo-title>4. MC nghi thức:</span>
+<p class="text-on-surface-variant text-[12px] mt-0.5" data-combo-note>Chưa cấu hình hạng mục MC.</p>
+</div>
+</li>
+<li class="flex items-start gap-2.5" data-combo-category="Âm thanh &amp; ánh sáng">
+<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-combo-icon>warning</span>
+<div class="text-[13px] leading-tight">
+<span class="font-semibold text-on-surface" data-combo-title>5. Âm thanh ánh sáng (AV):</span>
+<p class="text-on-surface-variant text-[12px] mt-0.5" data-combo-note>Chưa cấu hình hạng mục AV.</p>
 </div>
 </li>
 </ul>
@@ -607,20 +539,20 @@
 <span class="material-symbols-outlined text-primary text-xl" data-icon="account_balance_wallet">account_balance_wallet</span>
 <h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Đối soát Tài chính</h3>
 </div>
-<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold">Khớp 100%</span>
+<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold" data-field="reconMatchBadge">Khớp 100%</span>
 </div>
 <div class="flex flex-col gap-3 my-4 text-body-sm font-body-sm">
 <div class="flex items-center justify-between">
 <span class="text-on-surface-variant">Giá trị hợp đồng gốc:</span>
-<span class="font-semibold text-on-surface">375.500.000 ₫</span>
+<span class="font-semibold text-on-surface" data-field="reconBaseValue">375.500.000 ₫</span>
 </div>
 <div class="flex items-center justify-between">
 <span class="text-on-surface-variant">Tổng đặc tả hiện tại:</span>
-<span class="font-bold text-primary">375.500.000 ₫</span>
+<span class="font-bold text-primary" data-field="reconSpecTotal">375.500.000 ₫</span>
 </div>
 <div class="flex items-center justify-between p-2 rounded bg-surface-container-low border border-outline-variant/40">
 <span class="text-label-sm font-label-sm text-on-surface-variant font-medium">Chênh lệch (Delta):</span>
-<span class="text-label-sm font-label-sm font-bold text-[#15803D] flex items-center gap-1">
+<span class="text-label-sm font-label-sm font-bold text-[#15803D] flex items-center gap-1" data-field="reconDelta">
 <span class="material-symbols-outlined text-sm" data-icon="check">check</span>
                   0 ₫ (Khớp 100%)
                 </span>
@@ -628,8 +560,8 @@
 <!-- Payment Progress Track Component -->
 <div class="mt-2 pt-3 border-t border-outline-variant/40">
 <div class="flex justify-between items-center text-label-sm font-label-sm mb-1.5">
-<span class="text-on-surface-variant">Tiền cọc NRD đã thu (30%):</span>
-<span class="font-bold text-primary">112.650.000 ₫</span>
+<span class="text-on-surface-variant">Tiền cọc NRD đã thu (<span data-field="nrdPercent">30%</span>):</span>
+<span class="font-bold text-primary" data-field="nrdAmount">112.650.000 ₫</span>
 </div>
 <!-- 3-tier Segmented Bar -->
 <div class="flex h-2 w-full rounded-full overflow-hidden bg-[#E8E2DD] gap-0.5">
@@ -638,7 +570,7 @@
 <div class="bg-[#E8E2DD] h-full" style="width: 30%" title="Tất toán sau tiệc (30%) - Chưa thu"></div>
 </div>
 <div class="flex justify-between text-[10px] text-on-surface-variant mt-1.5 font-medium">
-<span class="text-primary font-bold">Cọc NRD: 30% ✓</span>
+<span class="text-primary font-bold">Cọc NRD: <span data-field="nrdPercentTier">30%</span> ✓</span>
 <span>Chốt Menu: 40%</span>
 <span>Tất toán: 30%</span>
 </div>
@@ -658,24 +590,24 @@
 <div class="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
 <!-- Left: Auto-save status & Back action -->
 <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
-<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md active:scale-[0.98]">
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md active:scale-[0.98]" id="btnBackToProject">
 <span class="material-symbols-outlined text-lg" data-icon="arrow_back">arrow_back</span>
 <span>Quay lại Dự án</span>
 </button>
 <div class="h-4 w-[1px] bg-outline-variant hidden sm:block"></div>
 <div class="flex items-center gap-2 text-label-sm font-label-sm text-on-surface-variant">
 <span class="material-symbols-outlined text-base text-[#15803D]" data-icon="cloud_done">cloud_done</span>
-<span>Lưu nháp tự động lúc <strong class="text-on-surface">14:35</strong></span>
+<span data-field="lastSaved">Chưa có thay đổi trong phiên này</span>
 </div>
 </div>
 <!-- Right: Secondary & Primary Freeze Actions -->
 <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
 <!-- Draft Save Button -->
-<button class="px-4 py-2 rounded-lg border border-[#C9A66B] text-secondary hover:bg-[#C9A66B]/10 font-label-md text-label-md font-semibold transition-all active:scale-[0.98]">
+<button class="px-4 py-2 rounded-lg border border-[#C9A66B] text-secondary hover:bg-[#C9A66B]/10 font-label-md text-label-md font-semibold transition-all active:scale-[0.98]" id="btnSaveDraft">
           Lưu nháp đặc tả
         </button>
 <!-- Freeze Baseline Primary Trigger -->
-<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-[#5D1F31] text-white font-label-md text-label-md font-semibold shadow-md active:scale-[0.98] transition-all" onclick="document.getElementById('freezeModal').classList.remove('hidden')">
+<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-[#5D1F31] text-white font-label-md text-label-md font-semibold shadow-md active:scale-[0.98] transition-all" id="btnOpenFreeze" onclick="document.getElementById('freezeModal').classList.remove('hidden')">
 <span class="material-symbols-outlined text-lg" data-icon="lock">lock</span>
 <span>Chốt hợp đồng gốc (Freeze Baseline)</span>
 </button>
@@ -729,7 +661,7 @@
 <label class="flex items-start gap-3 p-3 rounded-lg border border-[#E8E2DD] bg-surface-container-low cursor-pointer hover:bg-surface-container transition-colors">
 <input class="mt-0.5 rounded text-primary focus:ring-primary w-4 h-4 border-outline-variant" id="freezeConsent" onchange="document.getElementById('confirmFreezeBtn').disabled = !this.checked; document.getElementById('confirmFreezeBtn').classList.toggle('opacity-50', !this.checked)" type="checkbox"/>
 <span class="text-label-md font-label-md text-on-surface font-medium select-none">
-            Tôi xác nhận đặc tả đã được kiểm tra đầy đủ, đáp ứng Core Combo và khách hàng Nguyễn Minh Anh &amp; Trần Thu Hà đã đồng thuận.
+            Tôi xác nhận đặc tả đã được kiểm tra đầy đủ, đáp ứng Core Combo và khách hàng <span data-field="coupleNameConfirm">Nguyễn Minh Anh &amp; Trần Thu Hà</span> đã đồng thuận.
           </span>
 </label>
 </div>
@@ -738,7 +670,7 @@
 <button class="px-4 py-2 rounded-lg border border-[#E8E2DD] text-on-surface-variant hover:bg-white text-label-md font-label-md font-medium transition-colors" onclick="document.getElementById('freezeModal').classList.add('hidden')">
           Hủy bỏ
         </button>
-<button class="opacity-50 px-5 py-2 rounded-lg bg-primary hover:bg-[#5D1F31] text-white text-label-md font-label-md font-semibold transition-all shadow-sm flex items-center gap-1.5" disabled="" id="confirmFreezeBtn" onclick="executeFreezeAction()">
+<button class="opacity-50 px-5 py-2 rounded-lg bg-primary hover:bg-[#5D1F31] text-white text-label-md font-label-md font-semibold transition-all shadow-sm flex items-center gap-1.5" disabled="" id="confirmFreezeBtn">
 <span class="material-symbols-outlined text-base" data-icon="lock_open">lock_open</span>
 <span>Xác nhận &amp; Khóa Baseline v1</span>
 </button>
@@ -765,75 +697,14 @@
 <div class="p-4 border-b border-[#E8E2DD] flex gap-3">
 <div class="relative flex-1">
 <span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg" data-icon="search">search</span>
-<input class="w-full pl-9 pr-3 py-2 text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Tìm tên dịch vụ, món ăn, hiệu ứng sân khấu..." type="text"/>
+<input class="w-full pl-9 pr-3 py-2 text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] focus:border-primary focus:ring-1 focus:ring-primary outline-none" id="catalogSearch" placeholder="Tìm tên dịch vụ, món ăn, hiệu ứng sân khấu..." type="text"/>
 </div>
-<select class="text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] px-3 py-2 bg-white text-on-surface focus:border-primary outline-none">
-<option>Tất cả danh mục</option>
-<option>Thực đơn</option>
-<option>Trang trí</option>
-<option>Âm thanh Ánh sáng</option>
-<option>Truyền thông</option>
+<select class="text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] px-3 py-2 bg-white text-on-surface focus:border-primary outline-none" id="catalogCategoryFilter">
 </select>
 </div>
-<!-- Catalog Items List -->
-<div class="p-4 overflow-y-auto space-y-3 custom-scroll flex-1">
-<!-- Catalog Item A -->
-<div class="p-3.5 rounded-xl border border-[#E8E2DD] hover:border-primary/60 transition-all flex items-center justify-between gap-4 bg-white">
-<div class="flex items-start gap-3">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-xl" data-icon="wine_bar">wine_bar</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h4 class="font-title-sm text-title-sm font-semibold text-on-surface">Tháp sâm banh &amp; Khói băng khô</h4>
-<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FAF7F5] text-secondary border border-[#C9A66B]/40">Nghi thức</span>
-</div>
-<p class="text-[12px] text-on-surface-variant mt-0.5">Bao gồm 5 tầng tháp ly pha lê, 2 chai vang sủi nhập khẩu và hiệu ứng đá khói cao cấp</p>
-<span class="text-[11px] font-medium text-primary mt-1 block">Khung giá: 3.500.000 ₫ - 5.000.000 ₫</span>
-</div>
-</div>
-<button class="shrink-0 px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white font-label-md text-label-md transition-colors" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-            + Chọn dùng
-          </button>
-</div>
-<!-- Catalog Item B -->
-<div class="p-3.5 rounded-xl border border-[#E8E2DD] hover:border-primary/60 transition-all flex items-center justify-between gap-4 bg-white">
-<div class="flex items-start gap-3">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-xl" data-icon="music_note">music_note</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h4 class="font-title-sm text-title-sm font-semibold text-on-surface">Ban nhạc hòa tấu Acoustic đón khách</h4>
-<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">Nghệ thuật</span>
-</div>
-<p class="text-[12px] text-on-surface-variant mt-0.5">Violin, Cello &amp; Piano biểu diễn nhạc nhẹ 60 phút đón khách tại tiền sảnh</p>
-<span class="text-[11px] font-medium text-primary mt-1 block">Khung giá: 6.000.000 ₫ - 9.000.000 ₫</span>
-</div>
-</div>
-<button class="shrink-0 px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white font-label-md text-label-md transition-colors" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-            + Chọn dùng
-          </button>
-</div>
-<!-- Catalog Item C -->
-<div class="p-3.5 rounded-xl border border-[#E8E2DD] hover:border-primary/60 transition-all flex items-center justify-between gap-4 bg-white">
-<div class="flex items-start gap-3">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-xl" data-icon="cake">cake</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h4 class="font-title-sm text-title-sm font-semibold text-on-surface">Bánh cưới Hoàng Gia 5 tầng</h4>
-<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FAF7F5] text-secondary border border-[#C9A66B]/40">Bánh tiệc</span>
-</div>
-<p class="text-[12px] text-on-surface-variant mt-0.5">1 tầng thật trang trí fondant nghệ thuật, 4 tầng hoa tươi lộng lẫy</p>
-<span class="text-[11px] font-medium text-primary mt-1 block">Khung giá: 4.000.000 ₫ - 6.500.000 ₫</span>
-</div>
-</div>
-<button class="shrink-0 px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white font-label-md text-label-md transition-colors" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-            + Chọn dùng
-          </button>
-</div>
+<!-- Catalog Items List (populated from the live Catalog by wpsm-api.js) -->
+<div class="p-4 overflow-y-auto space-y-3 custom-scroll flex-1" id="catalogPickerList">
+<p class="text-center text-on-surface-variant text-body-sm py-6" id="catalogPickerEmpty">Đang tải danh mục dịch vụ…</p>
 </div>
 <!-- Footer -->
 <div class="p-4 bg-surface-container-low border-t border-[#E8E2DD] flex justify-end">
@@ -843,21 +714,4 @@
 </div>
 </div>
 </div>
-<!-- Micro-interaction JavaScript -->
-<script>
-    function executeFreezeAction() {
-      // Hide Modal
-      document.getElementById('freezeModal').classList.add('hidden');
-      
-      // Reveal the Freeze Alert Banner at top
-      const banner = document.getElementById('freezeBanner');
-      if (banner) {
-        banner.classList.remove('hidden');
-      }
-
-      // Smooth scroll to top to see confirmation banner
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  </script>
-
 </div>
