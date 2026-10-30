@@ -565,14 +565,14 @@
 </div>
 <!-- 3-tier Segmented Bar -->
 <div class="flex h-2 w-full rounded-full overflow-hidden bg-[#E8E2DD] gap-0.5">
-<div class="bg-primary h-full" style="width: 30%" title="Đặt cọc giữ chỗ NRD 30% - ĐÃ THU"></div>
-<div class="bg-[#DAC0C4] h-full" style="width: 40%" title="Chốt thực đơn (40%) - Chưa thu"></div>
-<div class="bg-[#E8E2DD] h-full" style="width: 30%" title="Tất toán sau tiệc (30%) - Chưa thu"></div>
+<div class="bg-primary h-full" data-field="tierNrdBar" style="width: 30%" title="Đặt cọc giữ chỗ NRD - ĐÃ THU"></div>
+<div class="bg-[#DAC0C4] h-full" data-field="tierT30Bar" style="width: 40%" title="Thanh toán T-30 - Chưa thu"></div>
+<div class="bg-[#E8E2DD] h-full" data-field="tierFinalBar" style="width: 30%" title="Tất toán sau tiệc - Chưa thu"></div>
 </div>
 <div class="flex justify-between text-[10px] text-on-surface-variant mt-1.5 font-medium">
 <span class="text-primary font-bold">Cọc NRD: <span data-field="nrdPercentTier">30%</span> ✓</span>
-<span>Chốt Menu: 40%</span>
-<span>Tất toán: 30%</span>
+<span>T-30: <span data-field="tierT30">40%</span></span>
+<span>Tất toán: <span data-field="tierFinal">30%</span></span>
 </div>
 </div>
 </div>

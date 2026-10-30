@@ -109,7 +109,7 @@
       if (icon) { icon.textContent = has ? "check_circle" : "warning"; icon.className = `material-symbols-outlined text-lg shrink-0 mt-0.5 ${has ? "text-[#15803D]" : "text-[#C2410C]"}`; }
       if (note) {
         const items = specification.filter(item => item.category === category).map(item => item.name).join(", ");
-        note.textContent = has ? items : `Chưa cấu hình hạng mục ${category}.`;
+        note.textContent = has ? items : `Thiếu dịch vụ bắt buộc: ${category}.`;
         note.className = has ? "text-on-surface-variant text-[12px] mt-0.5" : "text-[#C2410C] text-[12px] mt-0.5";
       }
     });
@@ -232,10 +232,16 @@
     setField(root, "progressLabel", `${project.roadmapProgress}%`);
     const progressBar = root.querySelector('[data-field="progressBar"]');
     if (progressBar) progressBar.style.width = `${project.roadmapProgress}%`;
-    const nrdPercent = project.baseValue ? `${Math.round(project.nrdAmount * 100 / project.baseValue)}%` : "0%";
+    const nrdPercent = project.baseValue ? Math.round(project.nrdAmount * 100 / project.baseValue) : 0;
     setField(root, "nrdAmount", money(project.nrdAmount));
-    setField(root, "nrdPercent", nrdPercent);
-    setField(root, "nrdPercentTier", nrdPercent);
+    setField(root, "nrdPercent", `${nrdPercent}%`);
+    setField(root, "nrdPercentTier", `${nrdPercent}%`);
+    // T-30 is cumulative in policy: T30 required = CurrentTotal × T30 ratio − NRD (SDS 4.4).
+    const t30Ratio = data.policies?.t30Ratio ?? 70;
+    const tiers = { tierNrdBar: nrdPercent, tierT30Bar: Math.max(0, t30Ratio - nrdPercent), tierFinalBar: Math.max(0, 100 - Math.max(t30Ratio, nrdPercent)) };
+    for (const [name, width] of Object.entries(tiers)) { const bar = root.querySelector(`[data-field="${name}"]`); if (bar) bar.style.width = `${width}%`; }
+    setField(root, "tierT30", `${tiers.tierT30Bar}%`);
+    setField(root, "tierFinal", `${tiers.tierFinalBar}%`);
 
     const specBody = root.querySelector("#specTableBody") || root.querySelector("table tbody");
     if (specBody) specBody.innerHTML = specification.length ? specification.map((item, index) => `<tr class="hover:bg-surface-container-low/40 transition-colors" data-spec-item-id="${item.catalogItemId}" data-spec-category="${escapeHtml(item.category)}" data-spec-name="${escapeHtml(item.name)}">

@@ -7,20 +7,20 @@ namespace WPSM.Infrastructure.Persistence.Repositories;
 
 public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectReadModel readModel) : ISpecificationRoadmapRepository
 {
-    public async Task<WeddingProjectView?> UpdateSpecificationAsync(string projectCode, SpecificationCommand command, CancellationToken cancellationToken = default)
+    public async Task<WeddingProjectView?> UpdateSpecificationAsync(string projectCode, int managerId, SpecificationCommand command, CancellationToken cancellationToken = default)
     {
         var project = await db.WeddingProjects.Include(x => x.SpecItems)
-            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
         if (project is null) return null;
-        if (project.Status != "Active Baseline") throw new InvalidOperationException("Baseline đã đóng băng; hãy tạo Change Request để thay đổi.");
+        if (project.Status != "Active Baseline") throw new InvalidOperationException("Baseline đã đóng băng và không thể chỉnh sửa. Hãy tạo Change Request (MSG09).");
         if (command.GuestCount < 0) throw new InvalidOperationException("Số lượng khách không hợp lệ.");
 
         if (command.Items is not null)
         {
             var duplicates = command.Items.GroupBy(x => x.CatalogItemId).Any(x => x.Count() > 1);
             if (duplicates) throw new InvalidOperationException("Mỗi hạng mục chỉ được xuất hiện một lần trong đặc tả.");
-            if (command.Items.Any(x => x.Quantity <= 0 || x.UnitPrice < 0 || string.IsNullOrWhiteSpace(x.Description)))
-                throw new InvalidOperationException("Đặc tả cần có mô tả, số lượng dương và đơn giá không âm.");
+            if (command.Items.Any(x => x.Quantity <= 0 || x.UnitPrice < 0 || string.IsNullOrWhiteSpace(x.Description) || x.Description.Trim().Length > 500))
+                throw new InvalidOperationException("Đặc tả cần có mô tả (tối đa 500 ký tự), số lượng dương và đơn giá không âm.");
 
             var catalogIds = command.Items.Select(x => x.CatalogItemId).Distinct().ToArray();
             var catalogItems = await db.ServiceCatalogItems.Where(x => catalogIds.Contains(x.ItemId) && x.Status == "Active")
@@ -68,17 +68,17 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
         return await readModel.MapProjectAsync(loaded, cancellationToken);
     }
 
-    public async Task<WeddingProjectView?> FreezeBaselineAsync(string projectCode, CancellationToken cancellationToken = default)
+    public async Task<WeddingProjectView?> FreezeBaselineAsync(string projectCode, int managerId, CancellationToken cancellationToken = default)
     {
         var project = await db.WeddingProjects.Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem)
-            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
         if (project is null) return null;
         if (project.Status != "Active Baseline") throw new InvalidOperationException("Dự án không còn ở trạng thái có thể đóng băng baseline.");
 
         var required = new[] { "Hall", "Catering", "Decor", "MC", "AV" };
         var configuredCategories = project.SpecItems.Where(x => x.IsBaseline && x.Version == 1).Select(x => x.CatalogItem.Category).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = required.Where(x => !configuredCategories.Contains(x)).ToArray();
-        if (missing.Length > 0) throw new InvalidOperationException($"Cần cấu hình đủ 5 hạng mục nền tảng trước khi đóng băng: {string.Join(", ", missing.Select(WpsmCategoryNames.ToDisplay))}.");
+        if (missing.Length > 0) throw new InvalidOperationException($"Thiếu dịch vụ bắt buộc: {string.Join(", ", missing.Select(WpsmCategoryNames.ToDisplay))} (MSG12).");
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var frames = await db.PriceFrames.AsNoTracking().Where(x => x.EffectiveFrom <= today)
@@ -91,26 +91,44 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
 
         project.BaselineFrozenAt = DateTime.UtcNow;
         project.Status = "Baseline Frozen";
+        // Master Roadmap template: SDS IV.4.1.
         var milestones = new[]
         {
-            ("T-90", "Chốt danh sách dịch vụ", "Customer", -90),
-            ("T-30", "Xác nhận số lượng khách", "Customer", -30),
-            ("T-7", "Đóng băng BEO", "Manager", -7),
-            ("Event Day", "Điều phối ngày tiệc", "Manager", 0)
+            ("T-90", "Rà soát và ký xác nhận hợp đồng gốc", "Customer", -90),
+            ("T-90", "Chọn chủ đề và màu sắc tiệc", "Customer", -90),
+            ("T-90", "Xác nhận phối hợp với nhà cung cấp", "Manager", -90),
+            ("T-30", "Xác nhận số lượng khách cuối cùng", "Customer", -30),
+            ("T-30", "Chốt buổi thử thực đơn", "Manager", -30),
+            ("T-30", "Duyệt sơ đồ bàn", "Customer", -30),
+            ("T-30", "Thanh toán đợt T-30", "Customer", -30),
+            ("T-7", "Duyệt và đóng băng BEO", "Manager", -7),
+            ("T-7", "Xác nhận lịch trình ngày cưới", "Customer", -7),
+            ("T-7", "Kiểm tra phân bổ tài nguyên", "Manager", -7),
+            ("Event Day", "Chuẩn bị sảnh và kiểm tra âm thanh", "Manager", 0)
         };
+        var existingTasks = await db.RoadmapTasks.Where(x => x.ProjectId == project.ProjectId).Select(x => x.Title).ToListAsync(cancellationToken);
         foreach (var (milestone, title, assignee, days) in milestones)
         {
-            if (!await db.RoadmapTasks.AnyAsync(x => x.ProjectId == project.ProjectId && x.Milestone == milestone, cancellationToken))
-                db.RoadmapTasks.Add(new RoadmapTask
-                {
-                    ProjectId = project.ProjectId,
-                    Milestone = milestone,
-                    Title = title,
-                    AssigneeRole = assignee,
-                    DueDate = project.EventDate.AddDays(days),
-                    Status = "Pending"
-                });
+            if (existingTasks.Contains(title)) continue;
+            var dueDate = project.EventDate.AddDays(days);
+            db.RoadmapTasks.Add(new RoadmapTask
+            {
+                ProjectId = project.ProjectId,
+                Milestone = milestone,
+                Title = title,
+                AssigneeRole = assignee,
+                DueDate = milestone == "T-90" && dueDate < today ? today : dueDate,
+                Status = "Pending"
+            });
         }
+        db.Notifications.Add(new Notification
+        {
+            RecipientId = project.CustomerId,
+            Type = "Roadmap reminder",
+            Message = $"Hợp đồng gốc {project.ProjectCode} đã được chốt. Vui lòng xem đặc tả và lộ trình.",
+            LinkUrl = "/C03",
+            CreatedAt = DateTime.UtcNow
+        });
         await db.SaveChangesAsync(cancellationToken);
         var loaded = await readModel.ProjectViewsQuery().SingleAsync(x => x.ProjectId == project.ProjectId, cancellationToken);
         return await readModel.MapProjectAsync(loaded, cancellationToken);
