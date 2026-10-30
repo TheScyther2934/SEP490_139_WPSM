@@ -21,11 +21,14 @@ public sealed class ProjectReadModel(WpsmDbContext db)
                 s.Quantity, s.CatalogItem.Unit, s.UnitPrice, s.LineTotal ?? s.Quantity * s.UnitPrice)).ToList();
         var summary = spec.Count == 0 ? "Chưa nhập đặc tả" : $"{spec.Count} hạng mục đã cấu hình";
         var guestCount = spec.FirstOrDefault(s => s.Category == "Ẩm thực")?.Quantity ?? 0;
+        var addendumCount = await db.ContractAddenda.CountAsync(a => a.ProjectId == x.ProjectId, cancellationToken);
         return new WeddingProjectView(x.ProjectCode, x.Customer.FullName, x.Hall.Name, x.Slot.SlotName, x.EventDate,
             x.BaseContractValue, x.Nrdamount, x.Status,
             totalTasks == 0 ? 0 : (int)Math.Round(completedTasks * 100d / totalTasks),
             x.ChangeRequests.Count(c => c.Status is "Draft" or "Negotiating"),
             x.Beos.OrderByDescending(b => b.Version).FirstOrDefault()?.Status ?? "Not started",
-            Math.Max(0, x.CurrentTotal - paid), summary, guestCount, spec);
+            Math.Max(0, x.CurrentTotal - paid), summary, guestCount, spec,
+            $"{x.Slot.StartTime:HH:mm} - {x.Slot.EndTime:HH:mm}", x.BaselineFrozenAt,
+            x.Payments.FirstOrDefault(p => p.PaymentType == "NRD")?.Status ?? "Due", addendumCount);
     }
 }

@@ -24,7 +24,11 @@ public sealed record WeddingProjectView(
     decimal OutstandingBalance,
     string SpecificationSummary = "Chưa nhập đặc tả",
     int GuestCount = 0,
-    IReadOnlyList<SpecificationLineView>? Specification = null);
+    IReadOnlyList<SpecificationLineView>? Specification = null,
+    string SlotTime = "",
+    DateTime? BaselineFrozenAt = null,
+    string NrdStatus = "Due",
+    int AddendumCount = 0);
 
 public sealed record SpecificationLineView(
     int CatalogItemId,

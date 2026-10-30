@@ -22,7 +22,7 @@
 <span class="text-on-surface-variant font-normal">Mã:</span> WPSM-2026-014
         </span>
 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary-fixed/30 border border-secondary/30 font-label-md text-label-md font-semibold text-secondary">
-<span class="material-symbols-outlined text-[14px]">diamond</span> Sảnh Hoa Hồng
+<span class="material-symbols-outlined text-[14px]">diamond</span> <span data-field="c02HallHeader">Sảnh Hoa Hồng</span>
         </span>
 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-container-low border border-outline-variant/40 font-label-md text-label-md text-on-surface">
 <span class="material-symbols-outlined text-[14px] text-on-surface-variant">calendar_today</span> 20/12/2026
@@ -70,30 +70,22 @@
 <h1 class="font-headline-lg text-headline-lg text-primary tracking-tight font-semibold">
             Hợp đồng &amp; đặc tả chi tiết
           </h1>
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-label-md font-semibold bg-primary-fixed text-primary border border-primary/20 shadow-sm">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-label-md font-semibold bg-primary-fixed text-primary border border-primary/20 shadow-sm" data-field="c02VersionBadge">
 <span class="material-symbols-outlined text-[16px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">lock</span>
-            Phiên bản gốc 1 – Đã chốt
+            <span data-field="c02Version">Phiên bản gốc 1 – Đã chốt</span>
           </span>
 </div>
-<p class="font-body-md text-body-md text-on-surface-variant">
+<p class="font-body-md text-body-md text-on-surface-variant" data-field="c02Subtitle">
           Đặc tả kỹ thuật, dịch vụ trọn gói và bảng phân bổ ngân sách hôn lễ chính thức đã đóng băng baseline.
         </p>
 </div>
 <!-- Action Buttons -->
 <div class="flex items-center gap-2.5 flex-wrap">
-<button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-outline-variant/50 text-on-surface hover:bg-surface-container-low font-title-sm text-title-sm transition-all duration-150 active:scale-[0.98]">
-<span class="material-symbols-outlined text-[18px]">download</span>
-          Tải bản in Hợp đồng (PDF)
-        </button>
-<button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-secondary/40 text-secondary hover:bg-secondary-fixed/20 font-title-sm text-title-sm transition-all duration-150 active:scale-[0.98]">
+<button id="btnAddenda" disabled title="Chưa có phụ lục hợp đồng" class="opacity-50 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-secondary/40 text-secondary hover:bg-secondary-fixed/20 font-title-sm text-title-sm transition-all duration-150 active:scale-[0.98]">
 <span class="material-symbols-outlined text-[18px]">attach_file</span>
           Xem phụ lục hợp đồng
-          <span class="ml-0.5 px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-secondary text-on-secondary">02</span>
+          <span class="ml-0.5 px-1.5 py-0.2 rounded-full text-[11px] font-bold bg-secondary text-on-secondary" data-field="c02AddendumCount">0</span>
 </button>
-<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary hover:bg-tertiary font-title-sm text-title-sm shadow-sm transition-all duration-150 active:scale-[0.98]">
-<span class="material-symbols-outlined text-[18px]">edit_calendar</span>
-          Tạo yêu cầu thay đổi
-        </button>
 </div>
 </div>
 <!-- 2. CONTRACT SUMMARY CARD (4 Key Facts + NRD Status Strip) -->
@@ -107,8 +99,7 @@
 <span class="material-symbols-outlined text-primary text-[20px]">room_preferences</span>
 </div>
 <div>
-<h3 class="font-title-lg text-title-lg text-on-surface font-semibold text-primary">Sảnh Hoa Hồng</h3>
-<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Sức chứa 350 - 450 khách • Tầng 2</p>
+<h3 class="font-title-lg text-title-lg text-on-surface font-semibold text-primary" data-field="c02Hall">Sảnh Hoa Hồng</h3>
 </div>
 </div>
 <!-- Fact 2 -->
@@ -118,8 +109,7 @@
 <span class="material-symbols-outlined text-secondary text-[20px]">schedule</span>
 </div>
 <div>
-<h3 class="font-title-lg text-title-lg text-on-surface font-semibold">Ca Tối (17:30 - 22:00)</h3>
-<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Đón khách: 17:30 • Khai tiệc: 19:00</p>
+<h3 class="font-title-lg text-title-lg text-on-surface font-semibold" data-field="c02Slot">Ca Tối (17:30 - 22:00)</h3>
 </div>
 </div>
 <!-- Fact 3 -->
@@ -130,10 +120,10 @@
 </div>
 <div>
 <div class="flex items-baseline gap-2">
-<h3 class="font-title-lg text-title-lg text-on-surface font-semibold">20/12/2026</h3>
-<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-secondary-fixed/40 text-secondary">T-58 ngày</span>
+<h3 class="font-title-lg text-title-lg text-on-surface font-semibold" data-field="c02Date">20/12/2026</h3>
+<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-secondary-fixed/40 text-secondary" data-field="c02Countdown">T-58 ngày</span>
 </div>
-<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Chủ Nhật (Tiệc chính lễ)</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5" data-field="c02Weekday">Chủ Nhật (Tiệc chính lễ)</p>
 </div>
 </div>
 <!-- Fact 4 -->
@@ -143,9 +133,9 @@
 <span class="material-symbols-outlined text-primary text-[20px]">verified</span>
 </div>
 <div>
-<h3 class="font-title-lg text-title-lg text-primary font-bold tracking-tight">310.000.000 ₫</h3>
+<h3 class="font-title-lg text-title-lg text-primary font-bold tracking-tight" data-field="c02BaseValue">310.000.000 ₫</h3>
 <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-primary"></span> Đã khóa baseline hợp đồng
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span> <span data-field="c02BaseNote">Đã khóa baseline hợp đồng</span>
             </p>
 </div>
 </div>
@@ -157,14 +147,13 @@
 <span class="material-symbols-outlined text-[18px]">check_circle</span>
 </div>
 <div>
-<span class="font-title-sm text-title-sm text-on-surface">Tiền đặt cọc không hoàn lại (NRD) đã đóng:</span>
-<span class="font-title-sm text-title-sm text-primary font-bold ml-1.5">93.000.000 ₫</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant ml-1">(30% giá trị hợp đồng)</span>
+<span class="font-title-sm text-title-sm text-on-surface">Tiền đặt cọc không hoàn lại (NRD) :</span>
+<span class="font-title-sm text-title-sm text-primary font-bold ml-1.5" data-field="c02Nrd">93.000.000 ₫</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant ml-1">(<span data-field="c02NrdPercent">30%</span> giá trị hợp đồng)</span>
 </div>
 </div>
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-label-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300">
-<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-          Đã xác nhận thanh toán &amp; lưu quỹ
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-label-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300" data-field="c02NrdBadge">
+          <span data-field="c02NrdStatus">Đã xác nhận thanh toán</span>
         </span>
 </div>
 </div>
@@ -177,19 +166,19 @@
 <p class="font-title-sm font-semibold text-primary">Thông báo nguyên tắc điều phối &amp; bảo lưu Baseline</p>
 <p class="text-on-surface-variant text-body-sm">
           Hợp đồng gốc không thể chỉnh sửa trực tiếp. Để đảm bảo tính pháp lý và cam kết dịch vụ của trung tâm, mọi nhu cầu thay đổi (thêm bàn, đổi món, nâng cấp âm thanh/hoa tươi) được thực hiện qua tính năng 
-          <a class="text-primary font-semibold underline underline-offset-2 hover:text-tertiary" href="#">"Yêu cầu thay đổi (CR)"</a> 
+          <strong class="text-primary">"Yêu cầu thay đổi (CR)"</strong> 
           và ký kết 
-          <a class="text-primary font-semibold underline underline-offset-2 hover:text-tertiary" href="#">"Phụ lục hợp đồng"</a>.
+          <strong class="text-primary">"Phụ lục hợp đồng"</strong>.
         </p>
 </div>
 </div>
 <!-- 4. SPECIFICATION TABLE GROUPED BY CATEGORY (COLLAPSIBLE SECTIONS) -->
-<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
+<div id="c02SpecSection" class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
 <!-- Section Title & Column Legend -->
 <div class="p-5 border-b border-outline-variant/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 <div>
-<h2 class="font-headline-sm text-headline-sm text-primary">Chi tiết đặc tả 6 nhóm hạng mục</h2>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Dữ liệu cố định từ biên bản ký kết hợp đồng ngày 20/09/2026</p>
+<h2 class="font-headline-sm text-headline-sm text-primary">Chi tiết đặc tả <span data-field="c02GroupCount">0</span> nhóm hạng mục</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Phiên bản Baseline v1, chốt ngày <span data-field="c02FrozenAt">—</span></p>
 </div>
 <div class="flex items-center gap-2">
 <button class="text-label-md font-label-md text-primary font-medium hover:underline flex items-center gap-1" id="btn-toggle-all" onclick="toggleAllGroups()">
@@ -206,269 +195,41 @@
 <div class="col-span-2 text-right font-semibold">Thành tiền</div>
 </div>
 <!-- Categories Container -->
-<div class="divide-y divide-outline-variant/30">
-<!-- CATEGORY 1: Thuê sảnh tiệc -->
-<div class="category-block" data-category="1">
-<button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(1)">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-1">expand_more</span>
-<span class="font-title-sm text-title-sm text-primary font-bold">1. Thuê sảnh tiệc</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">1 hạng mục</span>
-</div>
-<div class="font-title-sm text-title-sm text-on-surface font-semibold">
-<span class="text-on-surface-variant font-normal text-body-sm mr-2">Tổng nhóm 1:</span>55.000.000 ₫
-            </div>
-</button>
-<div class="divide-y divide-outline-variant/20 px-6 py-1" id="content-1">
-<div class="grid grid-cols-1 md:grid-cols-12 py-3.5 gap-2 items-start">
-<div class="col-span-6 space-y-1">
-<div class="flex items-center gap-2">
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">Sảnh Hoa Hồng</span>
-<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-secondary-fixed/40 text-secondary uppercase">VIP HALL</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  Ca tối, hệ thống điều hòa trung tâm tiêu chuẩn 22°C, phòng tân nương riêng biệt trang bị gương trang điểm ánh sáng studio, nhân sự vệ sinh và an ninh trực suốt tiệc.
-                </p>
-</div>
-<div class="col-span-2 text-left md:text-center font-body-md text-body-md text-on-surface">
-<span class="md:hidden text-on-surface-variant text-body-sm">ĐVT: </span>1 Gói
-              </div>
-<div class="col-span-2 text-left md:text-right font-body-md text-body-md text-on-surface-variant">
-<span class="md:hidden text-on-surface-variant text-body-sm">Đơn giá: </span>55.000.000 ₫
-              </div>
-<div class="col-span-2 text-left md:text-right font-title-sm text-title-sm font-semibold text-primary">
-                55.000.000 ₫
-              </div>
-</div>
-</div>
-</div>
-<!-- CATEGORY 2: Thực đơn tiệc cưới -->
-<div class="category-block" data-category="2">
-<button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(2)">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-2">expand_more</span>
-<span class="font-title-sm text-title-sm text-primary font-bold">2. Thực đơn tiệc cưới</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">1 hạng mục</span>
-</div>
-<div class="font-title-sm text-title-sm text-on-surface font-semibold">
-<span class="text-on-surface-variant font-normal text-body-sm mr-2">Tổng nhóm 2:</span>147.000.000 ₫
-            </div>
-</button>
-<div class="divide-y divide-outline-variant/20 px-6 py-1" id="content-2">
-<div class="grid grid-cols-1 md:grid-cols-12 py-3.5 gap-2 items-start">
-<div class="col-span-6 space-y-1">
-<div class="flex items-center gap-2">
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">Set Menu 8 món Hoàng Gia</span>
-<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-fixed text-primary uppercase">Signature Menu</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  1. Gỏi củ hủ dừa tôm thịt • 2. Súp hải sản bào ngư ngũ vị • 3. Cá chẽm phi lê hấp tàu xì • 4. Bò Úc nướng sốt tiêu đen • 5. Gà quay da giòn bánh bao • 6. Cơm chiên hoàng bào • 7. Canh gà tiềm nấm đông cô • 8. Chè hạt sen long nhãn.
-                </p>
-<div class="pt-1 flex items-center gap-2 text-[12px] text-secondary">
-<span class="material-symbols-outlined text-[15px]">room_service</span>
-<span>Đã kèm tiêu chuẩn thử món trước lễ 30 ngày (01 bàn 6 khách)</span>
-</div>
-</div>
-<div class="col-span-2 text-left md:text-center font-body-md text-body-md text-on-surface">
-<span class="md:hidden text-on-surface-variant text-body-sm">Số lượng: </span>35 Bàn
-              </div>
-<div class="col-span-2 text-left md:text-right font-body-md text-body-md text-on-surface-variant">
-<span class="md:hidden text-on-surface-variant text-body-sm">Đơn giá: </span>4.200.000 ₫
-              </div>
-<div class="col-span-2 text-left md:text-right font-title-sm text-title-sm font-semibold text-primary">
-                147.000.000 ₫
-              </div>
-</div>
-</div>
-</div>
-<!-- CATEGORY 3: Trang trí sân khấu & sảnh -->
-<div class="category-block" data-category="3">
-<button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(3)">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-3">expand_more</span>
-<span class="font-title-sm text-title-sm text-primary font-bold">3. Trang trí sân khấu &amp; sảnh</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">1 hạng mục</span>
-</div>
-<div class="font-title-sm text-title-sm text-on-surface font-semibold">
-<span class="text-on-surface-variant font-normal text-body-sm mr-2">Tổng nhóm 3:</span>60.000.000 ₫
-            </div>
-</button>
-<div class="divide-y divide-outline-variant/20 px-6 py-1" id="content-3">
-<div class="grid grid-cols-1 md:grid-cols-12 py-3.5 gap-2 items-start">
-<div class="col-span-6 space-y-1">
-<div class="flex items-center gap-2">
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">Gói trang trí Hoàng Kim (Gold Elegance Theme)</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  Photobooth check-in 4x3m hoa lụa nhập khẩu cao cấp 70% kết hợp hoa tươi 30%, cổng hoa đón khách đôi, lối đi sân khấu thảm nhung đỏ vang với trụ đèn pha lê, backdrop sân khấu chính thiết kế tên dâu rể kim loại vàng gương.
-                </p>
-</div>
-<div class="col-span-2 text-left md:text-center font-body-md text-body-md text-on-surface">
-<span class="md:hidden text-on-surface-variant text-body-sm">ĐVT: </span>1 Gói
-              </div>
-<div class="col-span-2 text-left md:text-right font-body-md text-body-md text-on-surface-variant">
-<span class="md:hidden text-on-surface-variant text-body-sm">Đơn giá: </span>60.000.000 ₫
-              </div>
-<div class="col-span-2 text-left md:text-right font-title-sm text-title-sm font-semibold text-primary">
-                60.000.000 ₫
-              </div>
-</div>
-</div>
-</div>
-<!-- CATEGORY 4: MC & Nghi thức tiệc -->
-<div class="category-block" data-category="4">
-<button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(4)">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-4">expand_more</span>
-<span class="font-title-sm text-title-sm text-primary font-bold">4. MC &amp; Nghi thức tiệc</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">1 hạng mục</span>
-</div>
-<div class="font-title-sm text-title-sm text-on-surface font-semibold">
-<span class="text-on-surface-variant font-normal text-body-sm mr-2">Tổng nhóm 4:</span>10.000.000 ₫
-            </div>
-</button>
-<div class="divide-y divide-outline-variant/20 px-6 py-1" id="content-4">
-<div class="grid grid-cols-1 md:grid-cols-12 py-3.5 gap-2 items-start">
-<div class="col-span-6 space-y-1">
-<div class="flex items-center gap-2">
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">MC song ngữ Anh - Việt chuyên nghiệp</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  Kịch bản nghi thức trang trọng theo chuẩn phương Tây và truyền thống Việt Nam; điều phối hoạt cảnh dắt dâu, nghi thức rót tháp rượu champagne và cắt bánh cưới 5 tầng.
-                </p>
-</div>
-<div class="col-span-2 text-left md:text-center font-body-md text-body-md text-on-surface">
-<span class="md:hidden text-on-surface-variant text-body-sm">ĐVT: </span>1 Buổi
-              </div>
-<div class="col-span-2 text-left md:text-right font-body-md text-body-md text-on-surface-variant">
-<span class="md:hidden text-on-surface-variant text-body-sm">Đơn giá: </span>10.000.000 ₫
-              </div>
-<div class="col-span-2 text-left md:text-right font-title-sm text-title-sm font-semibold text-primary">
-                10.000.000 ₫
-              </div>
-</div>
-</div>
-</div>
-<!-- CATEGORY 5: Âm thanh & Ánh sáng (AV) -->
-<div class="category-block" data-category="5">
-<button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(5)">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-5">expand_more</span>
-<span class="font-title-sm text-title-sm text-primary font-bold">5. Âm thanh &amp; Ánh sáng (AV)</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">1 hạng mục</span>
-</div>
-<div class="font-title-sm text-title-sm text-on-surface font-semibold">
-<span class="text-on-surface-variant font-normal text-body-sm mr-2">Tổng nhóm 5:</span>18.000.000 ₫
-            </div>
-</button>
-<div class="divide-y divide-outline-variant/20 px-6 py-1" id="content-5">
-<div class="grid grid-cols-1 md:grid-cols-12 py-3.5 gap-2 items-start">
-<div class="col-span-6 space-y-1">
-<div class="flex items-center gap-2">
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">Gói AV tiệc cưới tiêu chuẩn Luxury</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  Hệ thống 4 cụm loa Line Array công suất biểu diễn cao, 6 đèn follow spotlight rọi lối dâu rể, 8 đèn moving head tạo hiệu ứng sân khấu lúc làm lễ và khi mở màn khiêu vũ. Kỹ thuật viên sound &amp; lighting túc trực liên tục.
-                </p>
-</div>
-<div class="col-span-2 text-left md:text-center font-body-md text-body-md text-on-surface">
-<span class="md:hidden text-on-surface-variant text-body-sm">ĐVT: </span>1 Show
-              </div>
-<div class="col-span-2 text-left md:text-right font-body-md text-body-md text-on-surface-variant">
-<span class="md:hidden text-on-surface-variant text-body-sm">Đơn giá: </span>18.000.000 ₫
-              </div>
-<div class="col-span-2 text-left md:text-right font-title-sm text-title-sm font-semibold text-primary">
-                18.000.000 ₫
-              </div>
-</div>
-</div>
-</div>
-<!-- CATEGORY 6: Quay chụp & Truyền thông -->
-<div class="category-block" data-category="6">
-<button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(6)">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-6">expand_more</span>
-<span class="font-title-sm text-title-sm text-primary font-bold">6. Quay chụp &amp; Truyền thông</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">1 hạng mục</span>
-</div>
-<div class="font-title-sm text-title-sm text-on-surface font-semibold">
-<span class="text-on-surface-variant font-normal text-body-sm mr-2">Tổng nhóm 6:</span>20.000.000 ₫
-            </div>
-</button>
-<div class="divide-y divide-outline-variant/20 px-6 py-1" id="content-6">
-<div class="grid grid-cols-1 md:grid-cols-12 py-3.5 gap-2 items-start">
-<div class="col-span-6 space-y-1">
-<div class="flex items-center gap-2">
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">Gói phóng sự cưới truyền thống &amp; hiện đại</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-                  2 máy quay chuẩn 4K ghi lại toàn bộ lễ và tiệc, 1 nhiếp ảnh gia chính chụp tiệc từ thời điểm đón khách đến kết thúc tiễn khách, tặng toàn bộ file gốc kèm USB pha lê lưu niệm và video highlight 3-5 phút.
-                </p>
-</div>
-<div class="col-span-2 text-left md:text-center font-body-md text-body-md text-on-surface">
-<span class="md:hidden text-on-surface-variant text-body-sm">ĐVT: </span>1 Gói
-              </div>
-<div class="col-span-2 text-left md:text-right font-body-md text-body-md text-on-surface-variant">
-<span class="md:hidden text-on-surface-variant text-body-sm">Đơn giá: </span>20.000.000 ₫
-              </div>
-<div class="col-span-2 text-left md:text-right font-title-sm text-title-sm font-semibold text-primary">
-                20.000.000 ₫
-              </div>
-</div>
-</div>
-</div>
+<div class="divide-y divide-outline-variant/30" id="c02SpecContainer">
 </div>
 <!-- TABLE GRAND TOTAL SUMMARY FOOTER -->
 <div class="p-6 bg-surface-container-low border-t border-outline-variant/40 space-y-4">
 <div class="max-w-md ml-auto space-y-2.5">
 <div class="flex items-center justify-between text-body-md">
-<span class="text-on-surface-variant font-medium">Tổng cộng 6 nhóm dịch vụ (Core Combo + Media):</span>
-<span class="font-bold text-on-surface">310.000.000 ₫</span>
+<span class="text-on-surface-variant font-medium">Tổng cộng đặc tả:</span>
+<span class="font-bold text-on-surface" data-field="c02SpecTotal">310.000.000 ₫</span>
 </div>
 <div class="flex items-center justify-between text-body-md text-emerald-800">
 <span class="flex items-center gap-1.5 font-medium">
 <span class="material-symbols-outlined text-[18px]">verified</span>
-              NRD đã thanh toán (30%):
+              NRD đã thanh toán:
             </span>
-<span class="font-bold">- 93.000.000 ₫</span>
+<span class="font-bold" data-field="c02NrdPaid">- 93.000.000 ₫</span>
 </div>
 <div class="h-px bg-outline-variant/40 my-1"></div>
 <div class="flex items-center justify-between text-title-md">
-<span class="text-primary font-bold">Dư nợ còn lại của hợp đồng gốc:</span>
-<span class="font-headline-sm text-headline-sm text-primary font-bold">217.000.000 ₫</span>
-</div>
-<div class="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 text-body-sm font-body-sm text-on-surface-variant">
-<span class="font-semibold text-on-surface">Lưu ý thanh toán: </span>
-            Số tiền này sẽ được thanh toán theo tiến độ Đợt 2 (T-30: 50% còn lại trước ngày cưới) và Đợt 3 (Quyết toán 20% sau khi hoàn thành tiệc).
-          </div>
+<span class="text-primary font-bold">Dư nợ còn lại:</span>
+<span class="font-headline-sm text-headline-sm text-primary font-bold" data-field="c02Outstanding">217.000.000 ₫</span>
 </div>
 </div>
 </div>
-<!-- 5. VISUAL PREVIEW / STATE VARIANT ACCORDION (UNFROZEN STATE DEMO) -->
-<div class="bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant/60 shadow-sm overflow-hidden">
-<div class="p-4 bg-surface-container-low/60 flex items-center justify-between cursor-pointer" onclick="toggleVariantPreview()">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-secondary text-[20px]">history_toggle_off</span>
-<span class="font-title-sm text-title-sm text-on-surface font-semibold">Xem biến thể: Trạng thái trước khi chốt Baseline (Chưa đóng băng)</span>
-<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-secondary-fixed/50 text-secondary">PREVIEW</span>
 </div>
-<span class="material-symbols-outlined text-[20px] text-on-surface-variant transition-transform duration-200" id="variant-chevron">expand_more</span>
-</div>
-<div class="p-6 border-t border-outline-variant/30 hidden" id="variant-body">
+<!-- 5. PENDING STATE (before the baseline is frozen) -->
+<div id="c02PendingNotice" class="hidden bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant/60 shadow-sm overflow-hidden">
+<div class="p-6">
 <div class="max-w-xl mx-auto text-center py-6 space-y-3">
 <div class="w-14 h-14 mx-auto rounded-full bg-secondary-fixed/40 text-secondary flex items-center justify-center">
 <span class="material-symbols-outlined text-[30px]">pending_actions</span>
 </div>
-<h4 class="font-headline-sm text-headline-sm text-on-surface">Đặc tả đang được trung tâm chuẩn bị</h4>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Đặc tả đang được chuẩn bị</h4>
 <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
             Hợp đồng đang trong giai đoạn soạn thảo kỹ thuật các định mức bàn tiệc, hoa và âm thanh. Bạn sẽ được thông báo ngay khi hoàn tất để cùng quản lý sảnh duyệt và đóng băng baseline.
           </p>
-<div class="pt-2">
-<button class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container-high text-on-surface font-title-sm text-title-sm hover:bg-surface-container-highest transition-colors">
-<span class="material-symbols-outlined text-[18px]">chat</span>
-              Nhắn tin với Điều phối viên
-            </button>
-</div>
 </div>
 </div>
 </div>
@@ -511,7 +272,7 @@
       allExpanded = !allExpanded;
       const btn = document.getElementById('btn-toggle-all');
       
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= document.querySelectorAll('.category-block').length; i++) {
         const content = document.getElementById(`content-${i}`);
         const chevron = document.getElementById(`chevron-${i}`);
         if (content && chevron) {

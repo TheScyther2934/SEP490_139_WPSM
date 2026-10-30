@@ -57,18 +57,7 @@
 
     if (document.querySelector('[data-wpsm-screen="M05"]')) renderSpecificationEditor(data);
 
-    const contract = document.querySelector('[data-wpsm-screen="C02"]');
-    const categoriesContainer = contract?.querySelector(".category-block")?.parentElement;
-    if (categoriesContainer && data.project) {
-      const groups = (data.project.specification || []).reduce((result, item) => {
-        (result[item.category] ||= []).push(item);
-        return result;
-      }, {});
-      categoriesContainer.innerHTML = Object.entries(groups).map(([category, items]) => `<section class="border-b border-outline-variant/30 px-6 py-4">
-        <h3 class="font-title-sm text-title-sm font-bold text-primary mb-3">${escapeHtml(category)}</h3>
-        ${items.map(item => `<div class="grid grid-cols-1 md:grid-cols-12 gap-2 py-3 border-t border-outline-variant/20"><div class="md:col-span-6"><div class="font-semibold">${escapeHtml(item.name)}</div><p class="text-sm text-on-surface-variant">${escapeHtml(item.description)}</p></div><div class="md:col-span-2">${item.quantity} ${escapeHtml(item.unit)}</div><div class="md:col-span-2">${money(item.unitPrice)}</div><div class="md:col-span-2 font-semibold">${money(item.lineTotal)}</div></div>`).join("")}
-        </section>`).join("");
-    }
+    if (document.querySelector('[data-wpsm-screen="C02"]')) renderCustomerContract(data.project);
 
     const roadmapSection = document.querySelector('[data-wpsm-screen="C03"] main section');
     if (roadmapSection && data.project) {
@@ -79,6 +68,55 @@
     }
   };
   const showError = error => { window.clearTimeout(messageTimer); status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
+
+  // ---- C-02 Contract Baseline and Detailed Specification (UC-04, read-only) ----
+  const renderCustomerContract = project => {
+    const root = document.querySelector('[data-wpsm-screen="C02"]');
+    if (!root || !project) return;
+    const frozen = !!project.baselineFrozenAt;
+    const specification = project.specification || [];
+    const eventDate = new Date(`${project.eventDate}T00:00:00`);
+    const daysLeft = Math.max(0, Math.ceil((eventDate.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
+    const nrdPaid = project.nrdStatus === "Paid";
+    setField(root, "c02Version", frozen ? "Baseline v1 – Đã chốt" : "Chưa chốt baseline");
+    setField(root, "c02Subtitle", frozen ? "Đặc tả chính thức đã đóng băng; mọi thay đổi chỉ thực hiện qua Yêu cầu thay đổi và Phụ lục hợp đồng." : "Đặc tả đang được chuẩn bị và sẽ hiển thị sau khi chốt baseline.");
+    setField(root, "c02Hall", project.hall);
+    setField(root, "c02HallHeader", project.hall);
+    setField(root, "c02Slot", `Ca ${SLOT_LABELS[project.slot] || project.slot} (${project.slotTime})`);
+    setField(root, "c02Date", new Intl.DateTimeFormat("vi-VN").format(eventDate));
+    setField(root, "c02Countdown", daysLeft === 0 ? "Hôm nay" : `T-${daysLeft} ngày`);
+    setField(root, "c02Weekday", new Intl.DateTimeFormat("vi-VN", { weekday: "long" }).format(eventDate));
+    setField(root, "c02BaseValue", money(project.baseValue));
+    setField(root, "c02BaseNote", frozen ? "Đã khóa baseline hợp đồng" : "Giá trị theo hợp đồng đã ký");
+    setField(root, "c02Nrd", money(project.nrdAmount));
+    setField(root, "c02NrdPercent", `${project.baseValue ? Math.round(project.nrdAmount * 100 / project.baseValue) : 0}%`);
+    setField(root, "c02NrdStatus", nrdPaid ? "Đã xác nhận thanh toán" : "Chờ xác nhận thanh toán");
+    setField(root, "c02AddendumCount", String(project.addendumCount));
+    const addenda = root.querySelector("#btnAddenda");
+    if (addenda) { addenda.disabled = project.addendumCount === 0; addenda.classList.toggle("opacity-50", addenda.disabled); addenda.title = addenda.disabled ? "Chưa có phụ lục hợp đồng" : ""; }
+    root.querySelector("#c02SpecSection")?.classList.toggle("hidden", !frozen);
+    root.querySelector("#c02PendingNotice")?.classList.toggle("hidden", frozen);
+    if (!frozen) return;
+
+    const groups = Object.entries(specification.reduce((result, item) => { (result[item.category] ||= []).push(item); return result; }, {}));
+    setField(root, "c02GroupCount", String(groups.length));
+    setField(root, "c02FrozenAt", new Intl.DateTimeFormat("vi-VN").format(new Date(project.baselineFrozenAt)));
+    setField(root, "c02SpecTotal", money(specification.reduce((sum, item) => sum + item.lineTotal, 0)));
+    setField(root, "c02NrdPaid", `- ${money(nrdPaid ? project.nrdAmount : 0)}`);
+    setField(root, "c02Outstanding", money(project.outstandingBalance));
+    const container = root.querySelector("#c02SpecContainer");
+    if (container) container.innerHTML = groups.map(([category, items], index) => `<div class="category-block">
+      <button class="w-full px-6 py-3.5 bg-surface-container-high/40 hover:bg-surface-container-high/70 flex items-center justify-between transition-colors" onclick="toggleCategory(${index + 1})">
+        <span class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-primary transition-transform duration-200" id="chevron-${index + 1}">expand_more</span>
+        <span class="font-title-sm text-title-sm text-primary font-bold">${index + 1}. ${escapeHtml(category)}</span>
+        <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-surface-container-lowest text-on-surface-variant border border-outline-variant/30">${items.length} hạng mục</span></span>
+        <span class="font-semibold">${money(items.reduce((sum, item) => sum + item.lineTotal, 0))}</span>
+      </button>
+      <div id="content-${index + 1}">${items.map(item => `<div class="grid grid-cols-1 md:grid-cols-12 gap-2 px-6 py-3 border-t border-outline-variant/20" data-c02-line>
+        <div class="md:col-span-6"><div class="font-semibold">${escapeHtml(item.name)} <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-fixed text-primary">Baseline v1</span></div><p class="text-sm text-on-surface-variant">${escapeHtml(item.description)}</p></div>
+        <div class="md:col-span-2 md:text-center">${item.quantity} ${escapeHtml(item.unit)}</div><div class="md:col-span-2 md:text-right">${money(item.unitPrice)}</div><div class="md:col-span-2 md:text-right font-semibold">${money(item.lineTotal)}</div></div>`).join("")}</div>
+    </div>`).join("");
+  };
 
   // ---- M-05 Specification Editor & Freeze Baseline (UC-20, GBR-01/02/15) ----
   const CORE_COMBO_CATEGORIES = ["Sảnh", "Ẩm thực", "Trang trí", "MC", "Âm thanh & ánh sáng"];
@@ -223,7 +261,7 @@
     setField(root, "coupleName", project.coupleName);
     setField(root, "coupleNameConfirm", project.coupleName);
     setField(root, "hallName", project.hall);
-    setField(root, "slotLabel", SLOT_LABELS[project.slot] || project.slot);
+    setField(root, "slotLabel", `${SLOT_LABELS[project.slot] || project.slot} (${project.slotTime})`);
     setField(root, "eventDate", new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`)));
     const daysLeft = Math.max(0, Math.ceil((new Date(`${project.eventDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
     setField(root, "countdown", `T-${daysLeft} ngày`);

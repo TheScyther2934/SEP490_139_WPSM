@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using WPSM.Application.Persistence;
+using WPSM.Infrastructure.Email;
 using WPSM.Infrastructure.Persistence;
 using WPSM.Infrastructure.Persistence.Entities;
 
 namespace WPSM.Infrastructure.Persistence.Repositories;
 
-public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectReadModel readModel) : ISpecificationRoadmapRepository
+public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectReadModel readModel, IEmailOutbox emailOutbox, EmailOptions emailOptions) : ISpecificationRoadmapRepository
 {
     public async Task<WeddingProjectView?> UpdateSpecificationAsync(string projectCode, int managerId, SpecificationCommand command, CancellationToken cancellationToken = default)
     {
@@ -70,7 +71,7 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
 
     public async Task<WeddingProjectView?> FreezeBaselineAsync(string projectCode, int managerId, CancellationToken cancellationToken = default)
     {
-        var project = await db.WeddingProjects.Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem)
+        var project = await db.WeddingProjects.Include(x => x.Customer).Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem)
             .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
         if (project is null) return null;
         if (project.Status != "Active Baseline") throw new InvalidOperationException("Dự án không còn ở trạng thái có thể đóng băng baseline.");
@@ -129,6 +130,8 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
             LinkUrl = "/C03",
             CreatedAt = DateTime.UtcNow
         });
+        emailOutbox.Enqueue(project.Customer.Email, $"Hợp đồng gốc {project.ProjectCode} đã được chốt",
+            EmailTemplates.BaselineFrozen(project.Customer.FullName, project.ProjectCode, emailOptions.PublicBaseUrl), "Reminder", project.ProjectId);
         await db.SaveChangesAsync(cancellationToken);
         var loaded = await readModel.ProjectViewsQuery().SingleAsync(x => x.ProjectId == project.ProjectId, cancellationToken);
         return await readModel.MapProjectAsync(loaded, cancellationToken);

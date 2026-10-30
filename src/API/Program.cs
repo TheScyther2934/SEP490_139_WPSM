@@ -1,12 +1,18 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using WPSM.API;
 using WPSM.Application.Persistence;
+using WPSM.Infrastructure.Email;
+using WPSM.Infrastructure.Files;
+using WPSM.Infrastructure.Jobs;
 using WPSM.Infrastructure.Persistence;
 using WPSM.Infrastructure.Persistence.Entities;
 using WPSM.Infrastructure.Persistence.Repositories;
@@ -25,6 +31,45 @@ builder.Services.AddScoped<IAccountProfileRepository, AccountProfileRepository>(
 builder.Services.AddScoped<IWpsmPortalSnapshotReader, WpsmPortalSnapshotReader>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
+
+var signingKey = builder.Configuration["Files:SigningKey"];
+if (string.IsNullOrWhiteSpace(signingKey))
+{
+    if (!builder.Environment.IsDevelopment()) throw new InvalidOperationException("Thiếu Files:SigningKey. Hãy cấu hình bằng User Secrets hoặc biến môi trường.");
+    signingKey = RandomNumberGenerator.GetHexString(64);
+}
+var appDataPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
+builder.Services.AddSingleton(new FileStorageOptions
+{
+    RootPath = builder.Configuration["Files:RootPath"] ?? Path.Combine(appDataPath, "files"),
+    SigningKey = signingKey
+});
+builder.Services.AddSingleton(new EmailOptions
+{
+    Host = builder.Configuration["Smtp:Host"],
+    Port = builder.Configuration.GetValue("Smtp:Port", 587),
+    User = builder.Configuration["Smtp:User"],
+    Password = builder.Configuration["Smtp:Password"],
+    EnableSsl = builder.Configuration.GetValue("Smtp:EnableSsl", true),
+    From = builder.Configuration["Smtp:From"] ?? "no-reply@wpsm.local",
+    // Without SMTP settings, development writes .eml files instead of sending.
+    PickupDirectory = builder.Configuration["Smtp:PickupDirectory"] ?? (builder.Environment.IsDevelopment() ? Path.Combine(appDataPath, "mail") : null),
+    WebhookSecret = builder.Configuration["Smtp:WebhookSecret"],
+    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5231"
+});
+builder.Services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IEmailOutbox, EmailOutbox>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
+builder.Services.AddScoped<EmailDispatchJob>();
+var backgroundJobsEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true);
+if (backgroundJobsEnabled)
+{
+    builder.Services.AddHangfire(config => config.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings()
+        .UseSqlServerStorage(() => new SqlConnection(connectionString)));
+    builder.Services.AddHangfireServer(options => options.WorkerCount = 2);
+}
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
     options.Cookie.Name = "WPSM.Auth";
@@ -43,6 +88,8 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Wps
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<DevelopmentDatabaseSeeder>().SeedAsync();
 }
+if (backgroundJobsEnabled)
+    app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<EmailDispatchJob>("JOB-07-dispatch-emails", job => job.RunAsync(CancellationToken.None), Cron.Minutely());
 app.Use(async (context, next) =>
 {
     try { await next(); }
@@ -93,32 +140,53 @@ api.MapPut("/projects/{id}/specification", async (string id, SpecificationReques
 api.MapPost("/projects/{id}/freeze", async (string id, ISpecificationRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
     await repo.FreezeBaselineAsync(id, UserId(user), ct) is { } project ? Results.Ok(project) : Results.NotFound())
     .RequireAuthorization(policy => policy.RequireRole("Manager"));
-api.MapPost("/projects/{id}/nrd-receipt", async (string id, IFormFile receipt, IProjectRepository repo, ClaimsPrincipal user, IWebHostEnvironment environment, CancellationToken ct) =>
+api.MapPost("/projects/{id}/nrd-receipt", async (string id, IFormFile receipt, IProjectRepository repo, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
 {
-    var extension = Path.GetExtension(receipt.FileName).ToLowerInvariant();
-    if (receipt.Length is <= 0 or > 10 * 1024 * 1024 || extension is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
-        return Results.BadRequest(new { message = "Chứng từ phải là PDF/JPG/PNG và không vượt quá 10 MB." });
-    var directory = Path.Combine(environment.ContentRootPath, "App_Data", "receipts");
-    Directory.CreateDirectory(directory);
-    var fileName = $"{Guid.NewGuid():N}{extension}";
-    var absolutePath = Path.Combine(directory, fileName);
-    var relativePath = Path.Combine("receipts", fileName).Replace('\\', '/');
+    await using var content = receipt.OpenReadStream();
+    var stored = await files.UploadAsync(new FileUploadCommand(content, receipt.FileName, "NrdReceipt", id, UserId(user)), ct);
+    if (stored is null) return Results.NotFound();
     try
     {
-        await using (var stream = File.Create(absolutePath)) await receipt.CopyToAsync(stream, ct);
-        if (!await repo.RecordNrdReceiptAsync(id, UserId(user), relativePath, ct))
+        if (!await repo.RecordNrdReceiptAsync(id, UserId(user), stored.Id.ToString(), ct))
         {
-            File.Delete(absolutePath);
+            await files.DeleteAsync(stored.Id, CancellationToken.None);
             return Results.NotFound();
         }
-        return Results.Ok(new { projectCode = id, paymentStatus = "Paid" });
+        return Results.Ok(new { projectCode = id, paymentStatus = "Paid", fileId = stored.Id });
     }
     catch
     {
-        if (File.Exists(absolutePath)) File.Delete(absolutePath);
+        await files.DeleteAsync(stored.Id, CancellationToken.None);
         throw;
     }
 }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
+api.MapPost("/files", async (IFormFile file, [FromForm] string purpose, [FromForm] string projectCode, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
+{
+    await using var content = file.OpenReadStream();
+    return await files.UploadAsync(new FileUploadCommand(content, file.FileName, purpose, projectCode, UserId(user)), ct) is { } stored
+        ? Results.Created($"/api/wpsm/files/{stored.Id}", stored) : Results.NotFound();
+}).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
+api.MapGet("/files/{id:guid}", async (Guid id, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
+    await files.GetSignedUrlAsync(id, UserId(user), user.FindFirstValue(ClaimTypes.Role), ct) is { } url ? Results.Ok(url) : Results.NotFound())
+    .RequireAuthorization();
+api.MapGet("/files/{id:guid}/content", async (Guid id, long expires, string sig, IFileService files, HttpContext context, CancellationToken ct) =>
+{
+    if (await files.OpenSignedAsync(id, expires, sig, ct) is not { } file) return Results.StatusCode(StatusCodes.Status403Forbidden);
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    return Results.File(file.Content, file.ContentType, file.OriginalName);
+}).AllowAnonymous();
+api.MapPost("/notifications/email-status", async (HttpRequest request, IEmailDeliveryService delivery, CancellationToken ct) =>
+{
+    if (!delivery.IsConfigured) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    using var buffer = new MemoryStream();
+    await request.Body.CopyToAsync(buffer, ct);
+    if (buffer.Length > 64 * 1024) return Results.BadRequest();
+    var body = buffer.ToArray();
+    if (!delivery.VerifySignature(body, request.Headers["X-Wpsm-Signature"])) return Results.Unauthorized();
+    var payload = JsonSerializer.Deserialize<EmailStatusRequest>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    if (string.IsNullOrWhiteSpace(payload?.MessageId) || string.IsNullOrWhiteSpace(payload.Status)) return Results.BadRequest();
+    return await delivery.ApplyStatusAsync(payload.MessageId, payload.Status, payload.Error, ct) ? Results.NoContent() : Results.NotFound();
+}).AllowAnonymous();
 api.MapGet("/catalog", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetCatalogAsync(ct)))
     .RequireAuthorization();
 api.MapPost("/catalog", async (CatalogItemRequest request, IConfigurationRepository repo, CancellationToken ct) =>
@@ -202,6 +270,7 @@ static int UserId(ClaimsPrincipal user) => int.TryParse(user.FindFirstValue(Clai
 public sealed record CreateProjectRequest(string CoupleName, string CustomerEmail, string CustomerPhone, string Hall, string Slot,
     DateOnly EventDate, decimal BaseValue, decimal NrdAmount, string PaymentMethod = "Cash", string? ReceiptFilePath = null);
 public sealed record CreatedProjectResponse(WeddingProjectView Project, string? TemporaryPassword);
+public sealed record EmailStatusRequest(string? MessageId, string? Status, string? Error);
 public sealed record SpecificationRequest(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null);
 public sealed record CatalogItemRequest(string Name, string Category, string Unit, decimal BasePrice, bool Active);
 public sealed record PriceFrameRequest(decimal MinPrice, decimal MaxPrice, DateOnly? EffectiveFrom = null);
