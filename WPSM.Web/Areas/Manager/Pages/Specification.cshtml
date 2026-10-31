@@ -1,863 +1,118 @@
 @page "/M05"
 @{ ViewData["Title"] = "WPSM - Đặc tả & Chốt hợp đồng gốc (M-05)"; }
 <div data-wpsm-screen="M05">
+    @await Html.PartialAsync("/Areas/Manager/Pages/Shared/_ManagerNavigation.cshtml")
 
-<!-- ================= TOP APP BAR (Shared Component Anchor) ================= -->
-<header class="bg-surface border-b border-outline-variant sticky top-0 z-40 w-full transition-colors">
-<div class="flex justify-between items-center w-full px-4 md:px-8 max-w-7xl mx-auto h-16">
-<!-- Brand Logo / Headline & Location Identity -->
-<div class="flex items-center gap-4">
-<div class="flex items-center gap-2 cursor-pointer active:scale-[0.98] transition-transform duration-150">
-<span class="material-symbols-outlined text-primary text-2xl" data-icon="diamond">diamond</span>
-<span class="text-headline-md font-headline-md font-semibold text-primary tracking-wide">WPSM</span>
-</div>
-<div class="h-5 w-[1px] bg-outline-variant hidden sm:block"></div>
-<div class="hidden sm:flex items-center gap-2 text-on-surface-variant font-label-md text-label-md">
-<span class="material-symbols-outlined text-sm text-secondary" data-icon="location_on">location_on</span>
-<span>The Grand Palace Ballroom • <span class="font-semibold text-on-surface">4 Sảnh tiệc hoạt động</span></span>
-</div>
-</div>
-<!-- Trailing Cluster -->
-<div class="flex items-center gap-3">
-<!-- Notification Button -->
-<button class="relative p-2 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors active:scale-[0.98]" title="Thông báo hệ thống">
-<span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
-<span class="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-sm">5</span>
-</button>
-<!-- Help Button -->
-<button class="p-2 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors active:scale-[0.98]" title="Hỗ trợ nội bộ">
-<span class="material-symbols-outlined text-xl" data-icon="help">help</span>
-</button>
-<div class="h-6 w-[1px] bg-outline-variant mx-1"></div>
-<!-- User Profile Pill -->
-<div class="flex items-center gap-2.5 pl-2 py-1 pr-3 rounded-full hover:bg-surface-container border border-outline-variant/60 cursor-pointer active:scale-[0.98] transition-all">
-<img class="w-8 h-8 rounded-full object-cover border border-secondary-container" data-alt="Chân dung quản lý nữ thanh lịch tên Mai Anh trong trang phục quản lý vest nhung màu đỏ rượu vang burgundy cao cấp đứng tại sảnh tiệc đám cưới sang trọng ánh sáng vàng ấm áp chuyên nghiệp" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzujnDRDZwsFmMPiM4O4Yf2P1mgEpP6qB3C52GNAArvt4fvRjDIAvrXQgX1e09TdbLEy6-7n5jkWYlKmfPkmwTc8aSclzs2usBcjFC9-3LLGx-QnL_Ib2PAU3KqKcKk7N9uVcKDl5yfrTOjFQ4HOCP5Knp7BRid6r6RMJDJqQLNbDeY7vphbtAHjR96EOpUMht1xh7wrShk0HWFRq9VrWbcazz5fTJL7gnMYNjl5YJePe0l34yxSu6hA"/>
-<div class="hidden md:flex flex-col text-left">
-<span class="text-label-md font-label-md font-semibold text-on-surface leading-tight">QM Mai Anh</span>
-<span class="text-label-sm font-label-sm text-on-surface-variant">Quản lý</span>
-</div>
-<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="expand_more">expand_more</span>
-</div>
-</div>
-</div>
-</header>
-<div class="flex flex-1 w-full max-w-7xl mx-auto">
-<!-- ================= FIXED / STICKY SIDEBAR (Shared Component: SideNavBar) ================= -->
-<aside class="w-64 shrink-0 bg-surface border-r border-outline-variant hidden lg:flex flex-col justify-between p-4 sticky top-16 h-[calc(100vh-4rem)]">
-<!-- Top Section -->
-<div class="flex flex-col gap-5">
-<!-- Sidebar Header User Brief -->
-<div class="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl border border-outline-variant/50">
-<img class="w-10 h-10 rounded-full object-cover border border-primary/20" data-alt="Chân dung Mai Anh Quản lý Vận hành chụp phong cách doanh nhân ngành sự kiện đám cưới sang trọng gương mặt tin cậy đằm thắm ánh sáng dịu êm tông ấm ivory và burgundy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmgkcvBLEVrx6QkkqcrKe3XBceEcmwka2nq3OzxKrxpOFh60qD8D6Dm8CEOl4Y2V-W7KR1E74bcS33bsE3B4UXZSH2ciA63yofvSFkDucFEn1Fj2u_PRNEZhmTOGMKKL1uZllAoGj1D-9tnDa9Cn57A23rBY2NjMY9yPdg4yav4jgXn5IIhMgaKWEfaorbYUweZtB23MVwf14T6sIlZvQRxYGNPWzIxorQWDYzbsfnbMQYBhAa3ZY5HQ"/>
-<div class="flex flex-col overflow-hidden">
-<span class="text-title-sm font-title-sm text-on-surface font-semibold truncate">Mai Anh</span>
-<span class="text-label-sm font-label-sm text-on-surface-variant truncate">Quản lý Vận hành</span>
-</div>
-</div>
-<!-- Quick Action CTA -->
-<button class="w-full flex items-center justify-center gap-2 bg-primary hover:bg-[#5D1F31] text-white py-2.5 px-4 rounded-lg font-label-md text-label-md font-medium shadow-sm active:scale-[0.98] transition-all duration-150">
-<span class="material-symbols-outlined text-base" data-icon="add">add</span>
-<span>+ Khởi tạo hợp đồng</span>
-</button>
-<!-- Navigation Tab List -->
-<nav class="flex flex-col gap-1">
-<!-- 1. Tổng quan -->
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container hover:text-primary rounded-lg transition-colors duration-150 active:scale-[0.98]" href="#">
-<span class="material-symbols-outlined text-xl" data-icon="dashboard">dashboard</span>
-<span class="text-label-md font-label-md">Tổng quan</span>
-</a>
-<!-- 2. Dự án (Active Semantic Match for WPSM-2026-014 Specification Editor) -->
-<a class="flex items-center justify-between px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-bold shadow-sm transition-all duration-150" href="#">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-xl text-primary" data-icon="folder_special">folder_special</span>
-<span class="text-label-md font-label-md text-primary font-bold">Dự án</span>
-</div>
-<span class="w-2 h-2 rounded-full bg-primary"></span>
-</a>
-<!-- 3. Lịch tài nguyên -->
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container hover:text-primary rounded-lg transition-colors duration-150 active:scale-[0.98]" href="#">
-<span class="material-symbols-outlined text-xl" data-icon="calendar_month">calendar_month</span>
-<span class="text-label-md font-label-md">Lịch tài nguyên</span>
-</a>
-<!-- 4. Cảnh báo quá hạn -->
-<a class="flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container hover:text-primary rounded-lg transition-colors duration-150 active:scale-[0.98]" href="#">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-xl" data-icon="warning">warning</span>
-<span class="text-label-md font-label-md">Cảnh báo quá hạn</span>
-</div>
-<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]">3</span>
-</a>
-<!-- 5. Thông báo -->
-<a class="flex items-center justify-between px-4 py-3 text-on-surface-variant hover:bg-surface-container hover:text-primary rounded-lg transition-colors duration-150 active:scale-[0.98]" href="#">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
-<span class="text-label-md font-label-md">Thông báo</span>
-</div>
-<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary text-white">5</span>
-</a>
-<!-- 6. Hồ sơ -->
-<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container hover:text-primary rounded-lg transition-colors duration-150 active:scale-[0.98]" href="#">
-<span class="material-symbols-outlined text-xl" data-icon="account_circle">account_circle</span>
-<span class="text-label-md font-label-md">Hồ sơ</span>
-</a>
-</nav>
-</div>
-<!-- Bottom Operational Status & Footer Links -->
-<div class="flex flex-col gap-3 pt-4 border-t border-outline-variant/60">
-<!-- Room Capacity Widget -->
-<div class="p-3 bg-surface-container rounded-lg border border-outline-variant/40">
-<div class="flex justify-between items-center mb-1.5">
-<span class="text-label-sm font-label-sm text-on-surface-variant font-medium">Sức chứa sảnh hôm nay</span>
-<span class="text-label-sm font-label-sm font-bold text-primary">82%</span>
-</div>
-<div class="w-full bg-outline-variant/40 h-1.5 rounded-full overflow-hidden">
-<div class="bg-primary h-full rounded-full" style="width: 82%"></div>
-</div>
-<p class="text-[11px] text-on-surface-variant mt-2 flex items-center gap-1">
-<span class="material-symbols-outlined text-xs text-secondary" data-icon="call">call</span>
-            Hotline Nội bộ: <span class="font-semibold text-on-surface">1900 6868</span>
-</p>
-</div>
-<div class="flex items-center justify-between px-2 text-on-surface-variant">
-<a class="flex items-center gap-1.5 hover:text-primary transition-colors text-label-sm font-label-sm" href="#">
-<span class="material-symbols-outlined text-sm" data-icon="help">help</span>
-            Hỗ trợ
-          </a>
-<a class="flex items-center gap-1.5 hover:text-primary transition-colors text-label-sm font-label-sm" href="#">
-<span class="material-symbols-outlined text-sm" data-icon="settings">settings</span>
-            Cài đặt
-          </a>
-</div>
-</div>
-</aside>
-<!-- ================= MAIN CONTENT WRAPPER ================= -->
-<main class="flex-1 min-w-0 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
-<!-- Breadcrumbs & Status Alerts -->
-<div class="flex flex-col gap-3">
-<!-- Breadcrumb Row -->
-<nav class="flex items-center gap-2 text-label-sm font-label-sm text-on-surface-variant flex-wrap">
-<a class="hover:text-primary transition-colors" href="#">Trang chủ</a>
-<span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
-<a class="hover:text-primary transition-colors" href="#">Quản lý vận hành</a>
-<span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
-<a class="hover:text-primary transition-colors" href="#">Dự án đám cưới</a>
-<span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
-<span class="font-medium text-on-surface">WPSM-2026-014</span>
-<span class="material-symbols-outlined text-xs text-outline" data-icon="chevron_right">chevron_right</span>
-<span class="text-primary font-semibold">Đặc tả &amp; Chốt hợp đồng gốc (M-05)</span>
-</nav>
-<!-- Simulated Freeze Notification Banner (Toggleable demonstration of the Frozen State) -->
-<div class="hidden flex items-center justify-between px-4 py-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl text-on-surface" id="freezeBanner">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-secondary text-xl" data-icon="lock">lock</span>
-<div>
-<p class="font-title-sm text-title-sm font-semibold text-[#92400E]">Hợp đồng gốc đã chốt (Phiên bản 1 - Baseline Frozen)</p>
-<p class="text-body-sm text-body-sm text-[#78350F]">Toàn bộ dữ liệu đặc tả đã đóng băng. Mọi cập nhật phát sinh bắt buộc thực hiện qua tab "Yêu cầu thay đổi (CR)".</p>
-</div>
-</div>
-<span class="px-2.5 py-1 rounded-full text-label-sm font-label-sm font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] flex items-center gap-1">
-<span class="material-symbols-outlined text-xs" data-icon="verified">verified</span>
-            Baseline v1.0
-          </span>
-</div>
-</div>
-<!-- ================= TOP PROJECT HEADER STRIP ================= -->
-<section class="bg-white rounded-xl border border-[#E8E2DD] p-5 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04),0_1px_3px_-1px_rgba(139,46,74,0.03)] relative overflow-hidden">
-<!-- Top Champagne Gold Accent Stripe -->
-<div class="absolute top-0 left-0 right-0 h-1 bg-[#C9A66B]"></div>
-<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-<!-- Left: Couple & Project Identity -->
-<div class="flex flex-col gap-1">
-<div class="flex items-center gap-3 flex-wrap">
-<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-surface-container text-on-surface-variant font-semibold border border-outline-variant">Mã: WPSM-2026-014</span>
-<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] font-semibold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse"></span>
-                Active Baseline (Đang nhập đặc tả)
-              </span>
-<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-bold">
-                T-58 ngày
-              </span>
-</div>
-<h1 class="font-headline-md text-headline-md font-semibold text-primary mt-1">
-              Nguyễn Minh Anh &amp; Trần Thu Hà
-            </h1>
-</div>
-<!-- Right: Key Event Details Strip -->
-<div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 lg:pt-0 lg:border-l lg:border-outline-variant/60 lg:pl-6">
-<div>
-<p class="text-label-sm font-label-sm text-on-surface-variant">Sảnh tiệc</p>
-<div class="inline-flex items-center gap-1 px-2 py-0.5 mt-0.5 bg-[#FAF7F5] rounded border border-[#C9A66B]/60 text-secondary font-title-sm text-title-sm font-semibold">
-<span class="material-symbols-outlined text-xs" data-icon="star">star</span>
-                Sảnh Hoa Hồng
-              </div>
-</div>
-<div>
-<p class="text-label-sm font-label-sm text-on-surface-variant">Thời gian &amp; Ca tiệc</p>
-<p class="text-title-sm font-title-sm font-semibold text-on-surface mt-0.5">Tối (17:30 - 22:00)</p>
-<p class="text-body-sm font-body-sm text-on-surface-variant">Ngày: 20/12/2026</p>
-</div>
-<div class="col-span-2 sm:col-span-1">
-<p class="text-label-sm font-label-sm text-on-surface-variant">Tiến độ quy trình</p>
-<div class="flex items-center gap-2 mt-1">
-<div class="w-24 bg-surface-container h-2 rounded-full overflow-hidden">
-<div class="bg-primary h-full rounded-full" style="width: 80%"></div>
-</div>
-<span class="text-label-sm font-label-sm font-bold text-primary">80%</span>
-</div>
-<p class="text-[11px] text-on-surface-variant mt-0.5">Giai đoạn M-05</p>
-</div>
-</div>
-</div>
-</section>
-<!-- ================= THREE-REGION WORKSPACE LAYOUT ================= -->
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-<!-- REGION 1: Left Narrow Column (Category Sidebar & Filter) -->
-<div class="xl:col-span-3 flex flex-col gap-4">
-<div class="bg-white rounded-xl border border-[#E8E2DD] p-4 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)]">
-<div class="flex items-center justify-between pb-3 border-b border-outline-variant/40 mb-3">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-xl" data-icon="category">category</span>
-<h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Danh mục dịch vụ</h3>
-</div>
-<span class="text-label-sm font-label-sm font-semibold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">6 mục</span>
-</div>
-<!-- Search inside categories -->
-<div class="relative mb-3">
-<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg" data-icon="search">search</span>
-<input class="w-full pl-9 pr-3 py-1.5 text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all outline-none" placeholder="Tìm theo tên hạng mục..." type="text"/>
-</div>
-<!-- Category List -->
-<ul class="flex flex-col gap-1 text-label-md font-label-md">
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-primary-container text-white font-medium transition-all shadow-sm">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base" data-icon="dataset">dataset</span>
-<span>Tất cả hạng mục</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-bold">6</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="meeting_room">meeting_room</span>
-<span>Thuê sảnh</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="restaurant_menu">restaurant_menu</span>
-<span>Thực đơn tiệc</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="palette">palette</span>
-<span>Trang trí sân khấu</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="mic">mic</span>
-<span>MC nghi thức</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="speaker">speaker</span>
-<span>Âm thanh &amp; ánh sáng (AV)</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-<li>
-<button class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="photo_camera">photo_camera</span>
-<span>Quay chụp &amp; Truyền thông</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-[11px] font-medium">1</span>
-</button>
-</li>
-</ul>
-<!-- Core Combo Policy Callout Note -->
-<div class="mt-4 p-3 bg-[#FFF8F5] rounded-lg border border-[#C9A66B]/40 text-on-surface">
-<div class="flex items-center gap-1.5 text-secondary font-title-sm text-title-sm font-semibold mb-1">
-<span class="material-symbols-outlined text-base" data-icon="verified_user">verified_user</span>
-                Quy chuẩn Core Combo
-              </div>
-<p class="text-[12px] leading-relaxed text-on-surface-variant">
-                Hợp đồng tiệc bắt buộc phải bao gồm đủ 5 hạng mục nền tảng (Sảnh, Menu, Decor, MC, AV) để được phép kích hoạt chốt khóa Baseline.
-              </p>
-</div>
-</div>
-</div>
-<!-- REGION 2: Center Main Area (Editable Spec Items Table) -->
-<div class="xl:col-span-6 flex flex-col gap-4">
-<div class="bg-white rounded-xl border border-[#E8E2DD] shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] overflow-hidden">
-<!-- Table Header Strip -->
-<div class="p-4 sm:p-5 border-b border-[#E8E2DD] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white">
-<div>
-<h2 class="font-title-md text-title-md font-bold text-on-surface flex items-center gap-2">
-                  Danh sách đặc tả dịch vụ
-                  <span class="text-label-sm font-label-sm font-normal text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">6/6 Hạng mục đã cấu hình</span>
-</h2>
-<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">Kiểm tra thông số kỹ thuật, số lượng và khung giá trước khi đóng băng baseline</p>
-</div>
-<!-- CTA to trigger catalog picker -->
-<button class="shrink-0 flex items-center gap-2 border border-secondary text-secondary hover:bg-secondary/10 px-3.5 py-2 rounded-lg text-label-md font-label-md font-medium active:scale-[0.98] transition-all" onclick="document.getElementById('catalogModal').classList.remove('hidden')">
-<span class="material-symbols-outlined text-base text-secondary" data-icon="add_circle">add_circle</span>
-                + Thêm hạng mục từ Catalog
-              </button>
-</div>
-<!-- Table Content -->
-<div class="overflow-x-auto custom-scroll">
-<table class="w-full text-left border-collapse min-w-[700px]">
-<thead>
-<tr class="bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm border-b border-[#E8E2DD]">
-<th class="py-3 px-3 w-8 text-center">#</th>
-<th class="py-3 px-3">Hạng mục &amp; Phân loại</th>
-<th class="py-3 px-3">Mô tả đặc tả kỹ thuật</th>
-<th class="py-3 px-3 text-center">Số lượng</th>
-<th class="py-3 px-3 text-right">Đơn giá (₫) &amp; Khung giá</th>
-<th class="py-3 px-3 text-right">Thành tiền (₫)</th>
-<th class="py-3 px-3 text-center w-12">Thao tác</th>
-</tr>
-</thead>
-<tbody class="divide-y divide-[#E8E2DD] text-body-sm font-body-sm">
-<!-- ROW 1: Thuê sảnh -->
-<tr class="hover:bg-surface-container-low/40 transition-colors">
-<td class="py-3 px-3 text-center text-outline cursor-grab">
-<span class="material-symbols-outlined text-sm" data-icon="drag_indicator">drag_indicator</span>
-</td>
-<td class="py-3 px-3 align-top">
-<div class="font-semibold text-on-surface">Thuê sảnh Hoa Hồng</div>
-<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#FAF7F5] border border-[#C9A66B]/50 text-secondary">
-                        Sảnh tiệc
-                      </span>
-</td>
-<td class="py-3 px-3 align-top text-on-surface-variant text-[12px] leading-relaxed max-w-xs">
-                      Ca tối, tiệc chính 350-450 khách, điều hòa âm trần &amp; vệ sinh chuyên biệt
-                    </td>
-<td class="py-3 px-3 align-top text-center whitespace-nowrap">
-<span class="inline-block px-2 py-1 bg-surface-container rounded font-medium text-on-surface text-[12px]">1 Gói</span>
-</td>
-<td class="py-3 px-3 align-top text-right whitespace-nowrap">
-<div class="font-semibold text-on-surface">60.000.000 ₫</div>
-<span class="text-[11px] text-on-surface-variant block mt-0.5">Khung: 50M - 70M</span>
-</td>
-<td class="py-3 px-3 align-top text-right font-bold text-primary whitespace-nowrap">
-                      60.000.000 ₫
-                    </td>
-<td class="py-3 px-3 align-top text-center">
-<button class="p-1 text-outline hover:text-error transition-colors rounded" title="Xóa hạng mục">
-<span class="material-symbols-outlined text-base" data-icon="delete">delete</span>
-</button>
-</td>
-</tr>
-<!-- ROW 2: Thực đơn 8 món -->
-<tr class="hover:bg-surface-container-low/40 transition-colors">
-<td class="py-3 px-3 text-center text-outline cursor-grab">
-<span class="material-symbols-outlined text-sm" data-icon="drag_indicator">drag_indicator</span>
-</td>
-<td class="py-3 px-3 align-top">
-<div class="font-semibold text-on-surface">Thực đơn set menu 8 món Hoàng Gia</div>
-<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46]">
-                        Ẩm thực
-                      </span>
-</td>
-<td class="py-3 px-3 align-top text-on-surface-variant text-[12px] leading-relaxed max-w-xs">
-                      Gỏi ngó sen tôm thịt, Súp hải sản vi cá bào ngư, Cá chẽm hấp Hong Kong, Bò Úc sốt tiêu đen, Gà quay da giòn, Cơm chiên hoàng bào, Canh bóng thập cẩm, Chè hạt sen nhãn nhục
-                    </td>
-<td class="py-3 px-3 align-top text-center whitespace-nowrap">
-<span class="inline-block px-2 py-1 bg-surface-container rounded font-medium text-on-surface text-[12px]">40 Bàn</span>
-</td>
-<td class="py-3 px-3 align-top text-right whitespace-nowrap">
-<div class="font-semibold text-on-surface">4.500.000 ₫</div>
-<span class="text-[11px] text-on-surface-variant block mt-0.5">Khung: 4M - 6M/bàn</span>
-</td>
-<td class="py-3 px-3 align-top text-right font-bold text-primary whitespace-nowrap">
-                      180.000.000 ₫
-                    </td>
-<td class="py-3 px-3 align-top text-center">
-<button class="p-1 text-outline hover:text-error transition-colors rounded" title="Xóa hạng mục">
-<span class="material-symbols-outlined text-base" data-icon="delete">delete</span>
-</button>
-</td>
-</tr>
-<!-- ROW 3: Decor Sân khấu -->
-<tr class="hover:bg-surface-container-low/40 transition-colors">
-<td class="py-3 px-3 text-center text-outline cursor-grab">
-<span class="material-symbols-outlined text-sm" data-icon="drag_indicator">drag_indicator</span>
-</td>
-<td class="py-3 px-3 align-top">
-<div class="font-semibold text-on-surface">Trang trí sân khấu &amp; Sảnh đón khách</div>
-<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#FAF7F5] border border-[#C9A66B]/50 text-secondary">
-                        Decor Luxury
-                      </span>
-</td>
-<td class="py-3 px-3 align-top text-on-surface-variant text-[12px] leading-relaxed max-w-xs">
-                      Gói Hoàng Kim: 70% hoa tươi nhập khẩu, 30% hoa lụa cao cấp, cổng hoa vòm đôi, photobooth 4x3m
-                    </td>
-<td class="py-3 px-3 align-top text-center whitespace-nowrap">
-<span class="inline-block px-2 py-1 bg-surface-container rounded font-medium text-on-surface text-[12px]">1 Gói</span>
-</td>
-<td class="py-3 px-3 align-top text-right whitespace-nowrap">
-<div class="font-semibold text-on-surface">85.000.000 ₫</div>
-<span class="text-[11px] text-on-surface-variant block mt-0.5">Khung: 70M - 100M</span>
-</td>
-<td class="py-3 px-3 align-top text-right font-bold text-primary whitespace-nowrap">
-                      85.000.000 ₫
-                    </td>
-<td class="py-3 px-3 align-top text-center">
-<button class="p-1 text-outline hover:text-error transition-colors rounded" title="Xóa hạng mục">
-<span class="material-symbols-outlined text-base" data-icon="delete">delete</span>
-</button>
-</td>
-</tr>
-<!-- ROW 4: MC Song ngữ -->
-<tr class="hover:bg-surface-container-low/40 transition-colors">
-<td class="py-3 px-3 text-center text-outline cursor-grab">
-<span class="material-symbols-outlined text-sm" data-icon="drag_indicator">drag_indicator</span>
-</td>
-<td class="py-3 px-3 align-top">
-<div class="font-semibold text-on-surface">MC song ngữ cao cấp</div>
-<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#EFF6FF] border border-[#BFDBFE] text-[#1D4ED8]">
-                        Nhân sự
-                      </span>
-</td>
-<td class="py-3 px-3 align-top text-on-surface-variant text-[12px] leading-relaxed max-w-xs">
-                      MC nam/nữ dẫn lễ song ngữ Anh - Việt, kịch bản nghi thức chuẩn khách sạn 5 sao
-                    </td>
-<td class="py-3 px-3 align-top text-center whitespace-nowrap">
-<span class="inline-block px-2 py-1 bg-surface-container rounded font-medium text-on-surface text-[12px]">1 Buổi</span>
-</td>
-<td class="py-3 px-3 align-top text-right whitespace-nowrap">
-<div class="font-semibold text-on-surface">12.000.000 ₫</div>
-<span class="text-[11px] text-on-surface-variant block mt-0.5">Khung: 8M - 12M</span>
-</td>
-<td class="py-3 px-3 align-top text-right font-bold text-primary whitespace-nowrap">
-                      12.000.000 ₫
-                    </td>
-<td class="py-3 px-3 align-top text-center">
-<button class="p-1 text-outline hover:text-error transition-colors rounded" title="Xóa hạng mục">
-<span class="material-symbols-outlined text-base" data-icon="delete">delete</span>
-</button>
-</td>
-</tr>
-<!-- ROW 5: AV with Validation Warning Demonstrating Stale / Frame Exceeded Alert -->
-<tr class="bg-[#FEF2F2]/40 border-l-4 border-l-[#B91C1C] hover:bg-[#FEF2F2]/70 transition-colors">
-<td class="py-3 px-3 text-center text-outline cursor-grab">
-<span class="material-symbols-outlined text-sm" data-icon="drag_indicator">drag_indicator</span>
-</td>
-<td class="py-3 px-3 align-top">
-<div class="font-semibold text-on-surface">Âm thanh &amp; Ánh sáng tiệc cưới chuyên nghiệp</div>
-<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEF2F2] border border-[#FECACA] text-[#991B1B]">
-                        Kỹ thuật AV
-                      </span>
-</td>
-<td class="py-3 px-3 align-top text-on-surface-variant text-[12px] leading-relaxed max-w-xs">
-                      Hệ thống loa Line Array 5.000W, mixer digital, 6 đèn follow spotlight, 12 moving beam
-                    </td>
-<td class="py-3 px-3 align-top text-center whitespace-nowrap">
-<span class="inline-block px-2 py-1 bg-white border border-[#E8E2DD] rounded font-medium text-on-surface text-[12px]">1 Show</span>
-</td>
-<td class="py-3 px-3 align-top text-right whitespace-nowrap">
-<input class="text-right text-[13px] font-bold text-[#B91C1C] w-28 px-2 py-1 bg-white border border-[#FECACA] rounded focus:ring-1 focus:ring-[#B91C1C] outline-none" type="text" value="13.500.000 ₫"/>
-<div class="text-[11px] text-[#991B1B] font-medium mt-1 flex items-center justify-end gap-1">
-<span class="material-symbols-outlined text-xs" data-icon="error">error</span>
-                        Vượt khung (8M - 12M ₫)
-                      </div>
-</td>
-<td class="py-3 px-3 align-top text-right font-bold text-primary whitespace-nowrap">
-                      13.500.000 ₫
-                    </td>
-<td class="py-3 px-3 align-top text-center">
-<button class="p-1 text-outline hover:text-error transition-colors rounded" title="Xóa hạng mục">
-<span class="material-symbols-outlined text-base" data-icon="delete">delete</span>
-</button>
-</td>
-</tr>
-<!-- ROW 6: Media Photo & Video -->
-<tr class="hover:bg-surface-container-low/40 transition-colors">
-<td class="py-3 px-3 text-center text-outline cursor-grab">
-<span class="material-symbols-outlined text-sm" data-icon="drag_indicator">drag_indicator</span>
-</td>
-<td class="py-3 px-3 align-top">
-<div class="font-semibold text-on-surface">Quay chụp phóng sự cưới (Media)</div>
-<span class="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#F1F5F9] border border-[#CBD5E1] text-[#334155]">
-                        Truyền thông
-                      </span>
-</td>
-<td class="py-3 px-3 align-top text-on-surface-variant text-[12px] leading-relaxed max-w-xs">
-                      2 Máy quay 4K, 2 Nhiếp ảnh gia suốt tiệc, flycam sảnh tiệc
-                    </td>
-<td class="py-3 px-3 align-top text-center whitespace-nowrap">
-<span class="inline-block px-2 py-1 bg-surface-container rounded font-medium text-on-surface text-[12px]">1 Gói</span>
-</td>
-<td class="py-3 px-3 align-top text-right whitespace-nowrap">
-<div class="font-semibold text-on-surface">25.000.000 ₫</div>
-<span class="text-[11px] text-on-surface-variant block mt-0.5">Khung: 20M - 30M</span>
-</td>
-<td class="py-3 px-3 align-top text-right font-bold text-primary whitespace-nowrap">
-                      25.000.000 ₫
-                    </td>
-<td class="py-3 px-3 align-top text-center">
-<button class="p-1 text-outline hover:text-error transition-colors rounded" title="Xóa hạng mục">
-<span class="material-symbols-outlined text-base" data-icon="delete">delete</span>
-</button>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-<!-- Table Footer Quick Summary -->
-<div class="p-4 bg-surface-container-low flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-[#E8E2DD]">
-<span class="text-body-sm font-body-sm text-on-surface-variant">
-                Đang hiển thị <strong>6</strong> hạng mục hợp đồng
-              </span>
-<div class="flex items-center gap-4">
-<span class="text-body-sm text-on-surface-variant">Tổng tạm tính:</span>
-<span class="font-title-lg text-title-lg font-bold text-primary">375.500.000 ₫</span>
-</div>
-</div>
-</div>
-</div>
-<!-- REGION 3: Right Panel (Validation Checklist & Financial Reconciliation) -->
-<div class="xl:col-span-3 flex flex-col gap-4">
-<!-- Card 1: Core Combo Checklist -->
-<div class="bg-white rounded-xl border border-[#E8E2DD] p-4 sm:p-5 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)]">
-<div class="flex items-center justify-between pb-3 border-b border-[#E8E2DD]">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-xl" data-icon="checklist">checklist</span>
-<h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Kiểm tra Core Combo</h3>
-</div>
-<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold">5/5 Bắt buộc</span>
-</div>
-<!-- Validation List Items -->
-<ul class="flex flex-col gap-3 my-4">
-<!-- Item 1: Hall -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
-<div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">1. Thuê sảnh:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">Đã chọn Sảnh Hoa Hồng (Ca Tối)</p>
-</div>
-</li>
-<!-- Item 2: Menu -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
-<div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">2. Thực đơn tiệc:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">Set menu 8 món - 40 bàn chính</p>
-</div>
-</li>
-<!-- Item 3: Decor -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
-<div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">3. Trang trí sân khấu:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">Gói Hoàng Kim cao cấp</p>
-</div>
-</li>
-<!-- Item 4: MC -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#15803D] text-lg shrink-0 mt-0.5" data-icon="check_circle">check_circle</span>
-<div class="text-[13px] leading-tight">
-<span class="font-semibold text-on-surface">4. MC nghi thức:</span>
-<p class="text-on-surface-variant text-[12px] mt-0.5">MC Song ngữ dẫn lễ chuẩn 5 sao</p>
-</div>
-</li>
-<!-- Item 5: AV (Needs adjustment) -->
-<li class="flex items-start gap-2.5">
-<span class="material-symbols-outlined text-[#C2410C] text-lg shrink-0 mt-0.5" data-icon="warning">warning</span>
-<div class="text-[13px] leading-tight">
-<span class="font-semibold text-[#9A3412]">5. Âm thanh ánh sáng (AV):</span>
-<p class="text-[#C2410C] text-[12px] mt-0.5">Đã chọn gói nhưng cần chuẩn hóa khung giá</p>
-</div>
-</li>
-</ul>
-<!-- Missing AV Rule Simulator Note -->
-<div class="p-3 bg-[#FFFBEB] rounded-lg border border-[#FDE68A] text-on-surface">
-<div class="flex items-center gap-1 text-[#92400E] font-semibold text-label-sm font-label-sm">
-<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
-                Quy tắc đóng băng nghiêm ngặt:
-              </div>
-<p class="text-[11px] text-[#78350F] mt-1">
-                "Nếu thiếu bất kỳ dịch vụ nào trong 5 Core Combo: Hệ thống sẽ khóa nút Chốt Baseline và báo lỗi không thể hoàn tất."
-              </p>
-</div>
-</div>
-<!-- Card 2: Financial Reconciliation -->
-<div class="bg-white rounded-xl border border-[#E8E2DD] p-4 sm:p-5 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)]">
-<div class="flex items-center justify-between pb-3 border-b border-[#E8E2DD]">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-xl" data-icon="account_balance_wallet">account_balance_wallet</span>
-<h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Đối soát Tài chính</h3>
-</div>
-<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold">Khớp 100%</span>
-</div>
-<div class="flex flex-col gap-3 my-4 text-body-sm font-body-sm">
-<div class="flex items-center justify-between">
-<span class="text-on-surface-variant">Giá trị hợp đồng gốc:</span>
-<span class="font-semibold text-on-surface">375.500.000 ₫</span>
-</div>
-<div class="flex items-center justify-between">
-<span class="text-on-surface-variant">Tổng đặc tả hiện tại:</span>
-<span class="font-bold text-primary">375.500.000 ₫</span>
-</div>
-<div class="flex items-center justify-between p-2 rounded bg-surface-container-low border border-outline-variant/40">
-<span class="text-label-sm font-label-sm text-on-surface-variant font-medium">Chênh lệch (Delta):</span>
-<span class="text-label-sm font-label-sm font-bold text-[#15803D] flex items-center gap-1">
-<span class="material-symbols-outlined text-sm" data-icon="check">check</span>
-                  0 ₫ (Khớp 100%)
-                </span>
-</div>
-<!-- Payment Progress Track Component -->
-<div class="mt-2 pt-3 border-t border-outline-variant/40">
-<div class="flex justify-between items-center text-label-sm font-label-sm mb-1.5">
-<span class="text-on-surface-variant">Tiền cọc NRD đã thu (30%):</span>
-<span class="font-bold text-primary">112.650.000 ₫</span>
-</div>
-<!-- 3-tier Segmented Bar -->
-<div class="flex h-2 w-full rounded-full overflow-hidden bg-[#E8E2DD] gap-0.5">
-<div class="bg-primary h-full" style="width: 30%" title="Đặt cọc giữ chỗ NRD 30% - ĐÃ THU"></div>
-<div class="bg-[#DAC0C4] h-full" style="width: 40%" title="Chốt thực đơn (40%) - Chưa thu"></div>
-<div class="bg-[#E8E2DD] h-full" style="width: 30%" title="Tất toán sau tiệc (30%) - Chưa thu"></div>
-</div>
-<div class="flex justify-between text-[10px] text-on-surface-variant mt-1.5 font-medium">
-<span class="text-primary font-bold">Cọc NRD: 30% ✓</span>
-<span>Chốt Menu: 40%</span>
-<span>Tất toán: 30%</span>
-</div>
-</div>
-</div>
-<div class="p-2.5 rounded-lg bg-surface-container flex items-center gap-2 text-on-surface-variant text-[11px]">
-<span class="material-symbols-outlined text-sm text-secondary" data-icon="receipt_long">receipt_long</span>
-              Hóa đơn VAT và phụ lục đi kèm sẽ tạo sau khi Freeze.
+    <header class="ml-64 sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/30 bg-surface-container-lowest px-6 py-3 shadow-sm">
+        <div>
+            <p class="text-label-md text-on-surface-variant">Dự án <span class="mx-1 text-outline-variant">/</span> Đặc tả &amp; Chốt hợp đồng gốc (M-05)</p>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+                <span class="rounded-md border border-outline-variant/40 bg-surface-container-low px-2.5 py-1 font-label-md text-label-md text-on-surface">Mã: <strong data-m05="project-code">Chưa chọn</strong></span>
+                <span class="rounded-md border border-secondary/30 bg-secondary-fixed/30 px-2.5 py-1 font-label-md text-label-md font-semibold text-secondary" data-m05="hall">Chọn dự án để bắt đầu</span>
+                <span data-m05="baseline-status" class="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-label-md font-semibold text-amber-800">Chưa chọn dự án</span>
             </div>
-</div>
-</div>
-</div>
-</main>
-</div>
-<!-- ================= STICKY BOTTOM ACTION BAR ================= -->
-<aside class="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E8E2DD] shadow-[0_-4px_16px_rgba(43,38,37,0.06)]">
-<div class="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
-<!-- Left: Auto-save status & Back action -->
-<div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
-<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md active:scale-[0.98]">
-<span class="material-symbols-outlined text-lg" data-icon="arrow_back">arrow_back</span>
-<span>Quay lại Dự án</span>
-</button>
-<div class="h-4 w-[1px] bg-outline-variant hidden sm:block"></div>
-<div class="flex items-center gap-2 text-label-sm font-label-sm text-on-surface-variant">
-<span class="material-symbols-outlined text-base text-[#15803D]" data-icon="cloud_done">cloud_done</span>
-<span>Lưu nháp tự động lúc <strong class="text-on-surface">14:35</strong></span>
-</div>
-</div>
-<!-- Right: Secondary & Primary Freeze Actions -->
-<div class="flex items-center gap-3 w-full sm:w-auto justify-end">
-<!-- Draft Save Button -->
-<button class="px-4 py-2 rounded-lg border border-[#C9A66B] text-secondary hover:bg-[#C9A66B]/10 font-label-md text-label-md font-semibold transition-all active:scale-[0.98]">
-          Lưu nháp đặc tả
-        </button>
-<!-- Freeze Baseline Primary Trigger -->
-<button class="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-[#5D1F31] text-white font-label-md text-label-md font-semibold shadow-md active:scale-[0.98] transition-all" onclick="document.getElementById('freezeModal').classList.remove('hidden')">
-<span class="material-symbols-outlined text-lg" data-icon="lock">lock</span>
-<span>Chốt hợp đồng gốc (Freeze Baseline)</span>
-</button>
-</div>
-</div>
-</aside>
-<!-- ================= FOOTER (Shared Component Anchor) ================= -->
-<footer class="bg-surface border-t border-outline-variant w-full transition-colors mt-auto">
-<div class="flex flex-col md:flex-row justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto gap-3 text-center md:text-left">
-<div class="flex items-center gap-3">
-<span class="text-title-md font-title-md font-semibold text-primary">WPSM</span>
-<span class="text-body-sm font-body-sm text-on-surface-variant">© 2025 WPSM Wedding Management. All rights reserved.</span>
-</div>
-<div class="flex items-center gap-6 text-body-sm font-body-sm">
-<a class="text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">Điều khoản dịch vụ</a>
-<a class="text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">Chính sách bảo mật</a>
-<a class="text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">Hỗ trợ khẩn cấp</a>
-</div>
-</div>
-</footer>
-<!-- ================= MODAL 1: FREEZE CONFIRMATION DIALOG ================= -->
-<div class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2B2625]/50 backdrop-blur-sm animate-fade-in" id="freezeModal">
-<div class="bg-white w-full max-w-lg rounded-2xl border border-[#E8E2DD] shadow-[0_20px_32px_-8px_rgba(43,38,37,0.12),0_8px_16px_-4px_rgba(139,46,74,0.06)] overflow-hidden">
-<!-- Header -->
-<div class="p-6 border-b border-[#E8E2DD] bg-[#FAF7F5] flex items-center justify-between">
-<div class="flex items-center gap-3">
-<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-xl" data-icon="lock">lock</span>
-</div>
-<div>
-<h3 class="font-title-md text-title-md font-bold text-on-surface">Xác nhận chốt hợp đồng gốc</h3>
-<p class="text-label-sm font-label-sm text-on-surface-variant">Freeze Baseline Version 1.0</p>
-</div>
-</div>
-<button class="text-outline hover:text-on-surface" onclick="document.getElementById('freezeModal').classList.add('hidden')">
-<span class="material-symbols-outlined text-xl" data-icon="close">close</span>
-</button>
-</div>
-<!-- Content -->
-<div class="p-6 flex flex-col gap-4 text-body-md font-body-md">
-<div class="p-3.5 bg-[#FEF2F2] rounded-xl border border-[#FECACA] flex gap-3 text-on-surface">
-<span class="material-symbols-outlined text-[#B91C1C] text-xl shrink-0" data-icon="warning">warning</span>
-<p class="text-[13px] leading-relaxed text-[#7F1D1D]">
-<strong>Cảnh báo quan trọng:</strong> Thao tác này không thể hoàn tác trực tiếp. Sau khi chốt, toàn bộ đặc tả dịch vụ sẽ được khóa cố định (Freeze Baseline v1).
-          </p>
-</div>
-<p class="text-on-surface-variant text-[13px] leading-relaxed">
-          Hệ thống sẽ tự động kích hoạt <strong>Lộ trình mẫu (Master Roadmap)</strong> bao gồm các mốc quản lý tiêu chuẩn: <em>T-90, T-30, T-7</em> và <em>Ngày sự kiện 20/12/2026</em>. Mọi thay đổi phát sinh sau thời điểm này đều bắt buộc phải qua quy trình <strong>Yêu cầu thay đổi (CR)</strong>.
-        </p>
-<!-- Mandatory Checkbox -->
-<label class="flex items-start gap-3 p-3 rounded-lg border border-[#E8E2DD] bg-surface-container-low cursor-pointer hover:bg-surface-container transition-colors">
-<input class="mt-0.5 rounded text-primary focus:ring-primary w-4 h-4 border-outline-variant" id="freezeConsent" onchange="document.getElementById('confirmFreezeBtn').disabled = !this.checked; document.getElementById('confirmFreezeBtn').classList.toggle('opacity-50', !this.checked)" type="checkbox"/>
-<span class="text-label-md font-label-md text-on-surface font-medium select-none">
-            Tôi xác nhận đặc tả đã được kiểm tra đầy đủ, đáp ứng Core Combo và khách hàng Nguyễn Minh Anh &amp; Trần Thu Hà đã đồng thuận.
-          </span>
-</label>
-</div>
-<!-- Action Footer -->
-<div class="p-4 bg-surface-container-low border-t border-[#E8E2DD] flex items-center justify-end gap-3">
-<button class="px-4 py-2 rounded-lg border border-[#E8E2DD] text-on-surface-variant hover:bg-white text-label-md font-label-md font-medium transition-colors" onclick="document.getElementById('freezeModal').classList.add('hidden')">
-          Hủy bỏ
-        </button>
-<button class="opacity-50 px-5 py-2 rounded-lg bg-primary hover:bg-[#5D1F31] text-white text-label-md font-label-md font-semibold transition-all shadow-sm flex items-center gap-1.5" disabled="" id="confirmFreezeBtn" onclick="executeFreezeAction()">
-<span class="material-symbols-outlined text-base" data-icon="lock_open">lock_open</span>
-<span>Xác nhận &amp; Khóa Baseline v1</span>
-</button>
-</div>
-</div>
-</div>
-<!-- ================= MODAL 2: CATALOG PICKER MODAL ================= -->
-<div class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2B2625]/50 backdrop-blur-sm animate-fade-in" id="catalogModal">
-<div class="bg-white w-full max-w-2xl rounded-2xl border border-[#E8E2DD] shadow-2xl overflow-hidden flex flex-col max-h-[870px]">
-<!-- Catalog Header -->
-<div class="p-5 border-b border-[#E8E2DD] bg-[#FAF7F5] flex items-center justify-between">
-<div class="flex items-center gap-2.5">
-<span class="material-symbols-outlined text-primary text-2xl" data-icon="menu_book">menu_book</span>
-<div>
-<h3 class="font-title-md text-title-md font-bold text-on-surface">Thêm hạng mục từ Catalog dịch vụ</h3>
-<p class="text-label-sm font-label-sm text-on-surface-variant">Chọn các gói dịch vụ chuẩn hóa để đưa vào hợp đồng tiệc</p>
-</div>
-</div>
-<button class="text-outline hover:text-on-surface" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-<span class="material-symbols-outlined text-xl" data-icon="close">close</span>
-</button>
-</div>
-<!-- Catalog Filter & Search -->
-<div class="p-4 border-b border-[#E8E2DD] flex gap-3">
-<div class="relative flex-1">
-<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg" data-icon="search">search</span>
-<input class="w-full pl-9 pr-3 py-2 text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Tìm tên dịch vụ, món ăn, hiệu ứng sân khấu..." type="text"/>
-</div>
-<select class="text-body-sm font-body-sm rounded-lg border border-[#E8E2DD] px-3 py-2 bg-white text-on-surface focus:border-primary outline-none">
-<option>Tất cả danh mục</option>
-<option>Thực đơn</option>
-<option>Trang trí</option>
-<option>Âm thanh Ánh sáng</option>
-<option>Truyền thông</option>
-</select>
-</div>
-<!-- Catalog Items List -->
-<div class="p-4 overflow-y-auto space-y-3 custom-scroll flex-1">
-<!-- Catalog Item A -->
-<div class="p-3.5 rounded-xl border border-[#E8E2DD] hover:border-primary/60 transition-all flex items-center justify-between gap-4 bg-white">
-<div class="flex items-start gap-3">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-xl" data-icon="wine_bar">wine_bar</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h4 class="font-title-sm text-title-sm font-semibold text-on-surface">Tháp sâm banh &amp; Khói băng khô</h4>
-<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FAF7F5] text-secondary border border-[#C9A66B]/40">Nghi thức</span>
-</div>
-<p class="text-[12px] text-on-surface-variant mt-0.5">Bao gồm 5 tầng tháp ly pha lê, 2 chai vang sủi nhập khẩu và hiệu ứng đá khói cao cấp</p>
-<span class="text-[11px] font-medium text-primary mt-1 block">Khung giá: 3.500.000 ₫ - 5.000.000 ₫</span>
-</div>
-</div>
-<button class="shrink-0 px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white font-label-md text-label-md transition-colors" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-            + Chọn dùng
-          </button>
-</div>
-<!-- Catalog Item B -->
-<div class="p-3.5 rounded-xl border border-[#E8E2DD] hover:border-primary/60 transition-all flex items-center justify-between gap-4 bg-white">
-<div class="flex items-start gap-3">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-xl" data-icon="music_note">music_note</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h4 class="font-title-sm text-title-sm font-semibold text-on-surface">Ban nhạc hòa tấu Acoustic đón khách</h4>
-<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]">Nghệ thuật</span>
-</div>
-<p class="text-[12px] text-on-surface-variant mt-0.5">Violin, Cello &amp; Piano biểu diễn nhạc nhẹ 60 phút đón khách tại tiền sảnh</p>
-<span class="text-[11px] font-medium text-primary mt-1 block">Khung giá: 6.000.000 ₫ - 9.000.000 ₫</span>
-</div>
-</div>
-<button class="shrink-0 px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white font-label-md text-label-md transition-colors" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-            + Chọn dùng
-          </button>
-</div>
-<!-- Catalog Item C -->
-<div class="p-3.5 rounded-xl border border-[#E8E2DD] hover:border-primary/60 transition-all flex items-center justify-between gap-4 bg-white">
-<div class="flex items-start gap-3">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-<span class="material-symbols-outlined text-xl" data-icon="cake">cake</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h4 class="font-title-sm text-title-sm font-semibold text-on-surface">Bánh cưới Hoàng Gia 5 tầng</h4>
-<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FAF7F5] text-secondary border border-[#C9A66B]/40">Bánh tiệc</span>
-</div>
-<p class="text-[12px] text-on-surface-variant mt-0.5">1 tầng thật trang trí fondant nghệ thuật, 4 tầng hoa tươi lộng lẫy</p>
-<span class="text-[11px] font-medium text-primary mt-1 block">Khung giá: 4.000.000 ₫ - 6.500.000 ₫</span>
-</div>
-</div>
-<button class="shrink-0 px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary hover:text-white font-label-md text-label-md transition-colors" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-            + Chọn dùng
-          </button>
-</div>
-</div>
-<!-- Footer -->
-<div class="p-4 bg-surface-container-low border-t border-[#E8E2DD] flex justify-end">
-<button class="px-4 py-2 rounded-lg border border-[#E8E2DD] text-on-surface-variant hover:bg-white text-label-md font-label-md font-medium" onclick="document.getElementById('catalogModal').classList.add('hidden')">
-          Đóng cửa sổ
-        </button>
-</div>
-</div>
-</div>
-<!-- Micro-interaction JavaScript -->
-<script>
-    function executeFreezeAction() {
-      // Hide Modal
-      document.getElementById('freezeModal').classList.add('hidden');
-      
-      // Reveal the Freeze Alert Banner at top
-      const banner = document.getElementById('freezeBanner');
-      if (banner) {
-        banner.classList.remove('hidden');
-      }
+        </div>
+        <label class="flex items-center gap-2 text-label-md font-medium text-on-surface-variant" for="m05ProjectSelect">
+            Dự án
+            <select id="m05ProjectSelect" class="min-w-64 rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm text-on-surface focus:border-primary focus:ring-primary">
+                <option value="">Đang tải danh sách…</option>
+            </select>
+        </label>
+    </header>
 
-      // Smooth scroll to top to see confirmation banner
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  </script>
+    <main class="ml-64 max-w-[1440px] space-y-6 p-6 md:p-8">
+        <section class="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div class="space-y-2">
+                <span class="inline-flex rounded bg-primary-container px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-on-primary">Manager · FE-02</span>
+                <h1 class="font-headline-lg text-headline-lg font-semibold tracking-tight text-primary">Đặc tả dịch vụ &amp; Baseline gốc</h1>
+                <p class="max-w-3xl text-body-md text-on-surface-variant">Cập nhật hạng mục, số lượng và đơn giá theo Catalog. Kiểm tra đủ Core Combo và PriceFrame trước khi khóa phiên bản gốc.</p>
+                <p class="text-body-sm text-on-surface-variant"><strong data-m05="couple-name" class="text-on-surface">—</strong> <span class="mx-1">•</span> Ngày tiệc: <span data-m05="event-date">—</span></p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="openCatalogBtn" class="inline-flex items-center gap-2 rounded-lg border border-secondary px-3.5 py-2 font-label-md text-label-md font-medium text-secondary transition hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-50" disabled>
+                    <span class="material-symbols-outlined text-[18px]">add</span> Thêm từ Catalog
+                </button>
+                <button type="button" id="saveSpecificationBtn" class="inline-flex items-center gap-2 rounded-lg border border-outline-variant px-4 py-2 font-label-md text-label-md font-semibold text-on-surface transition hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50" disabled>
+                    <span class="material-symbols-outlined text-[18px]">save</span> Lưu nháp đặc tả
+                </button>
+                <button type="button" id="openFreezeBtn" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label-md text-label-md font-semibold text-white shadow-sm transition hover:bg-[#5D1F31] disabled:cursor-not-allowed disabled:opacity-50" disabled>
+                    <span class="material-symbols-outlined text-[18px]">lock</span> Chốt Baseline
+                </button>
+            </div>
+        </section>
 
+        <div id="m05Error" role="alert" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"></div>
+        <div id="m05Notice" role="status" aria-live="polite" class="hidden rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"></div>
+        <div id="freezeBanner" class="hidden items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
+            <span class="material-symbols-outlined">verified</span>
+            <div><strong>Baseline gốc đã được đóng băng.</strong><p class="text-sm" data-m05="frozen-at"></p></div>
+        </div>
+
+        <section class="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Tóm tắt đặc tả">
+            <article class="rounded-xl border border-outline-variant/30 bg-white p-5 shadow-sm">
+                <p class="text-label-md text-on-surface-variant">Giá trị hợp đồng gốc</p>
+                <p class="mt-2 font-headline-sm text-headline-sm font-semibold text-primary" data-m05="base-value">—</p>
+            </article>
+            <article class="rounded-xl border border-outline-variant/30 bg-white p-5 shadow-sm">
+                <p class="text-label-md text-on-surface-variant">Tổng đặc tả hiện tại</p>
+                <p class="mt-2 font-headline-sm text-headline-sm font-semibold text-on-surface" data-m05="spec-total">—</p>
+            </article>
+            <article class="rounded-xl border border-outline-variant/30 bg-white p-5 shadow-sm">
+                <p class="text-label-md text-on-surface-variant">Số hạng mục</p>
+                <p class="mt-2 font-headline-sm text-headline-sm font-semibold text-on-surface" data-m05="item-count">—</p>
+            </article>
+        </section>
+
+        <section class="overflow-hidden rounded-xl border border-outline-variant/30 bg-white shadow-sm">
+            <header class="flex flex-col justify-between gap-2 border-b border-outline-variant/30 bg-surface-container-lowest p-5 sm:flex-row sm:items-center">
+                <div>
+                    <h2 class="font-headline-sm text-headline-sm text-primary">Danh sách hạng mục</h2>
+                    <p class="mt-1 text-body-sm text-on-surface-variant">Mỗi dịch vụ chỉ được chọn một lần. Đơn giá phải nằm trong PriceFrame đang hiệu lực.</p>
+                </div>
+                <span id="coreComboStatus" class="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-label-sm font-semibold text-amber-800">Core Combo chưa kiểm tra</span>
+            </header>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[980px] border-collapse text-left">
+                    <thead class="bg-surface-container-low text-label-sm uppercase tracking-wide text-on-surface-variant">
+                        <tr>
+                            <th class="px-3 py-3 text-center">#</th><th class="px-3 py-3">Dịch vụ / Nhóm</th><th class="px-3 py-3">Diễn giải</th><th class="px-3 py-3 text-center">Số lượng / ĐVT</th><th class="px-3 py-3 text-right">Đơn giá</th><th class="px-3 py-3 text-right">Thành tiền</th><th class="px-3 py-3">PriceFrame</th><th class="px-3 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="specItemsBody" class="divide-y divide-outline-variant/30 text-body-sm">
+                        <tr><td colspan="8" class="p-8 text-center text-on-surface-variant">Đang tải đặc tả…</td></tr>
+                    </tbody>
+                    <tfoot class="border-t border-outline-variant/40 bg-surface-container-low">
+                        <tr><td colspan="5" class="px-4 py-4 text-right font-semibold text-on-surface">Tổng cộng đặc tả</td><td id="specTableTotal" class="px-4 py-4 text-right font-bold text-primary">—</td><td colspan="2"></td></tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="flex flex-col gap-2 border-t border-outline-variant/30 p-5 text-sm sm:flex-row sm:items-start">
+                <span class="material-symbols-outlined text-secondary">info</span>
+                <p class="text-on-surface-variant">Core Combo bắt buộc gồm Sảnh, Ẩm thực, Trang trí, MC và Âm thanh &amp; ánh sáng. Cần hoàn tất các mục bắt buộc và xử lý mọi cảnh báo PriceFrame trước khi đóng băng.</p>
+            </div>
+        </section>
+
+        <section class="rounded-xl border border-outline-variant/30 bg-white p-5 shadow-sm">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div><h2 class="font-title-md text-title-md text-primary">Sau khi đóng băng</h2><p class="mt-1 text-body-sm text-on-surface-variant">Hệ thống sẽ khóa đặc tả gốc v1 và tạo roadmap cho dự án.</p></div>
+                <div class="flex flex-wrap gap-2 text-xs"><span class="rounded-full bg-surface-container-low px-3 py-1">T-90</span><span class="rounded-full bg-surface-container-low px-3 py-1">T-30</span><span class="rounded-full bg-surface-container-low px-3 py-1">T-7</span><span class="rounded-full bg-surface-container-low px-3 py-1">Event Day</span></div>
+            </div>
+        </section>
+    </main>
+
+    <div id="catalogModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-[#2B2625]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="catalogTitle">
+        <div class="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-xl border border-outline-variant/40 bg-white shadow-xl">
+            <header class="flex items-center justify-between border-b border-outline-variant/30 p-5"><div><h2 id="catalogTitle" class="font-headline-sm text-headline-sm text-primary">Chọn dịch vụ từ Catalog</h2><p class="mt-1 text-body-sm text-on-surface-variant">Chỉ hiển thị dịch vụ đang hoạt động và chưa có trong đặc tả.</p></div><button type="button" data-close-modal="catalogModal" class="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container-low" aria-label="Đóng">✕</button></header>
+            <div id="catalogItems" class="max-h-[60vh] space-y-2 overflow-y-auto p-5"><p class="text-sm text-on-surface-variant">Đang tải Catalog…</p></div>
+            <footer class="flex justify-end border-t border-outline-variant/30 bg-surface-container-low p-4"><button type="button" data-close-modal="catalogModal" class="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-white">Đóng</button></footer>
+        </div>
+    </div>
+
+    <div id="freezeModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-[#2B2625]/50 p-4" role="dialog" aria-modal="true" aria-labelledby="freezeTitle">
+        <div class="w-full max-w-lg overflow-hidden rounded-xl border border-outline-variant/40 bg-white shadow-xl">
+            <header class="flex items-start justify-between border-b border-outline-variant/30 p-5"><div><h2 id="freezeTitle" class="font-headline-sm text-headline-sm text-primary">Xác nhận đóng băng Baseline v1</h2><p class="mt-1 text-body-sm text-on-surface-variant">Hệ thống sẽ lưu đặc tả hiện tại trước khi khóa.</p></div><button type="button" data-close-modal="freezeModal" class="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container-low" aria-label="Đóng">✕</button></header>
+            <div class="space-y-4 p-5"><p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Sau khi đóng băng, không thể sửa trực tiếp đặc tả gốc. Thay đổi về sau phải đi qua Change Request.</p><label class="flex cursor-pointer items-start gap-3 text-sm text-on-surface"><input id="freezeConsent" type="checkbox" class="mt-0.5 rounded border-outline-variant text-primary focus:ring-primary"><span>Tôi xác nhận đặc tả và đơn giá đã được kiểm tra để khóa Baseline v1.</span></label></div>
+            <footer class="flex justify-end gap-2 border-t border-outline-variant/30 bg-surface-container-low p-4"><button type="button" data-close-modal="freezeModal" class="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-white">Quay lại</button><button type="button" id="confirmFreezeBtn" disabled class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white opacity-50">Lưu &amp; đóng băng</button></footer>
+        </div>
+    </div>
 </div>

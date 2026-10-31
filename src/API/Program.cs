@@ -86,12 +86,12 @@ api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository
         UserId(user), passwordHash, temporaryPassword, ct);
     return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, newCustomer ? created.TemporaryPassword : null));
 }).RequireAuthorization(policy => policy.RequireRole("Manager"));
-api.MapPut("/projects/{id}/specification", async (string id, SpecificationRequest request, ISpecificationRoadmapRepository repo, CancellationToken ct) =>
-    await repo.UpdateSpecificationAsync(id, new SpecificationCommand(request.Summary, request.GuestCount, request.Items), ct) is { } project
+api.MapPut("/projects/{id}/specification", async (string id, SpecificationRequest request, ISpecificationRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    await repo.UpdateSpecificationAsync(id, UserId(user), new SpecificationCommand(request.Summary, request.GuestCount, request.Items), ct) is { } project
         ? Results.Ok(project) : Results.NotFound())
     .RequireAuthorization(policy => policy.RequireRole("Manager"));
-api.MapPost("/projects/{id}/freeze", async (string id, ISpecificationRoadmapRepository repo, CancellationToken ct) =>
-    await repo.FreezeBaselineAsync(id, ct) is { } project ? Results.Ok(project) : Results.NotFound())
+api.MapPost("/projects/{id}/freeze", async (string id, ISpecificationRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    await repo.FreezeBaselineAsync(id, UserId(user), ct) is { } project ? Results.Ok(project) : Results.NotFound())
     .RequireAuthorization(policy => policy.RequireRole("Manager"));
 api.MapPost("/projects/{id}/nrd-receipt", async (string id, IFormFile receipt, IProjectRepository repo, ClaimsPrincipal user, IWebHostEnvironment environment, CancellationToken ct) =>
 {

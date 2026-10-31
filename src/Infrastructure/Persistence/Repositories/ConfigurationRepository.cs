@@ -34,7 +34,7 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
             .Where(x => x.EffectiveFrom <= today).OrderByDescending(x => x.EffectiveFrom).ToListAsync(cancellationToken);
         return frames.GroupBy(x => x.ItemId).Select(g => g.First())
             .OrderBy(x => x.Item.Category).ThenBy(x => x.Item.Name)
-            .Select(x => new PriceFrameView(x.PriceFrameId.ToString(), x.Item.Name, WpsmCategoryNames.ToDisplay(x.Item.Category), x.MinPrice, x.MaxPrice, "VND"))
+            .Select(x => new PriceFrameView(x.PriceFrameId.ToString(), x.Item.Name, WpsmCategoryNames.ToDisplay(x.Item.Category), x.MinPrice, x.MaxPrice, "VND", x.ItemId))
             .ToList();
     }
 
@@ -59,7 +59,7 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
             target.UpdatedAt = DateTime.UtcNow;
         }
         await db.SaveChangesAsync(cancellationToken);
-        return new PriceFrameView(target.PriceFrameId.ToString(), current.Item.Name, WpsmCategoryNames.ToDisplay(current.Item.Category), target.MinPrice, target.MaxPrice, "VND");
+        return new PriceFrameView(target.PriceFrameId.ToString(), current.Item.Name, WpsmCategoryNames.ToDisplay(current.Item.Category), target.MinPrice, target.MaxPrice, "VND", current.ItemId);
     }
 
     public async Task<PolicyView> GetPoliciesAsync(CancellationToken cancellationToken = default)

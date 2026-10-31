@@ -39,6 +39,206 @@
   const moneyValue = input => Number((input?.value || "").replace(/[^0-9]/g, "")) || 0;
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const money = value => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
+  const hydrateCustomerContract = project => {
+    const page = document.querySelector('[data-wpsm-screen="C02"]');
+    if (!page) return;
+    const set = (key, value) => {
+      const target = page.querySelector(`[data-c02="${key}"]`);
+      if (target) target.textContent = value;
+    };
+    const date = project ? new Date(`${project.eventDate}T00:00:00`) : null;
+    const dateLabel = date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat("vi-VN").format(date) : "—";
+    const frozen = !!project?.baselineFrozenAt;
+    const status = page.querySelector('[data-c02="baseline-status"]');
+    if (status) {
+      status.className = frozen
+        ? "inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-label-md font-semibold text-emerald-800"
+        : "inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-label-md font-semibold text-amber-800";
+      status.textContent = frozen ? "Baseline v1 · Đã đóng băng" : "Đang soạn đặc tả";
+    }
+    if (!project) {
+      ["project-code", "hall", "event-date", "couple-name", "summary-hall", "slot", "summary-date", "base-value", "nrd-amount", "nrd-status", "frozen-at", "base-value-total", "spec-total"].forEach(key => set(key, "—"));
+      set("status-description", "Tài khoản hiện chưa có hồ sơ hợp đồng để hiển thị.");
+      set("days-left", "");
+      set("item-count", "Chưa có đặc tả");
+      const groups = page.querySelector('[data-c02="specification-groups"]');
+      if (groups) groups.innerHTML = '<p class="p-6 text-center text-body-md text-on-surface-variant">Chưa có dự án hoặc đặc tả cho tài khoản này.</p>';
+      return;
+    }
+
+    const specification = project.specification || [];
+    const total = specification.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+    const nrdLabels = { Paid: "Đã xác nhận thanh toán", Due: "Chờ xác nhận thanh toán", Upcoming: "Chưa đến hạn", Unknown: "Chưa có trạng thái thanh toán" };
+    set("project-code", project.id);
+    set("hall", project.hall);
+    set("event-date", dateLabel);
+    set("couple-name", project.coupleName);
+    set("summary-hall", project.hall);
+    set("slot", project.slot);
+    set("summary-date", dateLabel);
+    set("base-value", money(project.baseValue));
+    set("base-value-total", money(project.baseValue));
+    set("nrd-amount", money(project.nrdAmount));
+    set("nrd-status", nrdLabels[project.nrdStatus] || "Chưa có trạng thái thanh toán");
+    set("frozen-at", frozen
+      ? `Đóng băng lúc ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(project.baselineFrozenAt))}`
+      : "Chưa đóng băng");
+    set("status-description", frozen
+      ? "Đây là bản đặc tả gốc đã được đóng băng. Các hạng mục dưới đây được hiển thị chỉ đọc để bạn đối chiếu với hợp đồng."
+      : "Quản lý đang hoàn thiện đặc tả hợp đồng. Các hạng mục hiện có chỉ để bạn theo dõi; phiên bản gốc chưa được đóng băng.");
+    const daysLeft = date ? Math.ceil((date.setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000) : null;
+    set("days-left", daysLeft === null ? "" : daysLeft >= 0 ? `Còn ${daysLeft} ngày đến ngày tổ chức` : `Đã qua ngày tổ chức ${Math.abs(daysLeft)} ngày`);
+    set("item-count", `${specification.length} hạng mục`);
+    set("spec-total", money(total));
+
+    const container = page.querySelector('[data-c02="specification-groups"]');
+    if (!container) return;
+    if (!specification.length) {
+      container.innerHTML = '<p class="p-6 text-center text-body-md text-on-surface-variant">Chưa có hạng mục đặc tả.</p>';
+      return;
+    }
+    const groups = specification.reduce((result, item) => {
+      (result[item.category] ||= []).push(item);
+      return result;
+    }, {});
+    container.innerHTML = Object.entries(groups).map(([category, items]) => {
+      const categoryTotal = items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+      return `<details open class="group">
+        <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 bg-surface-container-high/40 px-5 py-3.5 hover:bg-surface-container-high/70">
+          <span class="flex items-center gap-2 font-title-sm text-title-sm font-bold text-primary"><span class="material-symbols-outlined text-[18px] transition-transform group-open:rotate-90">chevron_right</span>${escapeHtml(category)} <span class="rounded border border-outline-variant/30 bg-white px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">${items.length} hạng mục</span></span>
+          <span class="text-body-sm font-semibold text-on-surface">Tổng nhóm: ${money(categoryTotal)}</span>
+        </summary>
+        <div class="divide-y divide-outline-variant/20 px-5 sm:px-6">${items.map(item => `<article class="grid grid-cols-1 items-start gap-2 py-4 md:grid-cols-12">
+          <div class="space-y-1 md:col-span-6"><h3 class="font-title-sm text-title-sm font-semibold text-on-surface">${escapeHtml(item.name)}</h3><p class="whitespace-pre-line text-body-sm leading-relaxed text-on-surface-variant">${escapeHtml(item.description)}</p></div>
+          <div class="text-body-md text-on-surface md:col-span-2 md:text-center"><span class="text-body-sm text-on-surface-variant md:hidden">Số lượng / ĐVT: </span>${Number(item.quantity)} ${escapeHtml(item.unit)}</div>
+          <div class="text-body-md text-on-surface-variant md:col-span-2 md:text-right"><span class="text-body-sm md:hidden">Đơn giá: </span>${money(item.unitPrice)}</div>
+          <div class="font-title-sm text-title-sm font-semibold text-primary md:col-span-2 md:text-right"><span class="text-body-sm font-normal text-on-surface-variant md:hidden">Thành tiền: </span>${money(item.lineTotal)}</div>
+        </article>`).join("")}</div>
+      </details>`;
+    }).join("");
+  };
+  const m05Categories = ["Sảnh", "Ẩm thực", "Trang trí", "MC", "Âm thanh & ánh sáng"];
+  const m05Items = () => [...document.querySelectorAll('[data-wpsm-screen="M05"] #specItemsBody tr[data-spec-item-id]')].map(row => ({
+    catalogItemId: Number(row.dataset.specItemId),
+    description: row.querySelector("[data-spec-description]")?.value.trim() || "",
+    quantity: Number(row.querySelector("[data-spec-quantity]")?.value || 0),
+    unitPrice: moneyValue(row.querySelector("[data-spec-price]"))
+  }));
+  const renderManagerSpecification = data => {
+    const page = document.querySelector('[data-wpsm-screen="M05"]');
+    if (!page) return;
+    const project = data.project;
+    const set = (key, value) => { const node = page.querySelector(`[data-m05="${key}"]`); if (node) node.textContent = value; };
+    const selector = page.querySelector("#m05ProjectSelect");
+    if (selector) {
+      selector.innerHTML = data.projects.length
+        ? data.projects.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.id)} · ${escapeHtml(item.coupleName)}</option>`).join("")
+        : '<option value="">Chưa có dự án được phân công</option>';
+      selector.value = project?.id || "";
+    }
+    set("project-code", project?.id || "Chưa chọn");
+    set("hall", project ? `${project.hall} · ${project.slot}` : "Chọn dự án để bắt đầu");
+    set("couple-name", project?.coupleName || "—");
+    set("event-date", project ? new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`)) : "—");
+    set("base-value", project ? money(project.baseValue) : "—");
+
+    const frozen = !!project && project.status !== "Active Baseline";
+    const status = page.querySelector('[data-m05="baseline-status"]');
+    if (status) {
+      status.className = frozen
+        ? "rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-label-md font-semibold text-emerald-800"
+        : project ? "rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-label-md font-semibold text-amber-800" : "rounded-full border border-outline-variant/40 bg-surface-container-low px-3 py-1 text-label-md font-semibold text-on-surface-variant";
+      status.textContent = frozen ? `Baseline v1 · ${project.status}` : project ? "Active Baseline · Đang soạn" : "Chưa chọn dự án";
+    }
+    const banner = page.querySelector("#freezeBanner");
+    banner?.classList.toggle("hidden", !frozen);
+    banner?.classList.toggle("flex", frozen);
+    set("frozen-at", project?.baselineFrozenAt ? `Thời điểm: ${new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(project.baselineFrozenAt))}` : "");
+
+    const body = page.querySelector("#specItemsBody");
+    const specification = project?.specification || [];
+    if (body) body.innerHTML = project
+      ? specification.length ? specification.map((item, index) => {
+        const frame = data.priceFrames.find(candidate => Number(candidate.catalogItemId) === Number(item.catalogItemId));
+        const catalog = data.catalog.find(candidate => Number(candidate.id) === Number(item.catalogItemId));
+        const validFrame = !!frame && Number(item.unitPrice) >= Number(frame.minPrice) && Number(item.unitPrice) <= Number(frame.maxPrice);
+        const frameLabel = !frame ? "Thiếu PriceFrame" : validFrame ? `${money(frame.minPrice)} – ${money(frame.maxPrice)}` : `Ngoài khung ${money(frame.minPrice)} – ${money(frame.maxPrice)}`;
+        const frameClass = validFrame ? "text-emerald-700" : "text-red-700";
+        const inputState = frozen ? "disabled" : "";
+        return `<tr data-spec-item-id="${item.catalogItemId}" data-category="${escapeHtml(item.category)}" class="align-top">
+          <td class="px-3 py-4 text-center text-on-surface-variant">${index + 1}</td>
+          <td class="px-3 py-4"><div class="font-semibold text-on-surface">${escapeHtml(item.name)}</div><span class="mt-1 inline-flex rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant">${escapeHtml(item.category)}</span>${catalog?.active === false ? '<p class="mt-1 text-xs text-red-700">Catalog item đã ngừng hoạt động.</p>' : ""}</td>
+          <td class="px-3 py-4"><textarea data-spec-description rows="2" ${inputState} class="w-full min-w-48 rounded-lg border border-outline-variant px-2.5 py-2 text-sm focus:border-primary focus:ring-primary disabled:bg-surface-container-low disabled:text-on-surface-variant">${escapeHtml(item.description)}</textarea></td>
+          <td class="px-3 py-4"><div class="flex items-center gap-2"><input data-spec-quantity type="number" min="1" step="1" value="${Number(item.quantity)}" ${inputState} class="w-20 rounded-lg border border-outline-variant px-2 py-2 text-center text-sm focus:border-primary focus:ring-primary disabled:bg-surface-container-low"><span class="text-xs text-on-surface-variant">${escapeHtml(item.unit)}</span></div></td>
+          <td class="px-3 py-4"><input data-spec-price inputmode="numeric" value="${Number(item.unitPrice)}" ${inputState} class="w-32 rounded-lg border border-outline-variant px-2 py-2 text-right text-sm focus:border-primary focus:ring-primary disabled:bg-surface-container-low"></td>
+          <td data-line-total class="px-3 py-4 whitespace-nowrap text-right font-semibold text-primary">${money(Number(item.quantity) * Number(item.unitPrice))}</td>
+          <td class="px-3 py-4 min-w-40"><span data-price-status class="text-xs font-medium ${frameClass}">${escapeHtml(frameLabel)}</span></td>
+          <td class="px-3 py-4 text-right"><button type="button" data-remove-spec-item ${inputState} aria-label="Xóa ${escapeHtml(item.name)}" class="rounded-lg p-2 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40">×</button></td>
+        </tr>`;
+      }).join("") : '<tr><td colspan="8" class="p-8 text-center text-on-surface-variant">Chưa có hạng mục. Thêm dịch vụ từ Catalog để bắt đầu.</td></tr>'
+      : '<tr><td colspan="8" class="p-8 text-center text-on-surface-variant">Chưa có dự án được phân công cho tài khoản này.</td></tr>';
+
+    const canEdit = !!project && !frozen;
+    const save = page.querySelector("#saveSpecificationBtn");
+    const add = page.querySelector("#openCatalogBtn");
+    if (save) save.disabled = !canEdit;
+    if (add) add.disabled = !canEdit;
+    updateManagerSummary(data);
+  };
+  const updateManagerSummary = data => {
+    const page = document.querySelector('[data-wpsm-screen="M05"]');
+    if (!page) return;
+    const rows = m05Items();
+    const catalog = data.catalog || [];
+    const frames = data.priceFrames || [];
+    const selectedIds = new Set(rows.map(item => item.catalogItemId));
+    let total = 0;
+    const categories = new Set();
+    let pricesValid = rows.length > 0;
+    rows.forEach(item => {
+      const row = page.querySelector(`#specItemsBody tr[data-spec-item-id="${item.catalogItemId}"]`);
+      const catalogItem = catalog.find(candidate => Number(candidate.id) === item.catalogItemId);
+      if (catalogItem) categories.add(catalogItem.category);
+      const lineTotal = item.quantity * item.unitPrice;
+      total += lineTotal;
+      row?.querySelector("[data-line-total]")?.replaceChildren(document.createTextNode(money(lineTotal)));
+      const frame = frames.find(candidate => Number(candidate.catalogItemId) === item.catalogItemId);
+      const valid = !!frame && item.unitPrice >= Number(frame.minPrice) && item.unitPrice <= Number(frame.maxPrice);
+      if (!valid || item.quantity <= 0 || !item.description || catalogItem?.active === false) pricesValid = false;
+      const priceStatus = row?.querySelector("[data-price-status]");
+      if (priceStatus) {
+        priceStatus.textContent = !frame ? "Thiếu PriceFrame" : valid ? `${money(frame.minPrice)} – ${money(frame.maxPrice)}` : `Ngoài khung ${money(frame.minPrice)} – ${money(frame.maxPrice)}`;
+        priceStatus.className = `text-xs font-medium ${valid ? "text-emerald-700" : "text-red-700"}`;
+      }
+    });
+    const specTotal = page.querySelector('[data-m05="spec-total"]');
+    if (specTotal) specTotal.textContent = money(total);
+    const itemCount = page.querySelector('[data-m05="item-count"]');
+    if (itemCount) itemCount.textContent = String(rows.length);
+    const tableTotal = page.querySelector("#specTableTotal");
+    if (tableTotal) tableTotal.textContent = money(total);
+
+    const missing = m05Categories.filter(category => !categories.has(category));
+    const coreStatus = page.querySelector("#coreComboStatus");
+    if (coreStatus) {
+      coreStatus.className = missing.length
+        ? "rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-label-sm font-semibold text-amber-800"
+        : "rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-label-sm font-semibold text-emerald-800";
+      coreStatus.textContent = missing.length ? `Thiếu Core Combo: ${missing.join(", ")}` : "Đủ 5 nhóm Core Combo";
+    }
+    const project = data.project;
+    const freeze = page.querySelector("#openFreezeBtn");
+    if (freeze) freeze.disabled = !project || project.status !== "Active Baseline" || missing.length > 0 || !pricesValid;
+    const modal = page.querySelector("#catalogItems");
+    if (modal) {
+      const choices = catalog.filter(item => item.active && !selectedIds.has(Number(item.id)));
+      modal.innerHTML = choices.length ? choices.map(item => {
+        const frame = frames.find(candidate => Number(candidate.catalogItemId) === Number(item.id));
+        const priceText = frame ? `${money(frame.minPrice)} – ${money(frame.maxPrice)}` : "Chưa có PriceFrame";
+        return `<article class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/40 p-3"><div><h3 class="font-semibold text-on-surface">${escapeHtml(item.name)}</h3><p class="text-xs text-on-surface-variant">${escapeHtml(item.category)} · ${escapeHtml(item.unit)} · Giá mặc định ${money(item.basePrice)}</p><p class="mt-1 text-xs ${frame ? "text-emerald-700" : "text-red-700"}">PriceFrame: ${priceText}</p></div><button type="button" data-add-spec-item="${Number(item.id)}" class="rounded-lg border border-primary px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white">Thêm</button></article>`;
+      }).join("") : '<p class="rounded-lg bg-surface-container-low p-4 text-sm text-on-surface-variant">Không còn dịch vụ đang hoạt động để thêm.</p>';
+    }
+  };
   const hydrateTables = data => {
     const projectBody = document.querySelector('[data-wpsm-screen="M02"] #projects-table tbody');
     if (projectBody) projectBody.innerHTML = data.projects.map(project => {
@@ -52,27 +252,9 @@
     const priceBody = document.querySelector('[data-wpsm-screen="A04"] table tbody');
     if (priceBody) priceBody.innerHTML = data.priceFrames.map(frame => `<tr class="hover:bg-surface-container-low transition-colors"><td class="py-3.5 px-4"><div class="font-semibold text-primary">${escapeHtml(frame.serviceName)}</div><div class="text-xs text-on-surface-variant">${escapeHtml(frame.id)}</div></td><td class="py-3 px-3">${escapeHtml(frame.variant)}</td><td class="py-3 px-3 text-right">${money((frame.minPrice + frame.maxPrice) / 2)}</td><td class="py-3 px-4">${money(frame.minPrice)} – ${money(frame.maxPrice)}</td><td class="py-3 px-3">Đang hiệu lực</td><td class="py-3 px-3 text-center">—</td><td class="py-3 px-4 text-right">${escapeHtml(frame.currency)}</td></tr>`).join("");
 
-    const specBody = document.querySelector('[data-wpsm-screen="M05"] table tbody');
-    const specification = data.project?.specification || [];
-    if (specBody) specBody.innerHTML = specification.length ? specification.map((item, index) => `<tr class="hover:bg-surface-container-low/40 transition-colors" data-spec-item-id="${item.catalogItemId}">
-      <td class="py-3 px-3 text-center">${index + 1}</td><td class="py-3 px-3"><div class="font-semibold">${escapeHtml(item.name)}</div><span class="text-xs">${escapeHtml(item.category)}</span></td>
-      <td class="py-3 px-3"><input class="w-full rounded border px-2 py-1" data-spec-description value="${escapeHtml(item.description)}"></td>
-      <td class="py-3 px-3 text-center"><input class="w-20 rounded border px-2 py-1 text-center" data-spec-quantity type="number" min="1" value="${item.quantity}"></td>
-      <td class="py-3 px-3 text-right"><input class="w-32 rounded border px-2 py-1 text-right" data-spec-price type="text" value="${item.unitPrice}"></td>
-      <td class="py-3 px-3 text-right">${money(item.lineTotal)}</td><td class="py-3 px-3 text-center">—</td></tr>`).join("") : `<tr><td colspan="7" class="py-6 text-center text-on-surface-variant">Chưa có hạng mục đặc tả.</td></tr>`;
+    renderManagerSpecification(data);
 
-    const contract = document.querySelector('[data-wpsm-screen="C02"]');
-    const categoriesContainer = contract?.querySelector(".category-block")?.parentElement;
-    if (categoriesContainer && data.project) {
-      const groups = (data.project.specification || []).reduce((result, item) => {
-        (result[item.category] ||= []).push(item);
-        return result;
-      }, {});
-      categoriesContainer.innerHTML = Object.entries(groups).map(([category, items]) => `<section class="border-b border-outline-variant/30 px-6 py-4">
-        <h3 class="font-title-sm text-title-sm font-bold text-primary mb-3">${escapeHtml(category)}</h3>
-        ${items.map(item => `<div class="grid grid-cols-1 md:grid-cols-12 gap-2 py-3 border-t border-outline-variant/20"><div class="md:col-span-6"><div class="font-semibold">${escapeHtml(item.name)}</div><p class="text-sm text-on-surface-variant">${escapeHtml(item.description)}</p></div><div class="md:col-span-2">${item.quantity} ${escapeHtml(item.unit)}</div><div class="md:col-span-2">${money(item.unitPrice)}</div><div class="md:col-span-2 font-semibold">${money(item.lineTotal)}</div></div>`).join("")}
-        </section>`).join("");
-    }
+    hydrateCustomerContract(data.project);
 
     const roadmapSection = document.querySelector('[data-wpsm-screen="C03"] main section');
     if (roadmapSection && data.project) {
@@ -83,6 +265,39 @@
     }
   };
   const showError = error => { status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
+  const showM05Error = error => {
+    showError(error);
+    const box = document.querySelector('[data-wpsm-screen="M05"] #m05Error');
+    if (box) { box.textContent = error.message; box.classList.remove("hidden"); }
+  };
+  const showM05Notice = text => {
+    const box = document.querySelector('[data-wpsm-screen="M05"] #m05Notice');
+    if (box) { box.textContent = text; box.classList.remove("hidden"); }
+    message(text);
+  };
+  const clearM05Messages = () => {
+    document.querySelector('[data-wpsm-screen="M05"] #m05Error')?.classList.add("hidden");
+    document.querySelector('[data-wpsm-screen="M05"] #m05Notice')?.classList.add("hidden");
+  };
+  const saveM05Specification = async () => {
+    const data = window.wpsm;
+    const project = data?.project;
+    if (!project) throw new Error("Chưa chọn dự án để lưu đặc tả.");
+    if (project.status !== "Active Baseline") throw new Error("Baseline đã đóng băng; không thể chỉnh sửa đặc tả.");
+    const items = m05Items();
+    if (items.some(item => !item.description || item.quantity < 1 || item.unitPrice < 0))
+      throw new Error("Mỗi hạng mục cần có diễn giải, số lượng nguyên dương và đơn giá không âm.");
+    const catering = items.find(item => data.catalog.find(catalogItem => Number(catalogItem.id) === item.catalogItemId)?.category === "Ẩm thực");
+    const summary = `${items.length} hạng mục đặc tả`;
+    const updated = await send(`projects/${encodeURIComponent(project.id)}/specification`, "PUT", {
+      summary,
+      guestCount: catering?.quantity || 0,
+      items
+    });
+    window.wpsm.project = updated;
+    hydrateTables(window.wpsm);
+    return updated;
+  };
 
   document.addEventListener("submit", async event => {
     const form = event.target;
@@ -166,6 +381,62 @@
     if (screen === "G02" && label.includes("Đổi mật khẩu")) {
       event.preventDefault(); window.location.href = "/G03"; return;
     }
+    if (screen === "M05" && button.dataset.closeModal) {
+      event.preventDefault();
+      const modal = document.getElementById(button.dataset.closeModal);
+      modal?.classList.add("hidden"); modal?.classList.remove("flex");
+      return;
+    }
+    if (screen === "M05" && button.id === "openCatalogBtn") {
+      clearM05Messages();
+      const modal = document.getElementById("catalogModal");
+      modal?.classList.remove("hidden"); modal?.classList.add("flex");
+      updateManagerSummary(window.wpsm);
+      return;
+    }
+    if (screen === "M05" && button.dataset.addSpecItem) {
+      const id = Number(button.dataset.addSpecItem);
+      const catalogItem = window.wpsm?.catalog.find(item => Number(item.id) === id);
+      if (!catalogItem || !window.wpsm?.project) return;
+      const project = window.wpsm.project;
+      const frame = window.wpsm.priceFrames.find(item => Number(item.catalogItemId) === id);
+      project.specification = [...(project.specification || []), {
+        catalogItemId: id, name: catalogItem.name, category: catalogItem.category,
+        description: catalogItem.name, quantity: 1, unit: catalogItem.unit,
+        unitPrice: catalogItem.basePrice, lineTotal: catalogItem.basePrice,
+        priceFrameMin: frame?.minPrice, priceFrameMax: frame?.maxPrice
+      }];
+      hydrateTables(window.wpsm);
+      updateManagerSummary(window.wpsm);
+      return;
+    }
+    if (screen === "M05" && button.hasAttribute("data-remove-spec-item")) {
+      const row = button.closest("tr[data-spec-item-id]");
+      const id = Number(row?.dataset.specItemId);
+      window.wpsm.project.specification = window.wpsm.project.specification.filter(item => Number(item.catalogItemId) !== id);
+      hydrateTables(window.wpsm);
+      return;
+    }
+    if (screen === "M05" && button.id === "saveSpecificationBtn") {
+      clearM05Messages();
+      button.disabled = true;
+      try {
+        await saveM05Specification();
+        showM05Notice("Đã lưu đặc tả vào database.");
+      } catch (error) { showM05Error(error); }
+      finally { if (window.wpsm) renderManagerSpecification(window.wpsm); }
+      return;
+    }
+    if (screen === "M05" && button.id === "openFreezeBtn") {
+      clearM05Messages();
+      const modal = document.getElementById("freezeModal");
+      const consent = document.getElementById("freezeConsent");
+      const confirm = document.getElementById("confirmFreezeBtn");
+      if (consent) consent.checked = false;
+      if (confirm) { confirm.disabled = true; confirm.classList.add("opacity-50"); }
+      modal?.classList.remove("hidden"); modal?.classList.add("flex");
+      return;
+    }
     if (screen === "M03" && label.includes("Xác nhận") && label.includes("tạo dự án")) {
       event.preventDefault(); event.stopImmediatePropagation();
       const fileInput = document.getElementById("nrdReceiptFile");
@@ -212,34 +483,38 @@
     }
     if (screen === "M05" && button.id === "confirmFreezeBtn") {
       event.preventDefault(); event.stopImmediatePropagation();
-      const project = window.wpsm?.project;
-      if (!project) return showError(new Error("Không tìm thấy dự án để đóng băng."));
+      clearM05Messages();
+      button.disabled = true;
       try {
-        const frozen = await send(`projects/${encodeURIComponent(project.id)}/freeze`, "POST", {});
+        const saved = await saveM05Specification();
+        const frozen = await send(`projects/${encodeURIComponent(saved.id)}/freeze`, "POST", {});
         window.wpsm.project = frozen;
-        message(`Đã đóng băng baseline ${frozen.id} và tạo roadmap.`);
-      } catch (error) { showError(error); }
+        const modal = document.getElementById("freezeModal");
+        modal?.classList.add("hidden"); modal?.classList.remove("flex");
+        hydrateTables(window.wpsm);
+        showM05Notice(`Đã đóng băng Baseline ${frozen.id} và tạo roadmap.`);
+      } catch (error) {
+        showM05Error(error);
+        if (window.wpsm) renderManagerSpecification(window.wpsm);
+      }
       return;
     }
-    if (screen === "M05" && /lưu nháp đặc tả/i.test(label)) {
-      event.preventDefault(); event.stopImmediatePropagation();
-      try {
-        const project = window.wpsm?.project;
-        if (project) {
-          const items = [...document.querySelectorAll('[data-wpsm-screen="M05"] tr[data-spec-item-id]')].map(row => ({
-            catalogItemId: Number(row.dataset.specItemId),
-            description: row.querySelector("[data-spec-description]")?.value || "",
-            quantity: Number(row.querySelector("[data-spec-quantity]")?.value || 0),
-            unitPrice: moneyValue(row.querySelector("[data-spec-price]"))
-          }));
-          const updated = await send(`projects/${encodeURIComponent(project.id)}/specification`, "PUT", { summary: "Đặc tả baseline", guestCount: 0, items });
-          window.wpsm.project = updated;
-          hydrateTables(window.wpsm);
-        }
-        message("Đã lưu đặc tả vào database.");
-      } catch (error) { showError(error); }
-      return;
+  }, true);
+
+  document.addEventListener("change", event => {
+    const screen = document.querySelector("[data-wpsm-screen]")?.dataset.wpsmScreen;
+    if (screen !== "M05") return;
+    if (event.target.id === "m05ProjectSelect" && event.target.value)
+      window.location.href = `/M05?id=${encodeURIComponent(event.target.value)}`;
+    if (event.target.id === "freezeConsent") {
+      const confirm = document.getElementById("confirmFreezeBtn");
+      if (confirm) { confirm.disabled = !event.target.checked; confirm.classList.toggle("opacity-50", !event.target.checked); }
     }
+    if (event.target.matches("#specItemsBody input, #specItemsBody textarea")) updateManagerSummary(window.wpsm);
+  }, true);
+  document.addEventListener("input", event => {
+    if (document.querySelector('[data-wpsm-screen="M05"]') && event.target.matches("#specItemsBody input, #specItemsBody textarea"))
+      updateManagerSummary(window.wpsm);
   }, true);
 
   const receiptInput = document.getElementById("nrdReceiptFile");
@@ -265,6 +540,8 @@
       hydrateTables(data);
       const project = data.project;
       if (project) {
+        const specificationLink = document.getElementById("projectSpecificationLink");
+        if (specificationLink) specificationLink.href = `/M05?id=${encodeURIComponent(project.id)}`;
         const dateVi = new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`));
         const daysLeft = Math.max(0, Math.ceil((new Date(`${project.eventDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
         const displayValues = {

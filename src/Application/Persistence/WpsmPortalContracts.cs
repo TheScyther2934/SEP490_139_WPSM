@@ -24,7 +24,9 @@ public sealed record WeddingProjectView(
     decimal OutstandingBalance,
     string SpecificationSummary = "Chưa nhập đặc tả",
     int GuestCount = 0,
-    IReadOnlyList<SpecificationLineView>? Specification = null);
+    IReadOnlyList<SpecificationLineView>? Specification = null,
+    DateTime? BaselineFrozenAt = null,
+    string NrdStatus = "Unknown");
 
 public sealed record SpecificationLineView(
     int CatalogItemId,
@@ -37,7 +39,7 @@ public sealed record SpecificationLineView(
     decimal LineTotal);
 
 public sealed record CatalogItemView(string Id, string Name, string Category, string Unit, decimal BasePrice, bool Active);
-public sealed record PriceFrameView(string Id, string ServiceName, string Variant, decimal MinPrice, decimal MaxPrice, string Currency);
+public sealed record PriceFrameView(string Id, string ServiceName, string Variant, decimal MinPrice, decimal MaxPrice, string Currency, int CatalogItemId = 0);
 public sealed record PolicyView(decimal NrdRatio, decimal T30Ratio, decimal FinalRatio, int CrPenaltyDays, decimal CrPenaltyPercent);
 public sealed record ProfileView(string FullName, string Email, string Phone, string Role);
 public sealed record RoadmapTaskView(string Milestone, string Title, string AssigneeRole, DateOnly DueDate, string Status);

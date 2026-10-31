@@ -16,7 +16,8 @@ public sealed class ProjectReadModel(WpsmDbContext db)
         var totalTasks = await db.RoadmapTasks.CountAsync(t => t.ProjectId == x.ProjectId, cancellationToken);
         var completedTasks = await db.RoadmapTasks.CountAsync(t => t.ProjectId == x.ProjectId && t.Status == "Done", cancellationToken);
         var paid = x.Payments.Where(p => p.Status == "Paid").Sum(p => p.Amount ?? 0m);
-        var spec = x.SpecItems.OrderBy(s => s.CatalogItem.Category).ThenBy(s => s.CatalogItem.Name)
+        var spec = x.SpecItems.Where(s => s.IsBaseline && s.Version == 1)
+            .OrderBy(s => s.CatalogItem.Category).ThenBy(s => s.CatalogItem.Name)
             .Select(s => new SpecificationLineView(s.CatalogItemId, s.CatalogItem.Name, WpsmCategoryNames.ToDisplay(s.CatalogItem.Category), s.Description,
                 s.Quantity, s.CatalogItem.Unit, s.UnitPrice, s.LineTotal ?? s.Quantity * s.UnitPrice)).ToList();
         var summary = spec.Count == 0 ? "Chưa nhập đặc tả" : $"{spec.Count} hạng mục đã cấu hình";
@@ -26,6 +27,7 @@ public sealed class ProjectReadModel(WpsmDbContext db)
             totalTasks == 0 ? 0 : (int)Math.Round(completedTasks * 100d / totalTasks),
             x.ChangeRequests.Count(c => c.Status is "Draft" or "Negotiating"),
             x.Beos.OrderByDescending(b => b.Version).FirstOrDefault()?.Status ?? "Not started",
-            Math.Max(0, x.CurrentTotal - paid), summary, guestCount, spec);
+            Math.Max(0, x.CurrentTotal - paid), summary, guestCount, spec, x.BaselineFrozenAt,
+            x.Payments.FirstOrDefault(p => p.PaymentType == "NRD")?.Status ?? "Unknown");
     }
 }
