@@ -1,0 +1,488 @@
+@page "/M04"
+@{ ViewData["Title"] = "WPSM Wedding Management - Project Hub M-04"; }
+<div data-wpsm-screen="M04">
+
+<!-- Main Frame: Sidebar + Central Workspace -->
+<div class="flex-1 flex overflow-hidden">
+<!-- SHARED COMPONENT: SideNavBar (Strict implementation from JSON & manager specifications) -->
+@await Html.PartialAsync("/Areas/Manager/Pages/Shared/_ManagerNavigation.cshtml")
+<!-- Main Workspace Area (offset by side rail 256px) -->
+<main class="ml-64 flex-1 flex flex-col h-screen overflow-y-auto custom-scroll bg-surface">
+<!-- SHARED COMPONENT: TopAppBar (Small Center Aligned - docked top) -->
+<header class="sticky top-0 z-20 bg-surface/95 backdrop-blur-md border-b border-outline-variant">
+<div class="flex justify-between items-center w-full px-4 md:px-8 max-w-7xl mx-auto h-16">
+<!-- Left: Breadcrumb Navigation & Operational ID Tags -->
+<div class="flex items-center gap-3">
+<nav aria-label="Breadcrumb" class="flex items-center text-label-md font-label-md text-on-surface-variant space-x-2">
+<span>Trang chủ</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span>Quản lý vận hành</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span>Dự án đám cưới</span>
+<span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+<span class="text-primary font-bold">WPSM-2026-014</span>
+</nav>
+<span class="h-4 w-px bg-outline-variant"></span>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-primary font-mono text-label-sm font-label-sm font-bold border border-outline-variant">
+                MÃ: M-04
+              </span>
+<span class="px-2 py-0.5 rounded bg-secondary-fixed/50 text-secondary text-label-sm font-label-sm font-medium border border-secondary-fixed-dim">
+                Quyền: Quản lý Điều phối
+              </span>
+</div>
+</div>
+<!-- Right: Notifications, Help, User Quick-status -->
+<div class="flex items-center gap-3">
+<button class="w-9 h-9 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-all duration-150 flex items-center justify-center active:scale-[0.98]" title="Trợ giúp nghiệp vụ">
+<span class="material-symbols-outlined text-xl" data-icon="help">help</span>
+</button>
+<!-- Notifications Trailing Icon from JSON with unread badge -->
+<button class="relative w-9 h-9 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-all duration-150 flex items-center justify-center active:scale-[0.98]">
+<span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error"></span>
+</button>
+<div class="h-6 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-2 pl-1">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed text-secondary font-bold flex items-center justify-center text-xs ring-1 ring-secondary/30">
+                QM
+              </div>
+<div class="hidden xl:block text-left">
+<p class="text-label-md font-label-md text-on-surface font-semibold leading-tight">Mai Anh</p>
+<p class="text-[10px] text-on-surface-variant leading-none">Quản lý trực ca</p>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Central Content Canvas -->
+<div class="px-6 md:px-8 py-6 max-w-7xl mx-auto w-full space-y-6">
+<!-- SECTION 1: PROJECT HEADER CARD (Editorial Luxury & ERP Clarity) -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 relative overflow-hidden shadow-sm">
+<!-- Subtle Champagne Accent Top Strip -->
+<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-container via-secondary to-primary-container"></div>
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<!-- Left Info Block -->
+<div class="space-y-3 flex-1">
+<div class="flex flex-wrap items-center gap-2.5">
+<span class="px-3 py-1 rounded-md bg-surface-container text-primary font-mono text-title-sm font-title-sm font-bold border border-outline-variant">
+                  WPSM-2026-014
+                </span>
+<!-- Hall Indicator Badge (Domain Component) -->
+<span class="px-3 py-1 rounded-md border border-[#C9A66B] bg-[#FFFBEB] text-[#8F6F32] text-label-md font-label-md flex items-center gap-1.5">
+<span class="material-symbols-outlined text-base" data-icon="room_preferences">room_preferences</span>
+                  Sảnh Hoa Hồng
+                </span>
+<span class="px-2.5 py-1 rounded-md bg-surface-container text-on-surface-variant text-label-md font-label-md">
+                  Ca Tối (17:30 - 22:00)
+                </span>
+<span class="px-2.5 py-1 rounded-md bg-surface-container text-on-surface-variant text-label-md font-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
+                  20/12/2026
+                </span>
+<!-- Lifecycle Badge -->
+<span class="px-3 py-1 rounded-full bg-primary-container text-white text-label-sm font-label-sm flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-xs" data-icon="ac_unit">ac_unit</span>
+                  Baseline Frozen
+                </span>
+</div>
+<!-- Primary Couple Names in Editorial Playfair Display -->
+<div>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">
+                  Nguyễn Minh Anh &amp; Trần Thu Hà
+                </h1>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-base text-secondary" data-icon="celebration">celebration</span>
+                  Tiệc cưới Hoàng gia • Quy mô dự kiến: 45 bàn chính thức (03 bàn dự phòng) • Điều phối viên: Hoàng Yến
+                </p>
+</div>
+</div>
+<!-- Right: Countdown Unit & Primary Actions -->
+<div class="flex items-center gap-4 self-start lg:self-center">
+<!-- Countdown Highlight Block -->
+<div class="px-5 py-3 rounded-xl bg-surface-container-low border border-outline-variant text-center min-w-[130px]">
+<div class="font-headline-md text-headline-md font-bold text-primary tracking-tight">
+                  T-58 ngày
+                </div>
+<div class="text-label-sm font-label-sm text-secondary font-medium uppercase tracking-wider">
+                  Thời gian đến ngày cưới
+                </div>
+</div>
+<!-- Quick Operational Actions -->
+<div class="flex flex-col gap-2">
+<button class="px-4 py-2 rounded-lg bg-surface hover:bg-surface-container border border-outline-variant text-primary font-title-sm text-title-sm flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98]">
+<span class="material-symbols-outlined text-base" data-icon="picture_as_pdf">picture_as_pdf</span>
+<span>Xuất file PDF tổng hợp</span>
+</button>
+<button class="px-4 py-2 rounded-lg border border-[#C9A66B] hover:bg-[#C9A66B]/10 text-[#8F6F32] font-title-sm text-title-sm flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.98]">
+<span class="material-symbols-outlined text-base" data-icon="support_agent">support_agent</span>
+<span>Liên hệ khách hàng</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: ALERT BANNER (Stale BEO Warning) -->
+<div class="rounded-xl border border-error/30 bg-error-container/40 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-error/10 text-error flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-2xl" data-icon="receipt_long">receipt_long</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-title-sm text-title-sm text-error font-bold">CẢNH BÁO BEO LỖI THỜI (STALE)</span>
+<span class="px-2 py-0.2 rounded bg-error text-white text-[10px] font-bold">Cần xử lý</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">
+                BEO đã lỗi thời do thay đổi được duyệt (CR-012: Thêm 2 bàn tiệc và đổi món súp bào ngư). Vui lòng duyệt lại để gửi sang Bếp và Bar.
+              </p>
+</div>
+</div>
+<button class="px-4 py-2 bg-primary-container hover:bg-tertiary-container text-white rounded-lg text-title-sm font-title-sm flex items-center gap-2 whitespace-nowrap active:scale-[0.98] transition-all self-end sm:self-center shadow-sm">
+<span>Mở BEO</span>
+<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<!-- SECTION 3: COMPACT TIMELINE STRIP (Run-sheet & Phase Milestones) -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-title-md text-title-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="route">route</span>
+              Lộ trình Cột mốc Vận hành (Lifecycle Milestones)
+            </h3>
+<span class="text-label-md font-label-md text-on-surface-variant">Chuẩn hóa theo quy trình WPSM 5 giai đoạn</span>
+</div>
+<div class="relative">
+<!-- Connecting Line -->
+<div class="absolute top-4 left-6 right-6 h-0.5 bg-outline-variant z-0"></div>
+<div class="grid grid-cols-2 sm:grid-cols-5 gap-4 relative z-10">
+<!-- Milestone 1: T-90 (Done) -->
+<div class="flex flex-col items-center text-center group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center ring-4 ring-surface shadow-sm mb-2">
+<span class="material-symbols-outlined text-sm font-bold" data-icon="check">check</span>
+</div>
+<span class="font-mono text-label-sm font-label-sm text-emerald-800 font-bold">Mốc T-90</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">Khởi tạo &amp; Đặc tả</span>
+<span class="text-[11px] text-emerald-700">Đã hoàn thành 15/10</span>
+</div>
+<!-- Milestone 2: T-58 (Current Active / Frozen) -->
+<div class="flex flex-col items-center text-center group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center ring-4 ring-primary-fixed shadow-md mb-2 relative">
+<span class="w-2.5 h-2.5 rounded-full bg-white"></span>
+<span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-secondary-fixed animate-ping"></span>
+</div>
+<span class="font-mono text-label-sm font-label-sm text-primary font-bold">Mốc T-58 (Hiện tại)</span>
+<span class="text-body-sm font-body-sm font-bold text-primary">Baseline Frozen &amp; CR</span>
+<span class="text-[11px] text-primary">Đang thẩm định BEO mới</span>
+</div>
+<!-- Milestone 3: T-30 -->
+<div class="flex flex-col items-center text-center group cursor-pointer opacity-70 hover:opacity-100 transition-opacity">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center ring-4 ring-surface mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="payments">payments</span>
+</div>
+<span class="font-mono text-label-sm font-label-sm text-on-surface-variant font-medium">Mốc T-30</span>
+<span class="text-body-sm font-body-sm font-medium text-on-surface">Đợt 2 &amp; BEO Chuẩn</span>
+<span class="text-[11px] text-on-surface-variant">Dự kiến 20/11/2026</span>
+</div>
+<!-- Milestone 4: T-7 -->
+<div class="flex flex-col items-center text-center group cursor-pointer opacity-70 hover:opacity-100 transition-opacity">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center ring-4 ring-surface mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="groups">groups</span>
+</div>
+<span class="font-mono text-label-sm font-label-sm text-on-surface-variant font-medium">Mốc T-7</span>
+<span class="text-body-sm font-body-sm font-medium text-on-surface">Chốt bàn &amp; Nhân sự</span>
+<span class="text-[11px] text-on-surface-variant">Dự kiến 13/12/2026</span>
+</div>
+<!-- Milestone 5: Event Day -->
+<div class="flex flex-col items-center text-center group cursor-pointer opacity-70 hover:opacity-100 transition-opacity">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border-2 border-outline-variant text-on-surface-variant flex items-center justify-center ring-4 ring-surface mb-2">
+<span class="material-symbols-outlined text-sm" data-icon="wine_bar">wine_bar</span>
+</div>
+<span class="font-mono text-label-sm font-label-sm text-on-surface-variant font-medium">Ngày cưới</span>
+<span class="text-body-sm font-body-sm font-medium text-on-surface">20/12/2026</span>
+<span class="text-[11px] text-on-surface-variant">Khai tiệc 18:00</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 4: HORIZONTAL TAB BAR (8 Specialized Post-Contract Tabs) -->
+<div class="border-b border-outline-variant">
+<nav aria-label="Tabs dự án" class="flex space-x-1 sm:space-x-3 overflow-x-auto custom-scroll">
+<!-- Tab 1: Tổng quan (ACTIVE) -->
+<button class="px-4 py-3 border-b-2 border-primary text-primary font-title-sm text-title-sm font-bold flex items-center gap-2 whitespace-nowrap bg-surface-container-low/40 rounded-t-lg">
+<span class="material-symbols-outlined text-base" data-icon="dashboard">dashboard</span>
+<span>Tổng quan</span>
+</button>
+<!-- Tab 2: Đặc tả -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="description">description</span>
+<span>Đặc tả</span>
+</button>
+<!-- Tab 3: Lộ trình -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="event_note">event_note</span>
+<span>Lộ trình</span>
+</button>
+<!-- Tab 4: Yêu cầu thay đổi (CR) -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="swap_horiz">swap_horiz</span>
+<span>Yêu cầu thay đổi</span>
+<span class="px-1.5 py-0.5 rounded-full bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] text-xs font-bold">2</span>
+</button>
+<!-- Tab 5: BEO (with Stale Dot) -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="restaurant_menu">restaurant_menu</span>
+<span>BEO</span>
+<span class="w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white" title="Trạng thái Stale"></span>
+</button>
+<!-- Tab 6: Thanh toán -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span>Thanh toán</span>
+</button>
+<!-- Tab 7: Ngày sự kiện -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="stadium">stadium</span>
+<span>Ngày sự kiện</span>
+</button>
+<!-- Tab 8: Khiếu nại -->
+<button class="px-4 py-3 border-b-2 border-transparent text-on-surface-variant hover:text-primary hover:border-outline font-title-sm text-title-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+<span class="material-symbols-outlined text-base" data-icon="report_problem">report_problem</span>
+<span>Khiếu nại</span>
+<span class="px-1.5 py-0.2 rounded-full bg-surface-container text-on-surface-variant text-xs">0</span>
+</button>
+</nav>
+</div>
+<!-- SECTION 5: 7 SUMMARY CARDS BENTO GRID -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+<!-- CARD 1: Hợp đồng gốc (Locked) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 hover:border-outline hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">1. Hợp đồng gốc</span>
+<span class="material-symbols-outlined text-primary text-xl" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Đã chốt, phiên bản 1</h4>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">Đã ký kết ngày 15/10/2025</p>
+<div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low text-primary text-label-sm font-label-sm font-medium border border-outline-variant">
+<span class="material-symbols-outlined text-xs" data-icon="verified">verified</span> Baseline đã đóng băng
+              </div>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-primary text-label-md font-label-md font-semibold group-hover:translate-x-0.5 transition-transform">
+<span>Xem Đặc tả hợp đồng</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- CARD 2: Tiến độ lộ trình -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 hover:border-outline hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">2. Tiến độ lộ trình</span>
+<span class="text-primary font-mono text-title-sm font-title-sm font-bold">60%</span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">12/20 nhiệm vụ hoàn tất</h4>
+<!-- Progress Bar -->
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden my-2.5">
+<div class="bg-primary-container h-full rounded-full transition-all duration-300" style="width: 60%"></div>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+<span class="text-secondary font-medium">Tiếp theo:</span> Thử món thực đơn VIP (Dự kiến 25/10)
+              </p>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-primary text-label-md font-label-md font-semibold group-hover:translate-x-0.5 transition-transform">
+<span>Mở Lộ trình chi tiết</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- CARD 3: Yêu cầu thay đổi (CR) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 hover:border-outline hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">3. Yêu cầu thay đổi (CR)</span>
+<span class="px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] text-label-sm font-label-sm font-bold">
+                  2 đang đàm phán
+                </span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">CR-012 &amp; CR-013</h4>
+<ul class="text-body-sm font-body-sm text-on-surface-variant mt-1.5 space-y-1">
+<li class="truncate">• CR-012: Thêm 2 bàn tiệc (+18.000.000 ₫)</li>
+<li class="truncate">• CR-013: Thay hoa tươi sân khấu nhập khẩu</li>
+</ul>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-primary text-label-md font-label-md font-semibold group-hover:translate-x-0.5 transition-transform">
+<span>Xem danh sách CR</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- CARD 4: Trạng thái BEO -->
+<div class="bg-surface-container-lowest rounded-xl border border-error/30 p-5 hover:border-error hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer relative overflow-hidden">
+<div class="absolute top-0 right-0 w-12 h-12 bg-amber-500/10 rounded-bl-full flex items-start justify-end p-2 text-amber-600">
+<span class="material-symbols-outlined text-sm" data-icon="priority_high">priority_high</span>
+</div>
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">4. Trạng thái BEO</span>
+<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-label-sm font-label-sm font-bold">
+                  Stale (Lỗi thời)
+                </span>
+</div>
+<h4 class="font-title-md text-title-md text-error">Bếp chờ duyệt bản in mới</h4>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">
+                Lệnh bàn tiệc đã cập nhật theo CR-012 nhưng chưa hoàn tất chữ ký điện tử.
+              </p>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-error text-label-md font-label-md font-bold group-hover:translate-x-0.5 transition-transform">
+<span>Tái phê duyệt BEO</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- CARD 5: Dư nợ & Thanh toán -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 hover:border-outline hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">5. Dư nợ &amp; Thanh toán</span>
+<span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-label-sm font-label-sm font-medium">
+                  Đợt 1: Hoàn thành
+                </span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-primary tracking-tight">420.000.000 ₫</h4>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">
+                Đã thu: 180.000.000 ₫ / Tổng 600.000.000 ₫
+              </p>
+<!-- Payment segmented bar -->
+<div class="grid grid-cols-3 gap-1.5 mt-2.5">
+<div class="h-2 rounded bg-primary-container" title="Cọc giữ chỗ 30% (Đã nhận)"></div>
+<div class="h-2 rounded bg-surface-container-high" title="Đợt 2: 40% (Chưa đến hạn)"></div>
+<div class="h-2 rounded bg-surface-container-high" title="Tất toán sau tiệc 30%"></div>
+</div>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-primary text-label-md font-label-md font-semibold group-hover:translate-x-0.5 transition-transform">
+<span>Mở Sổ quỹ dự án</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- CARD 6: Tiến độ ngày sự kiện -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 hover:border-outline hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer">
+<div>
+<div class="flex items-center justify-between mb-3">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">6. Ngày sự kiện</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant text-label-sm font-label-sm">
+                  Chưa bắt đầu
+                </span>
+</div>
+<h4 class="font-title-md text-title-md text-on-surface">Kích hoạt lúc 16:00</h4>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">
+                20/12/2026 • Setup sân khấu âm thanh bắt đầu từ 14:00 cùng ngày.
+              </p>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-on-surface-variant text-label-md font-label-md font-semibold group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+<span>Xem kịch bản Run-sheet</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- CARD 7: Khiếu nại đang mở -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 hover:border-outline hover:shadow-md transition-all duration-200 flex flex-col justify-between group cursor-pointer md:col-span-2 xl:col-span-2">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="text-label-md font-label-md text-on-surface-variant font-semibold">7. Khiếu nại &amp; Sự cố đang mở</span>
+<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-label-sm font-label-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="verified_user">verified_user</span> An toàn tuyệt đối
+                  </span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg font-bold text-emerald-700 leading-none">0</span>
+<span class="text-body-md font-body-md text-on-surface-variant">Không có khiếu nại phát sinh từ cô dâu &amp; chú rể.</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-1">
+                  Đánh giá sự hài lòng sơ bộ giai đoạn chốt đặc tả: <strong class="text-primary font-semibold">5/5 sao</strong>.
+                </p>
+</div>
+<!-- Banquet Hall Mini Atmosphere Anchor -->
+<div class="w-32 h-20 rounded-lg overflow-hidden relative border border-outline-variant flex-shrink-0 hidden sm:block">
+<img class="w-full h-full object-cover" data-alt="A grand luxury wedding banquet ballroom in warm amber and soft ivory light, with magnificent crystal chandeliers hanging over long guest tables dressed in pristine white linen and tall rose floral centerpieces, shot in elegant editorial photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVQdE0p7Fc1zBhzCeYw_lj5sRDVys2BfXvnBMR1CA3okP1Ta3YWEfCUzMD9tR-Fp6N7heGV0HVV1ntHWrqBg1fu6kkCpj64ey73_5JtWYZ0FZNU_5wkgcPmtLVrPSc03imlIoit5SJWzQHACfurb6z2h0vbUlol1AUG2a_MjKaaYdYDSh3wHTeW16SUJu-4CmevhJrR4o1NC8R7zRjEXryHhh88LKqqe8GWH0jx5EChyWlozco-iG6cA"/>
+<div class="absolute inset-0 bg-primary/20 backdrop-blur-[0.5px]"></div>
+<span class="absolute bottom-1 right-1 text-[9px] text-white font-mono bg-black/60 px-1 rounded">Sảnh Hoa Hồng</span>
+</div>
+</div>
+<div class="pt-4 mt-4 border-t border-outline-variant flex items-center justify-between text-primary text-label-md font-label-md font-semibold group-hover:translate-x-0.5 transition-transform">
+<span>Xem lịch sử phản hồi dịch vụ</span>
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- SECTION 6: SECONDARY VARIANT SIMULATION (Active Baseline Preview Toggle) -->
+<section class="mt-8 pt-6 border-t border-outline-variant">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="preview">preview</span>
+<h4 class="font-title-md text-title-md text-on-surface">Mô phỏng Giai đoạn khác: Variant "Active Baseline"</h4>
+</div>
+<span class="text-label-sm font-label-sm px-2.5 py-1 rounded bg-secondary-fixed/40 text-secondary border border-secondary-fixed-dim">
+              Chế độ đối sánh luồng nghiệp vụ
+            </span>
+</div>
+<!-- Simulation Card when baseline is NOT yet frozen -->
+<div class="bg-surface-container-low rounded-xl border border-dashed border-outline-variant p-5">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-label-sm font-label-sm font-bold">
+                    Trạng thái: Active Baseline (Chưa đóng băng)
+                  </span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Giai đoạn chuẩn bị dữ liệu ban đầu</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant max-w-2xl">
+                  Khi chưa chốt Baseline: Thẻ <strong>Đặc tả</strong> sẽ hiển thị CTA chính để nhập liệu thực đơn, sơ đồ bàn và nhà cung cấp. Các tính năng <strong>Lộ trình</strong>, <strong>BEO</strong> và <strong>Ngày sự kiện</strong> sẽ ở trạng thái khóa tương đối để bảo vệ tính nhất quán dữ liệu.
+                </p>
+</div>
+<!-- Simulator CTA Buttons -->
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 bg-primary-container text-white rounded-lg text-title-sm font-title-sm hover:bg-tertiary-container transition-all active:scale-[0.98] flex items-center gap-2 shadow-sm whitespace-nowrap">
+<span class="material-symbols-outlined text-base" data-icon="edit_note">edit_note</span>
+<span>+ Nhập đặc tả &amp; Chốt Baseline gốc</span>
+</button>
+<div class="flex items-center gap-1 text-on-surface-variant text-label-sm font-label-sm px-3 py-2 bg-surface rounded-lg border border-outline-variant" title="Cần hoàn tất chốt Baseline để mở khóa">
+<span class="material-symbols-outlined text-sm" data-icon="lock">lock</span>
+<span>Các phân hệ phụ đang khóa</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- SHARED COMPONENT: Footer (Docked full-width bottom from JSON) -->
+<footer class="mt-auto bg-surface border-t border-outline-variant">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto gap-3 text-center md:text-left">
+<div class="flex items-center gap-2">
+<span class="text-title-md font-title-md font-semibold text-primary">WPSM</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">|</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">
+              © 2025 WPSM Wedding Management. All rights reserved.
+            </span>
+</div>
+<div class="flex items-center gap-6 text-body-sm font-body-sm">
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">Điều khoản dịch vụ</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">Chính sách bảo mật</a>
+<a class="text-primary underline font-medium hover:text-tertiary transition-colors duration-150" href="#">Hỗ trợ khẩn cấp</a>
+</div>
+</div>
+</footer>
+</main>
+</div>
+<!-- Inline Vanilla Micro-interactions -->
+<script>
+    // Tab switching visual indication
+    document.querySelectorAll('[aria-label="Tabs dự án"] button').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('[aria-label="Tabs dự án"] button').forEach(el => {
+          el.classList.remove('border-primary', 'text-primary', 'bg-surface-container-low/40', 'font-bold');
+          el.classList.add('border-transparent', 'text-on-surface-variant');
+        });
+        this.classList.add('border-primary', 'text-primary', 'bg-surface-container-low/40', 'font-bold');
+        this.classList.remove('border-transparent', 'text-on-surface-variant');
+      });
+    });
+  </script>
+
+</div>

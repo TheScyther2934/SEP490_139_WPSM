@@ -1,0 +1,614 @@
+@page "/A02"
+@{ ViewData["Title"] = "WPSM Executive - Danh mục dịch vụ chuẩn (A-02)"; }
+<div data-wpsm-screen="A02">
+
+<div class="flex flex-1 w-full relative">
+<!-- SIDEBAR NAVIGATION (Admin Drawer - Fixed Left 260px) -->
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminNavigation.cshtml")
+<!-- MAIN VIEWPORT CONTENT (Offset left 260px) -->
+<div class="flex-1 ml-64 flex flex-col min-w-0">
+<!-- TOP NAVIGATION BAR (Docked Full-width Sticky) -->
+<header class="docked full-width top-0 sticky z-40 bg-surface-container-lowest border-b border-outline-variant/40 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] px-6 py-3">
+<div class="flex justify-between items-center w-full">
+<!-- Left: Brand / Breadcrumbs -->
+<div class="flex items-center gap-4">
+<span class="text-title-lg font-title-lg font-bold text-primary tracking-tight">WPSM Executive</span>
+<div class="h-4 w-px bg-outline-variant/60"></div>
+<nav class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span>Hệ thống điều hành</span>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-primary font-semibold">Danh mục dịch vụ chuẩn (A-02)</span>
+</nav>
+</div>
+<!-- Center-Right Operational Filters & Trailing Actions -->
+<div class="flex items-center gap-3">
+<!-- Navigation Links according to JSON -->
+<div class="flex items-center gap-4 mr-2 border-r border-outline-variant/40 pr-4">
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container font-label-md text-label-md text-on-surface">
+<span class="material-symbols-outlined text-base text-secondary">calendar_today</span>
+<span>Hôm nay, 24/10/2024</span>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container font-label-md text-label-md text-on-surface">
+<span class="material-symbols-outlined text-base text-primary">meeting_room</span>
+<span>Tất cả sảnh tiệc</span>
+</div>
+</div>
+<!-- Secondary Trailing Action -->
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-base">filter_alt</span>
+<span>Bộ lọc ngày</span>
+</button>
+<!-- Primary Trailing Action -->
+<button class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:bg-primary transition-colors active:scale-[0.98]">
+<span class="material-symbols-outlined text-base">speed</span>
+<span>Báo cáo nhanh</span>
+</button>
+<!-- Trailing Icon Actions -->
+<button class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors active:scale-[0.98]" title="Thông báo">
+<span class="material-symbols-outlined text-xl">notifications</span>
+<span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-error ring-2 ring-white"></span>
+</button>
+<button class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors active:scale-[0.98]" title="Trợ giúp">
+<span class="material-symbols-outlined text-xl">help_outline</span>
+</button>
+<!-- Profile Avatar Cluster -->
+<div class="flex items-center gap-2.5 pl-2 border-l border-outline-variant/40">
+<div class="w-9 h-9 rounded-full ring-2 ring-secondary-container bg-surface-container-highest flex items-center justify-center font-title-sm text-title-sm font-semibold text-primary">
+                TV
+              </div>
+<div class="text-left hidden lg:block">
+<div class="font-title-sm text-title-sm font-semibold leading-tight text-on-surface">Trần Thế Vinh</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Giám đốc Điều hành Venue</div>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- MAIN PAGE WORKSPACE CANVAS -->
+<main class="flex-1 p-8 max-w-[1440px] w-full mx-auto space-y-6">
+<!-- Page Header & Action Bar -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)]">
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Danh mục dịch vụ chuẩn</h1>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm font-bold border border-outline-variant/40">
+                Mã: A-02
+              </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">
+              Quản lý cơ sở dữ liệu các gói và đơn vị dịch vụ chuẩn áp dụng cho việc lập đặc tả tiệc cưới và tính toán PriceFrame toàn hệ thống.
+            </p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg border border-secondary text-secondary font-title-sm text-title-sm font-medium hover:bg-secondary-container/20 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">download</span>
+<span>Xuất dữ liệu Excel</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary font-title-sm text-title-sm font-semibold hover:bg-primary-container shadow-sm transition-all active:scale-[0.98]" id="open-modal-btn">
+<span class="material-symbols-outlined text-lg">add</span>
+<span>+ Thêm dịch vụ</span>
+</button>
+</div>
+</div>
+<!-- Quick Summary Metrics (Bento-style 4 metrics) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Stat 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] flex items-center justify-between">
+<div class="space-y-1">
+<div class="font-label-md text-label-md text-on-surface-variant font-medium">Tổng dịch vụ</div>
+<div class="font-headline-sm text-headline-sm font-bold text-primary">48 <span class="font-body-sm text-body-sm text-on-surface-variant font-normal">hạng mục</span></div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl">dataset</span>
+</div>
+</div>
+<!-- Stat 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] flex items-center justify-between">
+<div class="space-y-1">
+<div class="font-label-md text-label-md text-on-surface-variant font-medium">Đang áp dụng</div>
+<div class="font-headline-sm text-headline-sm font-bold text-emerald-800">42 <span class="font-body-sm text-body-sm text-on-surface-variant font-normal">dịch vụ</span></div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
+<span class="material-symbols-outlined text-2xl">check_circle</span>
+</div>
+</div>
+<!-- Stat 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] flex items-center justify-between">
+<div class="space-y-1">
+<div class="font-label-md text-label-md text-on-surface-variant font-medium">Tạm ngừng</div>
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface-variant">06 <span class="font-body-sm text-body-sm text-on-surface-variant font-normal">dịch vụ</span></div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-2xl">pause_circle</span>
+</div>
+</div>
+<!-- Stat 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] flex items-center justify-between">
+<div class="space-y-1">
+<div class="font-label-md text-label-md text-on-surface-variant font-medium">Danh mục lớn nhất</div>
+<div class="font-title-lg text-title-lg font-bold text-secondary">Ẩm thực <span class="font-body-sm text-body-sm text-on-surface-variant font-normal">(18 set)</span></div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-secondary-container/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-2xl">restaurant</span>
+</div>
+</div>
+</div>
+<!-- Filter Toolbar -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] flex flex-wrap items-center justify-between gap-4">
+<div class="flex flex-wrap items-center gap-3 flex-1">
+<!-- Search Input -->
+<div class="relative min-w-[280px] flex-1 max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-lg">search</span>
+<input class="w-full h-10 pl-9 pr-4 rounded-lg bg-surface border border-outline-variant/50 text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20" placeholder="Tìm theo tên dịch vụ, mã SKU..." type="text"/>
+</div>
+<!-- Category Filter Dropdown -->
+<div class="relative">
+<select class="h-10 pl-3 pr-8 rounded-lg bg-surface border border-outline-variant/50 text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary cursor-pointer appearance-none">
+<option value="">Tất cả danh mục</option>
+<option value="hall">Sảnh</option>
+<option selected="" value="cuisine">Ẩm thực</option>
+<option value="decor">Trang trí</option>
+<option value="mc">MC</option>
+<option value="av">Âm thanh &amp; ánh sáng</option>
+<option value="media">Quay chụp</option>
+<option value="costume">Trang phục</option>
+<option value="makeup">Trang điểm</option>
+<option value="transport">Vận chuyển</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">expand_more</span>
+</div>
+<!-- Status Filter Dropdown -->
+<div class="relative">
+<select class="h-10 pl-3 pr-8 rounded-lg bg-surface border border-outline-variant/50 text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary cursor-pointer appearance-none">
+<option value="all">Trạng thái: Tất cả</option>
+<option selected="" value="active">Đang dùng</option>
+<option value="inactive">Ngừng dùng</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">expand_more</span>
+</div>
+<!-- Clear Filter Button -->
+<button class="h-10 px-3 flex items-center gap-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container font-label-lg text-label-lg transition-colors">
+<span class="material-symbols-outlined text-base">filter_alt_off</span>
+<span>Xóa bộ lọc</span>
+</button>
+</div>
+<div class="font-label-md text-label-md text-on-surface-variant">
+            Hiển thị <span class="font-bold text-on-surface">7</span> trên <span class="font-bold text-on-surface">48</span> dịch vụ
+          </div>
+</div>
+<!-- Master Catalog Table Container -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04)] overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container border-b border-outline-variant/40 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+<th class="py-3.5 px-6 font-semibold">Tên dịch vụ &amp; Mã SKU</th>
+<th class="py-3.5 px-4 font-semibold">Danh mục</th>
+<th class="py-3.5 px-4 font-semibold">Đơn vị tính</th>
+<th class="py-3.5 px-6 font-semibold text-right">Giá niêm yết mặc định</th>
+<th class="py-3.5 px-6 font-semibold text-center">Trạng thái</th>
+<th class="py-3.5 px-6 font-semibold text-right">Thao tác</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/20 font-body-md text-body-md">
+<!-- Row 1 (Ẩm thực) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-primary group-hover:text-primary-container">Set menu 8 món Hoàng Kim</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: CUIS-HK-008</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container/30 text-on-secondary-container border border-secondary-container/60 font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      Ẩm thực
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">bàn</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface">4.500.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 (MC) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-primary group-hover:text-primary-container">MC tiệc cưới song ngữ cao cấp</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: HOST-BI-002</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200 font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                      MC
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">buổi</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface">12.000.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 (Trang trí) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-primary group-hover:text-primary-container">Hoa tươi sân khấu nghệ thuật Majestic</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: FLOR-MJ-019</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                      Trang trí
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">bộ</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface">85.000.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 (Âm thanh & ánh sáng) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-primary group-hover:text-primary-container">Gói Âm thanh Ánh sáng &amp; Màn hình LED P3 Ultra</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: TECH-LED-004</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200 font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                      Âm thanh &amp; ánh sáng
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">gói/ca</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface">28.500.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<!-- Row 5 (Quay chụp) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-primary group-hover:text-primary-container">Trọn gói Quay phóng sự cưới 3 máy 4K &amp; Flycam</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: MEDIA-4K-031</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200 font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
+                      Quay chụp
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">tiệc</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface">18.000.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<!-- Row 6 (Trang phục - Ngừng dùng) -->
+<tr class="bg-surface-container-low/40 hover:bg-surface-container-low transition-colors group opacity-75">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-on-surface line-through group-hover:text-primary">Váy cưới thiết kế Haute Couture đón khách</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: DRSS-HC-001 (Tạm ngưng)</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                      Trang phục
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">bộ</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface-variant">15.000.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+<!-- Row 7 (Vận chuyển) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-4 px-6">
+<div class="font-title-sm text-title-sm font-semibold text-primary group-hover:text-primary-container">Xe hoa Mercedes-Benz Maybach S680 đón dâu</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-0.5">SKU: AUTO-MB-009</div>
+</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 font-label-sm text-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                      Vận chuyển
+                    </span>
+</td>
+<td class="py-4 px-4 text-on-surface-variant font-medium">chuyến</td>
+<td class="py-4 px-6 text-right font-title-sm text-title-sm font-semibold text-on-surface">8.500.000 ₫</td>
+<td class="py-4 px-6 text-center">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</td>
+<td class="py-4 px-6 text-right space-x-1">
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Chỉnh sửa">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Nhân bản">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Lịch sử giá">
+<span class="material-symbols-outlined text-lg">history</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Business Rule Callout Box -->
+<div class="m-6 p-4 rounded-xl bg-secondary-container/20 border border-secondary/30 flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary text-xl flex-shrink-0 mt-0.5">info</span>
+<div class="space-y-0.5">
+<div class="font-title-sm text-title-sm font-bold text-secondary">Lưu ý nghiệp vụ vận hành danh mục:</div>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                Dịch vụ chuyển sang trạng thái <strong>Ngừng dùng</strong> sẽ không thể lựa chọn cho việc lập đặc tả tiệc cưới mới. Các đặc tả tiệc hiện có và hợp đồng đang thực hiện sẽ được bảo lưu nguyên trạng không thay đổi.
+              </p>
+</div>
+</div>
+<!-- Table Footer Pagination -->
+<div class="px-6 py-4 bg-surface-container border-t border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-4 font-label-md text-label-md text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span>Đang xem</span>
+<span class="font-bold text-on-surface">1 - 7</span>
+<span>của 48 dịch vụ</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="mr-2">Trang 1 / 5</span>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant/40 bg-surface text-on-surface disabled:opacity-40 hover:bg-surface-container-high transition-colors" disabled="">
+                Trước
+              </button>
+<button class="w-8 h-8 rounded-lg bg-primary text-on-primary font-bold">1</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-highest transition-colors">2</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-highest transition-colors">3</button>
+<span>...</span>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-highest transition-colors">5</button>
+<button class="px-3 py-1.5 rounded-lg border border-outline-variant/40 bg-surface text-on-surface hover:bg-surface-container-high transition-colors">
+                Sau
+              </button>
+</div>
+</div>
+</div>
+<!-- Optional Empty State Preview Variant Section -->
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-dashed border-outline-variant/60 text-center max-w-xl mx-auto space-y-3">
+<div class="w-14 h-14 rounded-full bg-surface-container mx-auto flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-3xl">inventory_2</span>
+</div>
+<div class="font-title-md text-title-md font-bold text-on-surface">Không tìm thấy dịch vụ nào phù hợp</div>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto">
+            Không có kết quả nào cho tiêu chí lọc hiện tại. Thử thay đổi từ khóa hoặc tạo mới một dịch vụ chuẩn.
+          </p>
+<div class="pt-2">
+<button class="px-4 py-2 rounded-lg bg-secondary text-on-secondary font-title-sm text-title-sm font-medium hover:opacity-90 transition-opacity">
+              Tạo dịch vụ mới ngay
+            </button>
+</div>
+</div>
+</main>
+</div>
+</div>
+<!-- MODAL DIALOG: THÊM / CHỈNH SỬA DỊCH VỤ CHUẨN (Mã: A-03) -->
+<!-- Managed with backdrop scrim rgba(43, 38, 37, 0.45) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2B2625]/45 backdrop-blur-[2px]" id="service-modal">
+<div class="relative w-full max-w-2xl bg-surface-container-lowest rounded-xl border border-outline-variant/50 shadow-[0_20px_32px_-8px_rgba(43,38,37,0.12),0_8px_16px_-4px_rgba(139,46,74,0.06)] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+<!-- Top Champagne Accent Strip -->
+<div class="h-1 bg-gradient-to-r from-secondary-fixed via-secondary to-primary"></div>
+<!-- Modal Header -->
+<div class="p-6 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container-low/40">
+<div class="space-y-1">
+<div class="flex items-center gap-2.5">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary">Chỉnh sửa dịch vụ chuẩn</h2>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm font-bold border border-outline-variant/30">
+              Mã: A-03
+            </span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Cập nhật quy cách và đơn giá chuẩn áp dụng cho tính toán ngân sách tiệc cưới.
+          </p>
+</div>
+<button class="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors" id="close-modal-btn">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+<!-- Modal Body Form -->
+<form class="p-6 space-y-5" onsubmit="event.preventDefault();">
+<!-- Field 1: Tên dịch vụ (Validation Error Example) -->
+<div class="space-y-1.5">
+<label class="font-label-lg text-label-lg font-medium text-on-surface flex items-center justify-between">
+<span>Tên dịch vụ <span class="text-error font-bold">*</span></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Tối đa 100 ký tự (28/100)</span>
+</label>
+<div class="relative">
+<input class="w-full h-10 px-3.5 rounded-lg bg-surface border border-error text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-error/20" type="text" value="Set menu 8 món Hoàng Kim"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-error text-lg">error</span>
+</div>
+<div class="flex items-center gap-1.5 font-label-md text-label-md text-error">
+<span class="material-symbols-outlined text-sm">info</span>
+<span>Tên dịch vụ đã tồn tại trong danh mục Ẩm thực của chi nhánh này.</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<!-- Field 2: Danh mục -->
+<div class="space-y-1.5">
+<label class="font-label-lg text-label-lg font-medium text-on-surface">
+              Danh mục <span class="text-error font-bold">*</span>
+</label>
+<div class="relative">
+<select class="w-full h-10 pl-3.5 pr-8 rounded-lg bg-surface border border-outline-variant/50 text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer">
+<option value="hall">Sảnh tiệc</option>
+<option selected="" value="cuisine">Ẩm thực (Set Menu &amp; Tiệc)</option>
+<option value="decor">Trang trí sảnh &amp; lễ đường</option>
+<option value="mc">MC &amp; Dẫn chương trình</option>
+<option value="av">Âm thanh &amp; Ánh sáng sân khấu</option>
+<option value="media">Quay chụp phóng sự</option>
+<option value="costume">Trang phục cưới</option>
+<option value="makeup">Trang điểm cô dâu</option>
+<option value="transport">Xe đón dâu &amp; Vận chuyển</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-base">expand_more</span>
+</div>
+</div>
+<!-- Field 3: Đơn vị tính -->
+<div class="space-y-1.5">
+<label class="font-label-lg text-label-lg font-medium text-on-surface flex items-center justify-between">
+<span>Đơn vị tính <span class="text-error font-bold">*</span></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">bàn, bộ, ca, gói</span>
+</label>
+<input class="w-full h-10 px-3.5 rounded-lg bg-surface border border-outline-variant/50 text-on-surface font-body-md text-body-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Ví dụ: bàn, gói, buổi, chuyến..." type="text" value="bàn"/>
+</div>
+</div>
+<!-- Field 4: Giá niêm yết mặc định -->
+<div class="space-y-1.5">
+<label class="font-label-lg text-label-lg font-medium text-on-surface">
+            Giá mặc định niêm yết (VND) <span class="text-error font-bold">*</span>
+</label>
+<div class="relative">
+<input class="w-full h-10 pl-3.5 pr-12 rounded-lg bg-surface border border-outline-variant/50 font-title-sm text-title-sm font-semibold text-primary focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" type="text" value="4.500.000 ₫"/>
+<span class="absolute right-3.5 top-1/2 -translate-y-1/2 font-label-md text-label-md text-on-surface-variant font-medium">VND</span>
+</div>
+<div class="font-label-md text-label-md text-on-surface-variant">
+            Ghi chú: Giá tham chiếu trước thuế VAT và chưa tính hệ số phụ thu ngày cao điểm hoặc phụ thu phòng VIP.
+          </div>
+</div>
+<!-- Field 5: Trạng thái áp dụng Toggle Switch -->
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex items-center justify-between">
+<div class="space-y-0.5">
+<div class="font-title-sm text-title-sm font-semibold text-on-surface">Trạng thái kích hoạt</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cho phép nhân viên kinh doanh chọn dịch vụ này khi tạo hợp đồng.</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-label-md text-label-md font-semibold text-primary">Đang dùng</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</form>
+<!-- Modal Footer Action Buttons -->
+<div class="p-6 border-t border-outline-variant/30 bg-surface-container-low/50 flex items-center justify-between">
+<button class="px-5 py-2.5 rounded-lg border border-outline-variant text-on-surface font-title-sm text-title-sm font-medium hover:bg-surface-container-highest transition-colors active:scale-[0.98]" id="modal-cancel-btn">
+          Hủy bỏ
+        </button>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2.5 rounded-lg border border-secondary text-secondary font-title-sm text-title-sm font-medium hover:bg-secondary-container/20 transition-colors">
+            Lưu nháp
+          </button>
+<button class="px-6 py-2.5 rounded-lg bg-primary text-on-primary font-title-sm text-title-sm font-semibold hover:bg-primary-container shadow-sm transition-all active:scale-[0.98]">
+            Lưu thay đổi
+          </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive JavaScript for Dialog Toggle -->
+<script>
+    const modal = document.getElementById('service-modal');
+    const openBtn = document.getElementById('open-modal-btn');
+    const closeBtn = document.getElementById('close-modal-btn');
+    const cancelBtn = document.getElementById('modal-cancel-btn');
+
+    openBtn.addEventListener('click', () => {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+
+    const closeModal = () => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+
+    // Close on click outside modal dialog window
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+  </script>
+
+</div>

@@ -1,0 +1,618 @@
+@page "/C03"
+@{ ViewData["Title"] = "WPSM Luxury Weddings - Lộ trình chuẩn bị (C-03 & C-04)"; }
+<div data-wpsm-screen="C03">
+
+<!-- ================= SIDEBAR (Shared Component: SideNavBar) ================= -->
+@await Html.PartialAsync("/Areas/Customer/Pages/Shared/_CustomerNavigation.cshtml")
+<!-- ================= TOP BAR (Shared Component: TopNavBar) ================= -->
+<header class="fixed top-0 left-64 right-0 z-20 bg-surface-container-lowest border-b border-outline-variant/30 flex items-center justify-between px-8 py-3.5 shadow-sm">
+<!-- Breadcrumb & Event Badge Metadata -->
+<div class="flex items-center gap-4">
+<nav class="flex items-center gap-2 text-label-md font-label-md text-on-surface-variant">
+<span>Trang chủ</span>
+<span class="text-outline-variant">/</span>
+<span class="text-primary font-semibold">Lộ trình chuẩn bị</span>
+</nav>
+<span class="h-4 w-px bg-outline-variant/60"></span>
+<!-- Event Identity Chip Cluster -->
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant/30 text-label-sm font-label-sm text-on-surface-variant font-mono">
+          MÃ: C-03 &amp; C-04
+        </span>
+<span class="px-2 py-0.5 rounded bg-surface-container border border-outline-variant/40 text-label-sm font-label-sm text-on-surface-variant">
+          WPSM-2026-014
+        </span>
+<div class="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-fixed/50 border border-secondary/30 text-on-secondary-fixed text-label-sm font-label-sm font-semibold">
+<span class="material-symbols-outlined text-[14px]">local_florist</span>
+<span>Sảnh Hoa Hồng</span>
+</div>
+<span class="text-label-md font-label-md text-on-surface-variant flex items-center gap-1 ml-1">
+<span class="material-symbols-outlined text-[16px] text-secondary">calendar_today</span>
+          20/12/2026
+        </span>
+</div>
+</div>
+<!-- Actions & Profile Group -->
+<div class="flex items-center gap-4">
+<!-- Trailing Primary Action -->
+<button class="px-3.5 py-1.5 rounded-lg bg-surface-container-lowest border border-secondary text-secondary text-label-md font-label-md font-semibold hover:bg-surface-container-low active:scale-[0.98] transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">support_agent</span>
+<span>Liên hệ Quản lý Sảnh</span>
+</button>
+<!-- Trailing Icon Actions -->
+<div class="flex items-center gap-1 border-x border-outline-variant/30 px-2">
+<button class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors" title="Thông báo">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-4 h-4 bg-primary text-on-primary text-[10px] rounded-full flex items-center justify-center font-bold">3</span>
+</button>
+<button class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors" title="Trợ giúp">
+<span class="material-symbols-outlined text-[20px]">help</span>
+</button>
+</div>
+<!-- Couple Profile Indicator -->
+<div class="flex items-center gap-3 pl-1">
+<div class="relative">
+<img class="w-9 h-9 rounded-full object-cover ring-2 ring-secondary/40" data-alt="A portrait photograph of Vietnamese wedding couple Minh Anh and Thu Ha in elegant ivory and champagne formal wedding attire, radiant natural smiling expressions, soft cinematic portrait lighting with luxurious blurred floral background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBX6JIjW-jEicvQmUoSTkE2FkNpAKIMBiknNG3erd1fnQbiHbpUTcaNY75n5uUFu3rVvlylCfnubiW5z40kJDBVC6B_Z8X39dd0nfEDtAFiay7z134kNqlJ7W_czehyk5xW9ipDT6LDjFqb4ifCI9qjy-AdAkCV747FacAEAZmyIhK3Fgk5jJpr9eoDTsri7PETeI6vEGGDj2Xz7Dqx8LIqYLxX2aaVWa2AbVZRCoaykV62Q3poyj4bHQ"/>
+<span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-surface-container-lowest"></span>
+</div>
+<div class="flex flex-col text-left">
+<span class="text-title-sm font-title-sm text-on-surface leading-tight">Minh Anh &amp; Thu Hà</span>
+<span class="text-label-sm font-label-sm text-primary font-medium">Khách hàng (Cô dâu &amp; Chú rể)</span>
+</div>
+</div>
+</div>
+</header>
+<!-- ================= MAIN CONTENT CANVAS ================= -->
+<main class="ml-64 mt-[61px] flex-1 p-8 pb-16 bg-background">
+<div class="max-w-[1360px] mx-auto flex flex-col gap-6">
+<!-- 1. Header Banner & Utility Controls -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-outline-variant/30">
+<div>
+<div class="flex items-center gap-3 mb-1.5">
+<h1 class="text-headline-lg font-headline-lg text-primary tracking-tight">Lộ trình chuẩn bị hôn lễ</h1>
+<!-- Countdown Pill -->
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container text-on-primary font-title-sm text-title-sm shadow-sm">
+<span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+<span>T-58 ngày</span>
+</span>
+<!-- Progress Status Tag -->
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-label-sm font-label-sm font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+              Đang trong tiến độ
+            </span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-3xl">
+            Kế hoạch các cột mốc then chốt và phân công trách nhiệm giữa Khách hàng và Ban điều phối tiệc cưới WPSM.
+          </p>
+</div>
+<!-- Action Tools Cluster -->
+<div class="flex items-center gap-2.5 flex-wrap">
+<!-- Role Filter Tabs -->
+<div class="inline-flex p-1 bg-surface-container rounded-lg border border-outline-variant/30 text-label-md font-label-md">
+<button class="px-3 py-1 rounded-md bg-surface-container-lowest text-primary font-semibold shadow-xs">Tất cả</button>
+<button class="px-3 py-1 rounded-md text-on-surface-variant hover:text-on-surface transition-colors">Của tôi</button>
+<button class="px-3 py-1 rounded-md text-on-surface-variant hover:text-on-surface transition-colors">Quản lý</button>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant hover:bg-surface-container-low text-label-md font-label-md flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+<span>Xuất file lịch PDF</span>
+</button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant hover:bg-surface-container-low text-label-md font-label-md flex items-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+<span>Đồng bộ Google Calendar</span>
+</button>
+</div>
+</div>
+<!-- 2. Dual Column Layout: Left Timeline (68%) & Right Sticky Summary (32%) -->
+<div class="grid grid-cols-12 gap-6 items-start">
+<!-- LEFT COLUMN: 4 MILESTONE GROUPS TIMELINE (8 cols) -->
+<section class="col-span-12 lg:col-span-8 flex flex-col gap-6 relative">
+<!-- Continuous Vertical Timeline Rail Line -->
+<div class="absolute left-6 top-8 bottom-8 w-0.5 bg-outline-variant/40 -z-0"></div>
+<!-- ================= MILESTONE 1: T-90 (COMPLETED) ================= -->
+<div class="relative z-10 bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm transition-all">
+<div class="flex items-center justify-between cursor-pointer">
+<div class="flex items-center gap-3.5">
+<!-- Node Icon Indicator -->
+<div class="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-600 flex items-center justify-center text-emerald-800 shadow-xs">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="text-title-lg font-title-lg text-on-surface">Mốc T-90: Khởi tạo &amp; Định hình đặc tả tiệc cưới</h3>
+<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-label-sm font-label-sm uppercase font-semibold">
+                      Đã hoàn thành
+                    </span>
+</div>
+<div class="flex items-center gap-3 text-body-sm font-body-sm text-on-surface-variant mt-0.5">
+<span>Ngày hoàn tất: 15/10/2025</span>
+<span>•</span>
+<span class="font-medium text-emerald-800">5/5 hoàn thành</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="text-label-md font-label-md">Xem lịch sử</span>
+<span class="material-symbols-outlined text-[20px]">expand_more</span>
+</div>
+</div>
+</div>
+<!-- ================= MILESTONE 2: T-30 (IN PROGRESS - EXPANDED) ================= -->
+<div class="relative z-10 bg-surface-container-lowest border-2 border-primary/30 rounded-xl p-6 shadow-md">
+<!-- Accent Top Strip for Active Phase -->
+<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-secondary rounded-t-xl"></div>
+<!-- Milestone Header -->
+<div class="flex items-start justify-between pb-4 border-b border-outline-variant/30 mb-4">
+<div class="flex items-center gap-3.5">
+<!-- Node Active Pulsating Indicator -->
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center ring-4 ring-primary/10 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">pending_actions</span>
+</div>
+<div>
+<div class="flex items-center gap-2.5">
+<h3 class="text-title-lg font-title-lg text-primary font-bold">Mốc T-30: Chuẩn hóa dịch vụ &amp; Thẩm định BEO</h3>
+<span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">
+                      Đang diễn ra
+                    </span>
+</div>
+<div class="flex items-center gap-3 text-body-sm font-body-sm text-on-surface-variant mt-1">
+<span class="flex items-center gap-1 font-medium text-primary">
+<span class="material-symbols-outlined text-[16px]">alarm</span>
+                      Hạn chót: 20/11/2026 (Thời điểm hiện tại T-58 đang chuẩn bị)
+                    </span>
+<span>•</span>
+<span class="font-semibold text-on-surface">Tiến độ: 3/6 hoàn thành</span>
+</div>
+</div>
+</div>
+<button class="p-1 rounded text-on-surface-variant hover:bg-surface-container">
+<span class="material-symbols-outlined text-[22px]">expand_less</span>
+</button>
+</div>
+<!-- Detailed Task Rows in Milestone 2 -->
+<div class="flex flex-col gap-3">
+<!-- ROW 1: Dự tiệc thử thực đơn VIP (Done) -->
+<div class="flex items-center justify-between p-3.5 rounded-lg bg-surface-container-low/60 border border-outline-variant/30 hover:border-outline-variant transition-colors">
+<div class="flex items-center gap-3.5">
+<div class="w-6 h-6 rounded bg-emerald-600 text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">check</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm line-through text-on-surface-variant">Dự tiệc thử thực đơn VIP 8 món</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed/60 text-primary text-[10px] font-semibold">Khách hàng</span>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Hạn chót: 25/10/2026</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-label-sm font-label-sm font-semibold">
+                    Đã xong
+                  </span>
+<button class="text-on-surface-variant hover:text-primary p-1">
+<span class="material-symbols-outlined text-[18px]">info</span>
+</button>
+</div>
+</div>
+<!-- ROW 2: Chốt bài hát mở màn & Clip phóng sự cưới (Pending - User Actionable) -->
+<div class="flex items-center justify-between p-3.5 rounded-lg bg-surface-container-lowest border-2 border-primary/40 shadow-xs hover:shadow-sm transition-all group">
+<div class="flex items-center gap-3.5">
+<!-- Interactive Checkbox -->
+<button class="w-6 h-6 rounded border-2 border-primary hover:bg-primary/10 flex items-center justify-center transition-colors" title="Đánh dấu hoàn thành nhiệm vụ này">
+<span class="material-symbols-outlined text-transparent hover:text-primary text-[18px]">check</span>
+</button>
+<div>
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-on-surface font-semibold group-hover:text-primary transition-colors">Chốt bài hát mở màn &amp; Clip phóng sự cưới</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed/80 text-primary text-[10px] font-bold">Khách hàng</span>
+<span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] bg-secondary-container/60 text-on-secondary-container font-semibold">Ưu tiên cao</span>
+</div>
+<div class="flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant">
+<span class="text-error font-medium flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">event</span>
+                        Hạn: 05/11/2026
+                      </span>
+<span>•</span>
+<span>Gửi danh sách âm nhạc và video 4K cho sảnh</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant border border-outline-variant/40 text-label-sm font-label-sm font-semibold">
+                    Chờ thực hiện
+                  </span>
+<!-- Clickable detail trigger -->
+<a class="px-3 py-1 rounded bg-primary-container text-on-primary text-label-sm font-label-sm font-medium hover:bg-primary transition-all flex items-center gap-1 shadow-xs" href="#modal-task-detail">
+<span>Xem chi tiết</span>
+<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- ROW 3: Đặt và giữ chỗ nguyên vật liệu tươi nhập khẩu (Quản lý - Read Only) -->
+<div class="flex items-center justify-between p-3.5 rounded-lg bg-surface-container-low border border-outline-variant/30">
+<div class="flex items-center gap-3.5">
+<div class="w-6 h-6 rounded border border-outline text-outline flex items-center justify-center" title="Nhiệm vụ thuộc thẩm quyền Quản lý WPSM">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-on-surface">Đặt và giữ chỗ nguyên vật liệu tươi nhập khẩu</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-semibold">Quản lý</span>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Hạn: 10/11/2026 • Phụ trách: Bếp trưởng &amp; Cung ứng</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant border border-outline-variant/30 text-label-sm font-label-sm">
+                    Đang xử lý
+                  </span>
+<span class="material-symbols-outlined text-outline text-[18px]" title="Chỉ đọc">lock</span>
+</div>
+</div>
+<!-- ROW 4: Thanh toán đợt 2 (Customer) -->
+<div class="flex items-center justify-between p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:border-outline-variant transition-colors">
+<div class="flex items-center gap-3.5">
+<button class="w-6 h-6 rounded border-2 border-outline-variant hover:border-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-transparent hover:text-primary text-[16px]">check</span>
+</button>
+<div>
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-on-surface">Thanh toán đợt 2 (40% giá trị hợp đồng)</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-fixed/60 text-primary text-[10px] font-semibold">Khách hàng</span>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Hạn: 20/11/2026 • Chốt thực đơn và các khoản dịch vụ phát sinh</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-label-sm font-label-sm">
+                    Chờ thực hiện
+                  </span>
+<a class="text-primary text-label-sm font-label-sm font-semibold flex items-center gap-1 hover:underline" href="#">
+<span>Đến tab Thanh toán</span>
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</a>
+</div>
+</div>
+<!-- ROW 5: Duyệt và chốt BEO nội bộ (Quản lý) -->
+<div class="flex items-center justify-between p-3.5 rounded-lg bg-surface-container-low border border-outline-variant/30">
+<div class="flex items-center gap-3.5">
+<div class="w-6 h-6 rounded border border-outline text-outline flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">lock</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-on-surface">Duyệt và chốt BEO nội bộ (Bếp, Bar, Sảnh)</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-semibold">Quản lý</span>
+</div>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Hạn: 22/11/2026 • Điều phối viên: Hoàng Yến</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-label-sm font-label-sm">
+                    Chờ xử lý
+                  </span>
+<span class="material-symbols-outlined text-outline text-[18px]">lock</span>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= MILESTONE 3: T-7 (UPCOMING) ================= -->
+<div class="relative z-10 bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm opacity-95">
+<div class="flex items-start justify-between pb-3 border-b border-outline-variant/30 mb-3">
+<div class="flex items-center gap-3.5">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant text-on-surface-variant flex items-center justify-center font-title-sm">
+                  3
+                </div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="text-title-lg font-title-lg text-on-surface">Mốc T-7: Khóa danh sách bàn tiệc &amp; Tổng duyệt kịch bản</h3>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-label-sm font-label-sm font-semibold">
+                      Sắp tới
+                    </span>
+</div>
+<div class="flex items-center gap-3 text-body-sm font-body-sm text-on-surface-variant mt-0.5">
+<span>Hạn chót: 13/12/2026</span>
+<span>•</span>
+<span>Tiến độ: 0/5 hoàn thành</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span>
+</div>
+<!-- Preview tasks in T-7 -->
+<div class="flex flex-col gap-2 pt-1">
+<div class="flex items-center justify-between text-body-sm py-1.5 px-3 rounded bg-surface-container-low/40">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">lock</span>
+<span class="text-on-surface">Thống nhất kịch bản MC &amp; Nghi thức 2 họ</span>
+<span class="px-1.5 py-0.2 rounded bg-surface-variant text-[10px] text-on-surface-variant">Quản lý</span>
+</div>
+<span class="text-label-sm text-on-surface-variant">Hạn 10/12/2026</span>
+</div>
+<div class="flex items-center justify-between text-body-sm py-1.5 px-3 rounded bg-surface-container-low/40">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary">radio_button_unchecked</span>
+<span class="text-on-surface">Chốt sơ đồ phân bàn tiệc &amp; khách mời VIP</span>
+<span class="px-1.5 py-0.2 rounded bg-primary-fixed/60 text-[10px] text-primary font-semibold">Khách hàng</span>
+</div>
+<span class="text-label-sm text-on-surface-variant">Hạn 13/12/2026</span>
+</div>
+</div>
+</div>
+<!-- ================= MILESTONE 4: NGÀY SỰ KIỆN (EVENT DAY) ================= -->
+<div class="relative z-10 bg-surface-container-lowest border border-secondary/40 rounded-xl p-5 shadow-sm">
+<div class="flex items-start justify-between pb-3 border-b border-outline-variant/30 mb-3">
+<div class="flex items-center gap-3.5">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-title-sm ring-2 ring-secondary/40">
+<span class="material-symbols-outlined text-[18px]">celebration</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="text-title-lg font-title-lg text-primary font-bold">Ngày sự kiện: Lễ thành hôn &amp; Tiệc cưới chính thức</h3>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/50 text-on-secondary-container text-label-sm font-label-sm font-semibold">
+                      Mục tiêu 20/12/2026
+                    </span>
+</div>
+<div class="flex items-center gap-3 text-body-sm font-body-sm text-on-surface-variant mt-0.5">
+<span>Địa điểm: Sảnh Hoa Hồng - Tầng 2</span>
+<span>•</span>
+<span>Tiến độ: 0/4 hoàn thành</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span>
+</div>
+<!-- Preview tasks in Event Day -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1 text-body-sm">
+<div class="p-2.5 rounded bg-surface-container-low/50 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline">lock</span>
+<span class="text-on-surface text-label-md">Bàn giao sảnh &amp; Test hệ thống âm thanh ánh sáng</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-surface-variant text-[10px] text-on-surface-variant">Quản lý</span>
+</div>
+<div class="p-2.5 rounded bg-surface-container-low/50 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-secondary">group</span>
+<span class="text-on-surface text-label-md">Đón khách &amp; Nghi thức lễ cưới</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-secondary-fixed text-[10px] text-on-secondary-fixed font-semibold">Chung</span>
+</div>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN: STICKY PROGRESS & LEGEND PANEL (4 cols) -->
+<aside class="col-span-12 lg:col-span-4 flex flex-col gap-5 sticky top-20">
+<!-- CARD 1: Tổng quan tiến độ -->
+<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm">
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant/30">
+<h2 class="text-title-md font-title-md text-on-surface">Tổng quan tiến độ</h2>
+<span class="text-title-lg font-title-lg text-primary font-bold">60%</span>
+</div>
+<!-- Progress Arc / Segmented Bar -->
+<div class="mt-4 flex flex-col gap-2">
+<div class="flex justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span>Tổng nhiệm vụ hoàn tất</span>
+<span class="font-semibold text-on-surface">12 / 20 nhiệm vụ</span>
+</div>
+<!-- Multi-segment visual bar -->
+<div class="h-3 w-full bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="bg-primary h-full" style="width: 60%"></div>
+<div class="bg-primary/20 h-full" style="width: 15%"></div>
+</div>
+</div>
+<!-- Breakdown by Stakeholder -->
+<div class="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-outline-variant/30">
+<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/20 flex flex-col">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Nhiệm vụ của bạn</span>
+<span class="text-headline-sm font-headline-sm text-primary font-bold mt-1">5/8</span>
+<span class="text-[11px] text-emerald-800 font-medium">62.5% hoàn thành</span>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-low border border-outline-variant/20 flex flex-col">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Nhiệm vụ Quản lý</span>
+<span class="text-headline-sm font-headline-sm text-on-surface font-bold mt-1">7/12</span>
+<span class="text-[11px] text-on-surface-variant">58.3% hoàn thành</span>
+</div>
+</div>
+</div>
+<!-- CARD 2: Chú thích trạng thái & Quyền hạn (Legend) -->
+<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm">
+<h2 class="text-title-md font-title-md text-on-surface pb-3 border-b border-outline-variant/30">
+              Chú thích trạng thái &amp; Quyền hạn
+            </h2>
+<!-- Status Indicators Legend -->
+<div class="grid grid-cols-2 gap-2.5 mt-3.5 text-body-sm font-body-sm">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-emerald-600"></span>
+<span>Xanh lá: Đã xong</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-slate-400"></span>
+<span>Xám: Chờ thực hiện</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-red-600"></span>
+<span>Đỏ: Quá hạn</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-amber-500"></span>
+<span>Cam: Cần cập nhật</span>
+</div>
+</div>
+<!-- Permission Legend -->
+<div class="mt-4 pt-3 border-t border-outline-variant/30 flex flex-col gap-2.5 text-body-sm font-body-sm">
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-primary mt-0.5">check_box_outline_blank</span>
+<span class="text-on-surface-variant text-label-md">
+<strong class="text-on-surface">Khách hàng:</strong> Tự do đánh dấu hoàn thành sau khi hoàn tất.
+                </span>
+</div>
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-outline mt-0.5">lock</span>
+<span class="text-on-surface-variant text-label-md">
+<strong class="text-on-surface">Quản lý WPSM:</strong> Ban điều phối venue chịu trách nhiệm thực thi.
+                </span>
+</div>
+</div>
+</div>
+<!-- CARD 3: Điều phối viên trực tiếp -->
+<div class="bg-surface-container-lowest border border-outline-variant/40 rounded-xl p-5 shadow-sm relative overflow-hidden">
+<div class="flex items-center gap-3.5">
+<img class="w-13 h-13 w-12 h-12 rounded-full object-cover ring-2 ring-primary/20" data-alt="Close up professional headshot of Vietnamese luxury wedding coordinator Hoang Yen in a chic tailored burgundy blazer with delicate gold lapel pin and discreet communications earpiece, warmly smiling with warm venue lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_K2S5ok6y4epXyMA2rgAPRLxeS7iBpHmSHgd3cBg1Od9VCW0N9TQkX8-YMb_jXno17RWW7Qdbmmwk-KlUpBPkCduN2R1TM0FTZ-2SSlqvzDrgEkKVuCb2g55f5xNIM4yCb8OxBkqN_ytSQOUMHAEDuoWCjW2zJfbs17faH0kcGrmarJzEAvHet-XctJYstcRFrbOZs83ZxLJTW2r3nVYJeyCzTDe0s3gKNfz5N1RPD5znCEMVWNzoeA"/>
+<div class="flex flex-col">
+<span class="text-label-sm font-label-sm text-secondary font-semibold uppercase tracking-wider">Điều phối viên trực tiếp</span>
+<h4 class="text-title-md font-title-md text-on-surface">Hoàng Yến</h4>
+<span class="text-label-md font-label-md text-on-surface-variant">Quản lý sảnh cưới chuyên trách</span>
+</div>
+</div>
+<div class="mt-4 flex flex-col gap-2 pt-3 border-t border-outline-variant/30 text-body-sm font-body-sm">
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">phone_iphone</span>
+                  Điện thoại:
+                </span>
+<a class="font-title-sm text-title-sm text-primary hover:underline font-semibold" href="tel:0912888999">0912 888 999</a>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">mail</span>
+                  Email:
+                </span>
+<span class="text-label-md text-on-surface font-mono">hoangyen@@wpsm.vn</span>
+</div>
+</div>
+<div class="mt-3 flex gap-2">
+<button class="flex-1 py-1.5 px-3 rounded-lg bg-primary-container text-on-primary text-label-md font-label-md font-medium hover:bg-primary transition-all flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[16px]">chat</span>
+<span>Nhắn tin trực tiếp</span>
+</button>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<!-- ================= MODAL: CHI TIẾT NHIỆM VỤ (MÃ: C-04) ================= -->
+<!-- Designed as an anchored overlay dialog demo in viewport -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/45 backdrop-blur-[2px] transition-all" id="modal-task-detail">
+<div class="bg-surface-container-lowest w-full max-w-2xl rounded-2xl border border-outline-variant/50 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+<!-- Top Modal Accent Header Bar -->
+<div class="h-1.5 bg-gradient-to-r from-primary via-primary-container to-secondary"></div>
+<!-- Modal Header -->
+<div class="p-6 pb-4 border-b border-outline-variant/30 flex items-start justify-between">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">
+              Khách hàng
+            </span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-label-sm font-label-sm font-medium">
+              Cột mốc T-30
+            </span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-label-sm font-label-sm font-semibold">
+              Chờ thực hiện (Pending)
+            </span>
+</div>
+<h2 class="text-headline-sm font-headline-sm text-primary tracking-tight mt-1">
+            Chi tiết nhiệm vụ: Chọn bài hát mở màn &amp; Clip phóng sự cưới
+          </h2>
+<div class="flex items-center gap-4 text-body-sm font-body-sm text-on-surface-variant">
+<span class="flex items-center gap-1 text-error font-medium">
+<span class="material-symbols-outlined text-[16px]">calendar_clock</span>
+              Hạn chót: 05/11/2026 (Còn 15 ngày)
+            </span>
+<span>•</span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">person</span>
+              Người duyệt: Hoàng Yến (Quản lý sảnh)
+            </span>
+</div>
+</div>
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors" onclick="document.getElementById('modal-task-detail').style.display='none'">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Modal Content Body -->
+<div class="p-6 overflow-y-auto max-h-[614px] flex flex-col gap-5 custom-scroll">
+<!-- Yêu cầu & Hướng dẫn cụ thể -->
+<div class="flex flex-col gap-3">
+<h4 class="text-title-sm font-title-sm text-on-surface uppercase tracking-wide text-secondary flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">rule</span>
+            Yêu cầu &amp; Hướng dẫn cụ thể
+          </h4>
+<ul class="flex flex-col gap-2.5 p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 text-body-md font-body-md text-on-surface">
+<li class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-primary mt-0.5">music_note</span>
+<span><strong>01 bài hát lúc đón khách:</strong> Giai điệu Acoustic hoặc Jazz nhẹ nhàng, sang trọng.</span>
+</li>
+<li class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-primary mt-0.5">diamond</span>
+<span><strong>01 bài hát nghi thức:</strong> Khoảnh khắc cô dâu chú rể bước vào sảnh lễ đường (cao trào, lãng mạn).</span>
+</li>
+<li class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-primary mt-0.5">movie</span>
+<span><strong>01 clip phóng sự:</strong> Chuẩn định dạng video 4K tỉ lệ 16:9, thời lượng tối ưu từ 3 - 5 phút để chiếu màn hình LED sảnh.</span>
+</li>
+</ul>
+</div>
+<!-- Ghi chú bàn giao & upload link -->
+<div class="p-4 rounded-xl bg-secondary-fixed/20 border border-secondary/30 flex flex-col gap-2">
+<div class="flex items-center gap-2 text-title-sm font-title-sm text-on-secondary-fixed-variant">
+<span class="material-symbols-outlined text-[18px]">info</span>
+<span>Ghi chú hướng dẫn gửi tài liệu</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-secondary-fixed-variant leading-relaxed">
+            File clip và danh sách bài hát có thể gửi qua đường link Google Drive / Dropbox hoặc email trực tiếp cho Điều phối viên Hoàng Yến trước ngày <strong>05/11/2026</strong> để kỹ thuật âm thanh ánh sáng test trước 01 tuần.
+          </p>
+<div class="mt-2 flex items-center gap-3">
+<input class="flex-1 px-3 py-1.5 rounded-lg border border-outline-variant/60 bg-surface-container-lowest text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-on-surface" placeholder="Dán link Drive phóng sự &amp; nhạc tại đây..." type="text"/>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-highest text-on-surface text-label-md font-medium hover:bg-surface-container transition-colors">
+              Lưu link
+            </button>
+</div>
+</div>
+<!-- Task Preview Variant: Task do Quản lý đảm nhiệm (Thuyết minh trực quan) -->
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex flex-col gap-2">
+<span class="text-label-sm font-label-sm uppercase tracking-wide text-on-surface-variant font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+            So sánh quyền: Đối với nhiệm vụ Quản lý (Ví dụ: "Đặt nguyên vật liệu tươi")
+          </span>
+<div class="p-3 rounded-lg bg-surface-container-lowest border border-outline-variant/40 flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-outline">lock</span>
+<span class="italic">"Nhiệm vụ này do trung tâm WPSM chịu trách nhiệm thực hiện. Khách hàng chỉ theo dõi tiến độ."</span>
+</div>
+<span class="text-label-sm text-outline font-semibold">Chỉ đọc</span>
+</div>
+</div>
+</div>
+<!-- Modal Action Footer -->
+<div class="p-5 bg-surface-container-low border-t border-outline-variant/30 flex items-center justify-between">
+<button class="px-5 py-2 rounded-lg border border-outline text-on-surface text-label-lg font-label-lg hover:bg-surface-container transition-colors" onclick="document.getElementById('modal-task-detail').style.display='none'">
+          Đóng
+        </button>
+<div class="flex items-center gap-3">
+<button class="px-6 py-2 rounded-lg bg-primary text-on-primary font-title-sm text-title-sm hover:bg-primary-container active:scale-[0.98] transition-all flex items-center gap-2 shadow-md" onclick="alert('Đã cập nhật trạng thái nhiệm vụ thành Hoàn thành!'); document.getElementById('modal-task-detail').style.display='none';">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+<span>Đánh dấu hoàn thành</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= FOOTER (Shared Component: Footer) ================= -->
+<footer class="w-full py-4 ml-64 bg-surface-container-lowest border-t border-outline-variant/30 mt-auto">
+<div class="flex flex-col md:flex-row items-center justify-between px-8 py-2 gap-4 text-body-sm font-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-primary font-bold">WPSM</span>
+<span class="text-outline-variant">|</span>
+<span>© 2025 WPSM Hospitality Group. Nền tảng điều phối tiệc cưới cao cấp.</span>
+</div>
+<div class="flex items-center gap-6">
+<a class="text-primary font-medium hover:underline" href="tel:19008888">Điều phối khẩn cấp: 1900 8888</a>
+<a class="text-on-surface-variant hover:text-primary underline underline-offset-4 transition-colors" href="#">Chính sách dịch vụ</a>
+<a class="text-on-surface-variant hover:text-primary underline underline-offset-4 transition-colors" href="#">Đặc tả sảnh cưới</a>
+</div>
+</div>
+</footer>
+
+</div>

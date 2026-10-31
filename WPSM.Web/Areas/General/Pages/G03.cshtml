@@ -1,0 +1,380 @@
+@page "/G03"
+@{ ViewData["Title"] = "WPSM - Hồ sơ cá nhân & Đổi mật khẩu"; }
+<div data-wpsm-screen="G03">
+
+<!-- ================= TOP APP BAR (Shared Component JSON) ================= -->
+<header class="bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant w-full sticky top-0 z-20">
+<div class="flex justify-between items-center w-full px-4 md:px-8 max-w-7xl mx-auto h-16">
+<!-- Leading Icon / Brand Logo -->
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-lg text-primary hover:bg-surface-container transition-colors duration-150 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[24px]">diamond</span>
+</button>
+<span class="text-headline-md font-headline-md font-semibold text-primary dark:text-inverse-primary tracking-wide">
+          WPSM
+        </span>
+<span class="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-label-sm font-semibold tracking-wide bg-surface-container text-on-surface-variant border border-outline-variant">
+          Quản Lý Tiệc Cưới
+        </span>
+</div>
+<!-- Navigation tabs: Active state determined autonomously for Profile [Hồ sơ cá nhân] -->
+<nav class="hidden md:flex items-center space-x-6">
+<a class="text-on-surface-variant hover:bg-surface-container hover:text-primary px-3 py-1.5 rounded-lg transition-colors font-label-md text-label-md" href="#">
+          Tổng quan
+        </a>
+<a class="text-on-surface-variant hover:bg-surface-container hover:text-primary px-3 py-1.5 rounded-lg transition-colors font-label-md text-label-md" href="#">
+          Lịch sảnh &amp; Tiệc
+        </a>
+<a class="text-on-surface-variant hover:bg-surface-container hover:text-primary px-3 py-1.5 rounded-lg transition-colors font-label-md text-label-md" href="#">
+          Hợp đồng &amp; Cọc
+        </a>
+<!-- Active Tab: Exact match for Profile / User Settings screen -->
+<a class="text-primary dark:text-inverse-primary font-bold px-3 py-1.5 rounded-lg bg-surface-container transition-colors font-label-md text-label-md flex items-center gap-1.5 border-b-2 border-primary-container" href="#">
+<span class="material-symbols-outlined text-[18px]">account_circle</span>
+          Hồ sơ cá nhân
+        </a>
+</nav>
+<!-- Trailing Action -->
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" title="Trợ giúp">
+<span class="material-symbols-outlined text-[22px]">help_outline</span>
+</button>
+<div class="h-6 w-px bg-outline-variant mx-1 hidden sm:block"></div>
+<div class="flex items-center gap-2.5 pl-1">
+<div class="w-8 h-8 rounded-full bg-primary-container text-surface-container-lowest font-semibold flex items-center justify-center text-label-md ring-2 ring-[#C9A66B]/30">
+            VT
+          </div>
+<div class="hidden lg:block text-left">
+<p class="font-title-sm text-title-sm text-on-surface leading-tight">Vũ Thùy Linh</p>
+<p class="font-label-sm text-label-sm text-secondary">Quản lý sảnh tiệc cấp cao</p>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- ================= MAIN BACKGROUND CANVAS: HỒ SƠ CÁ NHÂN (G-02) ================= -->
+<!-- Blurred intentionally for dramatic luxury modal focus backdrop -->
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-8 transition-all duration-300 filter blur-[3.5px] select-none pointer-events-none opacity-85">
+<!-- Breadcrumb & Top Indicator -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+<div class="flex items-center gap-2 text-label-md font-label-md text-on-surface-variant">
+<span>Hệ thống WPSM</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span>Cài đặt tài khoản</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-primary font-semibold">Hồ sơ cá nhân (G-02)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-label-sm font-label-sm bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
+<span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
+          Đang trực ca • Sảnh Kim Cương &amp; Ruby
+        </span>
+</div>
+</div>
+<!-- Header Section of Profile -->
+<div class="bg-surface-container-lowest rounded-xl border border-surface-variant p-6 mb-8 ambient-card-shadow flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+<div class="flex items-center gap-5">
+<div class="relative">
+<div class="w-20 h-20 rounded-full bg-primary text-white flex items-center justify-center font-headline-md text-headline-md border-2 border-[#C9A66B]">
+            TL
+          </div>
+<span class="absolute bottom-0 right-0 p-1.5 bg-surface-container-lowest rounded-full border border-outline-variant shadow-sm text-primary">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+</span>
+</div>
+<div>
+<div class="flex items-center gap-3">
+<h1 class="text-headline-sm font-headline-sm text-primary">Vũ Thùy Linh</h1>
+<span class="px-2.5 py-0.5 rounded-full text-label-sm font-label-sm uppercase bg-surface-container text-primary font-semibold border border-outline-variant">
+              MÃ NV: WPSM-8842
+            </span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant mt-1">Giám sát Vận hành Tiệc cưới cao cấp • Khối F&amp;B &amp; Điều phối Yến tiệc</p>
+<div class="flex flex-wrap gap-4 mt-2 text-body-sm font-body-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-secondary">apartment</span> Sảnh Hoàng Gia &amp; Sảnh Kim Cương</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-secondary">mail</span> linh.vuthuy@@wpsm-venue.vn</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-secondary">phone_iphone</span> (+84) 918 245 889</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 border border-[#C9A66B] rounded-lg text-secondary font-label-md text-label-md flex items-center gap-2 hover:bg-surface-container">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+          Sửa thông tin
+        </button>
+<button class="px-4 py-2 bg-primary-container text-white rounded-lg font-label-md text-label-md flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">key</span>
+          Đổi mật khẩu
+        </button>
+</div>
+</div>
+<!-- Bento Grid details -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Col 1: Account Security & Auth Info -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant ambient-card-shadow">
+<h3 class="text-title-md font-title-md text-on-surface pb-3 border-b border-surface-variant flex items-center justify-between">
+<span>Bảo mật &amp; Phân quyền</span>
+<span class="material-symbols-outlined text-primary">security</span>
+</h3>
+<dl class="divide-y divide-surface-container mt-3 text-body-sm">
+<div class="py-2.5 flex justify-between">
+<dt class="text-on-surface-variant">Tên đăng nhập:</dt>
+<dd class="font-semibold text-on-surface">linh.vuthuy</dd>
+</div>
+<div class="py-2.5 flex justify-between">
+<dt class="text-on-surface-variant">Xác thực 2 bước (2FA):</dt>
+<dd class="text-emerald-700 font-semibold flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">check_circle</span> Đã bật</dd>
+</div>
+<div class="py-2.5 flex justify-between">
+<dt class="text-on-surface-variant">Đổi mật khẩu lần cuối:</dt>
+<dd class="text-on-surface">14/11/2024 (90 ngày trước)</dd>
+</div>
+<div class="py-2.5 flex justify-between">
+<dt class="text-on-surface-variant">Vai trò hệ thống:</dt>
+<dd class="text-primary font-semibold">Trưởng ca Vận hành</dd>
+</div>
+</dl>
+</div>
+<!-- Col 2: Activity Log -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant ambient-card-shadow">
+<h3 class="text-title-md font-title-md text-on-surface pb-3 border-b border-surface-variant flex items-center justify-between">
+<span>Ca tiệc phụ trách tuần này</span>
+<span class="material-symbols-outlined text-secondary">celebration</span>
+</h3>
+<div class="space-y-3 mt-3">
+<div class="p-3 bg-surface-container-low rounded-lg border border-surface-variant">
+<div class="flex justify-between items-center text-label-sm font-label-sm">
+<span class="text-primary font-bold">18:00 • 28/02/2025</span>
+<span class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">Sắp diễn ra</span>
+</div>
+<p class="font-title-sm text-title-sm text-on-surface mt-1">Tiệc cưới: Hoàng Nam &amp; Mai Chi</p>
+<p class="text-body-sm text-on-surface-variant">Sảnh Kim Cương (Bàn chính: 45 bàn)</p>
+</div>
+<div class="p-3 bg-surface-container-low rounded-lg border border-surface-variant">
+<div class="flex justify-between items-center text-label-sm font-label-sm">
+<span class="text-primary font-bold">11:30 • 01/03/2025</span>
+<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">Chuẩn bị thực đơn</span>
+</div>
+<p class="font-title-sm text-title-sm text-on-surface mt-1">Tiệc cưới: Đức Trọng &amp; Khánh Vân</p>
+<p class="text-body-sm text-on-surface-variant">Sảnh Pha Lê VIP (Bàn chính: 32 bàn)</p>
+</div>
+</div>
+</div>
+<!-- Col 3: Hardware & Session -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant ambient-card-shadow">
+<h3 class="text-title-md font-title-md text-on-surface pb-3 border-b border-surface-variant flex items-center justify-between">
+<span>Thiết bị đang đăng nhập</span>
+<span class="material-symbols-outlined text-outline">devices</span>
+</h3>
+<ul class="space-y-3 mt-3 text-body-sm font-body-sm">
+<li class="flex items-center gap-3 p-2 rounded-lg bg-surface-container">
+<span class="material-symbols-outlined text-primary text-[24px]">laptop_mac</span>
+<div class="flex-1">
+<p class="font-title-sm text-title-sm text-on-surface">MacBook Pro 14" (Thiết bị này)</p>
+<p class="text-on-surface-variant text-label-sm">TP. Hồ Chí Minh • Chrome 123.0</p>
+</div>
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+</li>
+<li class="flex items-center gap-3 p-2 rounded-lg">
+<span class="material-symbols-outlined text-on-surface-variant text-[24px]">tablet_mac</span>
+<div class="flex-1">
+<p class="font-title-sm text-title-sm text-on-surface">iPad Pro 11" (Điều phối sảnh)</p>
+<p class="text-on-surface-variant text-label-sm">Sảnh Kim Cương • Hoạt động 12p trước</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</main>
+<!-- ================= LUXURY OVERLAY / BACKDROP ================= -->
+<div class="fixed inset-0 z-40 bg-[#2B2625]/60 backdrop-blur-[3px] transition-opacity duration-300"></div>
+<!-- ================= SUCCESS TOAST (TOP-RIGHT) ================= -->
+<aside aria-label="Thông báo hệ thống" class="fixed top-6 right-6 z-50 max-w-md w-full sm:w-[420px] transition-all transform animate-bounce-short">
+<div class="bg-surface-container-lowest rounded-xl border-l-4 border-l-[#10B981] border border-[#E8E2DD] p-4 shadow-xl flex items-start gap-3.5 ring-1 ring-[#10B981]/20">
+<div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#ECFDF5] text-[#059669] flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center justify-between">
+<p class="font-title-sm text-title-sm text-[#065F46]">Lưu thành công</p>
+<span class="text-[11px] font-label-sm text-on-surface-variant">Vừa xong</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface mt-0.5 leading-snug">
+          Mật khẩu của bạn đã được cập nhật thành công! Vui lòng sử dụng mật khẩu mới cho các phiên làm việc tiếp theo.
+        </p>
+</div>
+<button class="text-outline hover:text-on-surface p-1 rounded-md transition-colors" onclick="this.closest('aside').style.display='none'">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</aside>
+<!-- ================= MODAL DIALOG: ĐỔI MẬT KHẨU (G-03) ================= -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+<div class="relative w-full max-w-[540px] bg-surface-container-lowest rounded-[16px] border border-[#C9A66B]/50 custom-modal-shadow my-8 overflow-hidden transform transition-all">
+<!-- Subtle Luxury Champagne Top Accent Band -->
+<div class="h-1.5 w-full bg-gradient-to-r from-primary-container via-[#C9A66B] to-primary"></div>
+<!-- Modal Header -->
+<div class="px-7 pt-6 pb-4 border-b border-surface-variant/70 flex items-center justify-between bg-surface-container-low/40">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container text-primary-container flex items-center justify-center border border-outline-variant/60">
+<span class="material-symbols-outlined text-[22px]">lock_reset</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="font-headline-md text-headline-md font-semibold text-primary-container tracking-normal">
+                Đổi mật khẩu
+              </h2>
+<span class="px-2 py-0.5 rounded text-[10px] font-label-sm font-bold tracking-wider bg-surface-container-high text-on-surface-variant border border-outline-variant">
+                [MÃ: G-03]
+              </span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">
+              Cập nhật thông tin xác thực quản trị hệ thống WPSM
+            </p>
+</div>
+</div>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors duration-150" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Modal Form Body -->
+<form class="p-7 space-y-5" onsubmit="event.preventDefault();">
+<!-- TRƯỜNG 1: Mật khẩu hiện tại * -->
+<div class="space-y-1.5">
+<div class="flex justify-between items-center">
+<label class="block font-label-md text-label-md text-on-surface font-medium" for="current_password">
+              Mật khẩu hiện tại <span class="text-error font-bold">*</span>
+</label>
+<a class="text-label-sm font-label-sm text-secondary hover:text-primary transition-colors underline" href="#">
+              Quên mật khẩu?
+            </a>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[20px]">key</span>
+</div>
+<input class="w-full h-10 pl-10 pr-10 rounded-lg border border-error bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:outline-none focus:ring-2 focus:ring-error/20 focus:border-error transition-all" id="current_password" placeholder="Nhập mật khẩu hiện tại" type="password" value="MatKhauCu123@@"/>
+<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-outline hover:text-on-surface transition-colors" onclick="togglePasswordVisibility('current_password', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+<!-- Thông báo lỗi mẫu (Red error with alert icon) -->
+<div class="flex items-center gap-1.5 text-error text-body-sm font-body-sm pt-0.5">
+<span class="material-symbols-outlined text-[16px] text-error" style="font-variation-settings: 'FILL' 1;">error</span>
+<span>Mật khẩu hiện tại không đúng.</span>
+</div>
+</div>
+<!-- TRƯỜNG 2: Mật khẩu mới * -->
+<div class="space-y-1.5">
+<label class="block font-label-md text-label-md text-on-surface font-medium" for="new_password">
+            Mật khẩu mới <span class="text-error font-bold">*</span>
+</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</div>
+<input class="w-full h-10 pl-10 pr-10 rounded-lg border border-error bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:outline-none focus:ring-2 focus:ring-error/20 focus:border-error transition-all" id="new_password" placeholder="Nhập mật khẩu mới" type="password" value="Wpsm@@Venue2025"/>
+<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-outline hover:text-on-surface transition-colors" onclick="togglePasswordVisibility('new_password', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility_off</span>
+</button>
+</div>
+<!-- Helper text -->
+<p class="text-body-sm font-body-sm text-on-surface-variant leading-relaxed">
+            8–64 ký tự, gồm ít nhất một chữ cái và một chữ số, khác mật khẩu hiện tại.
+          </p>
+<!-- Password Strength Indicator (4 bars, Khá mạnh, Green #10B981) -->
+<div class="pt-1.5 pb-1">
+<div class="flex items-center justify-between text-label-sm font-label-sm mb-1.5">
+<span class="text-on-surface-variant font-medium">Chỉ số an toàn:</span>
+<span class="text-[#10B981] font-semibold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
+                Độ mạnh: Khá mạnh
+              </span>
+</div>
+<!-- 4 Segmented Bars -->
+<div class="grid grid-cols-4 gap-1.5">
+<div class="h-1.5 rounded-full bg-[#10B981]"></div>
+<div class="h-1.5 rounded-full bg-[#10B981]"></div>
+<div class="h-1.5 rounded-full bg-[#10B981]"></div>
+<div class="h-1.5 rounded-full bg-surface-variant"></div>
+</div>
+</div>
+<!-- Thông báo lỗi trạng thái: Không được trùng với hiện tại -->
+<div class="flex items-center gap-1.5 text-error text-body-sm font-body-sm pt-0.5">
+<span class="material-symbols-outlined text-[16px] text-error" style="font-variation-settings: 'FILL' 1;">error</span>
+<span>Mật khẩu mới không được trùng với mật khẩu hiện tại.</span>
+</div>
+</div>
+<!-- TRƯỜNG 3: Xác nhận mật khẩu mới * -->
+<div class="space-y-1.5">
+<label class="block font-label-md text-label-md text-on-surface font-medium" for="confirm_password">
+            Xác nhận mật khẩu mới <span class="text-error font-bold">*</span>
+</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined text-[20px]">check_circle_outline</span>
+</div>
+<input class="w-full h-10 pl-10 pr-10 rounded-lg border border-error bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:outline-none focus:ring-2 focus:ring-error/20 focus:border-error transition-all" id="confirm_password" placeholder="Nhập lại mật khẩu mới" type="password" value="Wpsm@@Venue2024"/>
+<button class="absolute inset-y-0 right-0 pr-3 flex items-center text-outline hover:text-on-surface transition-colors" onclick="togglePasswordVisibility('confirm_password', this)" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+<!-- Thông báo lỗi xác nhận -->
+<div class="flex items-center gap-1.5 text-error text-body-sm font-body-sm pt-0.5">
+<span class="material-symbols-outlined text-[16px] text-error" style="font-variation-settings: 'FILL' 1;">error</span>
+<span>Mật khẩu xác nhận không khớp với mật khẩu mới.</span>
+</div>
+</div>
+<!-- Modal Action Footer Buttons -->
+<div class="pt-4 border-t border-surface-variant/80 flex items-center justify-end gap-3">
+<!-- Secondary button: Hủy -->
+<button class="px-5 py-2.5 rounded-lg border border-outline/40 hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-label-lg text-label-lg transition-all duration-150 active:scale-[0.98]" type="button">
+            Hủy
+          </button>
+<!-- Primary button: Lưu mật khẩu (Vang đỏ #8B2E4A) -->
+<button class="px-6 py-2.5 rounded-lg bg-primary-container hover:bg-tertiary-container text-white font-label-lg text-label-lg shadow-sm hover:shadow-md transition-all duration-150 active:scale-[0.98] flex items-center gap-2" type="submit">
+<span class="material-symbols-outlined text-[18px]">save</span>
+            Lưu mật khẩu
+          </button>
+</div>
+</form>
+</div>
+</div>
+<!-- ================= FOOTER (Shared Component JSON) ================= -->
+<footer class="bg-surface dark:bg-surface border-t border-outline-variant dark:border-outline-variant mt-auto relative z-10">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto gap-3 text-center md:text-left">
+<!-- Copyright text -->
+<p class="text-body-sm font-body-sm text-on-surface-variant dark:text-on-surface-variant">
+        © 2025 WPSM Wedding Management. All rights reserved.
+      </p>
+<!-- Footer links from JSON -->
+<div class="flex flex-wrap items-center justify-center gap-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-inverse-primary transition-colors duration-150 text-body-sm font-body-sm" href="#">
+          Điều khoản dịch vụ
+        </a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-inverse-primary transition-colors duration-150 text-body-sm font-body-sm" href="#">
+          Chính sách bảo mật
+        </a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-inverse-primary transition-colors duration-150 text-body-sm font-body-sm flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[16px] text-primary">phone_in_talk</span>
+          Hỗ trợ khẩn cấp
+        </a>
+</div>
+</div>
+</footer>
+<!-- Inline vanilla JS for micro-interactions (eye toggle) -->
+<script>
+    function togglePasswordVisibility(fieldId, triggerBtn) {
+      const input = document.getElementById(fieldId);
+      const icon = triggerBtn.querySelector('.material-symbols-outlined');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+      } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
+      }
+    }
+  </script>
+
+</div>

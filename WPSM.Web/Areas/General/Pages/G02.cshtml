@@ -1,0 +1,356 @@
+@page "/G02"
+@{ ViewData["Title"] = "Hồ sơ cá nhân (G-02) - WPSM Wedding Management"; }
+<div data-wpsm-screen="G02">
+
+<!-- TopAppBar Component (from JSON specification) -->
+<header class="bg-surface sticky top-0 z-40 border-b border-outline-variant shadow-none">
+<div class="flex justify-between items-center w-full px-4 md:px-8 max-w-7xl mx-auto h-16">
+<!-- Leading Brand Group -->
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-container text-primary">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="diamond">diamond</span>
+</div>
+<div class="flex flex-col">
+<span class="text-headline-md font-headline-md font-semibold text-primary tracking-wide">WPSM</span>
+<span class="text-[10px] uppercase tracking-widest text-secondary font-label-sm font-semibold">Wedding Luxury ERP</span>
+</div>
+</div>
+<!-- Center Space / Contextual Meta -->
+<div class="hidden lg:flex items-center gap-2 px-3 py-1 bg-surface-container-low rounded-full border border-outline-variant">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">Sảnh Kim Cương • Ngày cưới: 28/12/2025</span>
+</div>
+<!-- Trailing Action Cluster -->
+<div class="flex items-center gap-3">
+<!-- Notification Bell -->
+<button aria-label="Thông báo" class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150">
+<span class="material-symbols-outlined text-[22px]" data-icon="notifications">notifications</span>
+<span class="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-sm ring-2 ring-surface">3</span>
+</button>
+<!-- Help / Support Icon from JSON -->
+<button aria-label="Trợ giúp" class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150">
+<span class="material-symbols-outlined text-[22px]" data-icon="help_outline">help_outline</span>
+</button>
+<!-- Divider -->
+<div class="h-6 w-px bg-outline-variant mx-1"></div>
+<!-- User Quick Profile Menu Dropdown Trigger -->
+<div class="relative group">
+<button class="flex items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-lg border border-outline-variant bg-surface-container-lowest hover:bg-surface-container hover:border-outline transition-colors duration-150">
+<div class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center font-title-sm text-xs font-semibold ring-1 ring-primary/20">
+              NL
+            </div>
+<div class="text-left hidden sm:block">
+<p class="text-label-md font-label-md font-medium text-on-surface leading-tight">Long &amp; Linh</p>
+<p class="text-[10px] text-secondary font-medium uppercase">Khách hàng</p>
+</div>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant" data-icon="expand_more">expand_more</span>
+</button>
+<!-- Dropdown flyout menu -->
+<div class="absolute right-0 mt-2 w-56 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-lg py-1.5 hidden group-hover:block transition-all z-50">
+<div class="px-4 py-2 border-b border-surface-container">
+<p class="text-label-sm font-label-sm text-secondary uppercase font-bold">Tài khoản Cặp đôi</p>
+<p class="text-body-sm font-body-sm font-medium text-on-surface truncate">long.nguyenbaolong@@gmail.com</p>
+</div>
+<a class="flex items-center gap-2.5 px-4 py-2.5 text-body-sm font-body-sm text-primary font-semibold bg-surface-container-low" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="account_circle">account_circle</span>
+              Hồ sơ cá nhân
+            </a>
+<a class="flex items-center gap-2.5 px-4 py-2.5 text-body-sm font-body-sm text-on-surface hover:bg-surface-container hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="contact_support">contact_support</span>
+              Hỗ trợ trung tâm
+            </a>
+<div class="h-px bg-surface-container my-1"></div>
+<a class="flex items-center gap-2.5 px-4 py-2.5 text-body-sm font-body-sm text-error hover:bg-error-container hover:text-on-error-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="logout">logout</span>
+              Đăng xuất
+            </a>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- App Structure: 260px Left Nav + Main Content Viewport -->
+<div class="flex-1 w-full max-w-7xl mx-auto flex flex-col md:flex-row">
+<!-- Left Navigation Rail (Persistent Operational Nav for Khách hàng) -->
+<aside class="w-full md:w-[260px] flex-shrink-0 md:min-h-[calc(100vh-4rem)] bg-surface border-r border-outline-variant p-4 space-y-6">
+<!-- Wedding Event Banner Mini -->
+<div class="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]">Sảnh Kim Cương</span>
+<span class="text-label-sm font-label-sm text-secondary font-semibold">T-48 Ngày</span>
+</div>
+<h4 class="text-title-sm font-title-sm text-primary mt-0.5">Tiệc Cưới Long &amp; Linh</h4>
+<div class="flex items-center gap-1.5 text-body-sm font-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-secondary" data-icon="event">event</span>
+<span>28/12/2025 • Tối (18:00)</span>
+</div>
+</div>
+<!-- Navigation Link List -->
+<nav class="space-y-1">
+<p class="px-3 pb-2 text-[11px] font-semibold tracking-wider text-secondary uppercase">Điều hướng sự kiện</p>
+<!-- 1. Tổng quan -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span>Tổng quan</span>
+</a>
+<!-- 2. Hợp đồng & đặc tả -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+<span>Hợp đồng &amp; đặc tả</span>
+</a>
+<!-- 3. Lộ trình -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="timeline">timeline</span>
+<span>Lộ trình</span>
+</a>
+<!-- 4. Yêu cầu thay đổi -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit_note">edit_note</span>
+<span>Yêu cầu thay đổi</span>
+</a>
+<!-- 5. Thanh toán -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="payments">payments</span>
+<span>Thanh toán</span>
+</a>
+<!-- 6. Ảnh trực tiếp -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="photo_camera">photo_camera</span>
+<span>Ảnh trực tiếp</span>
+</a>
+<!-- 7. Sau sự kiện -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="celebration">celebration</span>
+<span>Sau sự kiện</span>
+</a>
+<!-- 8. Thông báo -->
+<a class="flex items-center justify-between px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+<span>Thông báo</span>
+</div>
+<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-container text-white">3</span>
+</a>
+<!-- 9. Hồ sơ (Active tab: Màu vang đỏ #8B2E4A và nền vàng champagne nhạt) -->
+<a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-primary font-semibold bg-secondary-fixed/30 border border-secondary/20 shadow-sm" href="#">
+<span class="material-symbols-outlined text-[20px] text-primary" data-icon="badge" style="font-variation-settings: 'FILL' 1;">badge</span>
+<span>Hồ sơ</span>
+</a>
+</nav>
+<!-- Support Hotline Widget -->
+<div class="p-3 rounded-lg border border-dashed border-outline-variant bg-surface-container-lowest">
+<p class="text-label-sm font-label-sm font-bold text-secondary uppercase">Hotline Điều Phối Viên</p>
+<p class="text-title-sm font-title-sm text-primary mt-1">1900 6868 (Phím 2)</p>
+<p class="text-[11px] text-on-surface-variant mt-0.5">Trực hỗ trợ: 08:00 - 21:00 hàng ngày</p>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-4 md:p-8 space-y-6">
+<!-- Page Header: Editorial Wedding Tone -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-outline-variant gap-4">
+<div>
+<!-- Breadcrumb & Screen ID Tag -->
+<div class="flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant mb-1">
+<a class="hover:text-primary transition-colors" href="#">Trang chủ</a>
+<span class="text-outline-variant">/</span>
+<span class="text-on-surface font-medium">Hồ sơ cá nhân</span>
+<span class="inline-flex items-center px-2 py-0.5 ml-2 rounded text-[11px] font-semibold bg-surface-container text-secondary border border-outline-variant">
+              MÃ: G-02
+            </span>
+</div>
+<h1 class="text-headline-lg font-headline-lg text-primary tracking-tight">Hồ sơ cá nhân</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-secondary text-secondary hover:bg-secondary-fixed/20 text-body-sm font-title-sm transition-colors duration-150">
+<span class="material-symbols-outlined text-[18px]" data-icon="support_agent">support_agent</span>
+<span>Liên hệ điều phối viên</span>
+</button>
+</div>
+</div>
+<!-- Main Profile Bento Layout -->
+<div class="space-y-6">
+<!-- THẺ 1: Thông tin cá nhân (Read-only Card) -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 md:p-8 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04),0_1px_3px_-1px_rgba(139,46,74,0.03)] relative overflow-hidden">
+<!-- Top subtle champagne accent strip -->
+<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-secondary-fixed via-primary-container to-secondary"></div>
+<!-- Card Header / Avatar Block -->
+<div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-outline-variant gap-4">
+<div class="flex items-center gap-4">
+<!-- Initials Avatar -->
+<div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary-container text-white flex items-center justify-center font-display-lg text-2xl md:text-3xl font-semibold shadow-md ring-4 ring-secondary-fixed/40">
+                NL
+              </div>
+<div class="space-y-1">
+<div class="flex flex-wrap items-center gap-2.5">
+<h2 class="text-title-lg font-title-lg text-on-surface font-bold">
+                    Nguyễn Bảo Long &amp; Trần Phương Linh
+                  </h2>
+<!-- Luxury Champagne Role Badge -->
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-label-sm font-label-sm font-bold bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] uppercase tracking-wide">
+<span class="material-symbols-outlined text-[14px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+                    Khách hàng
+                  </span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant flex items-center gap-2">
+<span>Cặp đôi đám cưới</span>
+<span class="text-outline-variant">•</span>
+<span class="text-primary font-medium">Sảnh Kim Cương</span>
+<span class="text-outline-variant">•</span>
+<span>Ngày cưới chính thức: <strong class="text-on-surface font-semibold">28/12/2025</strong></span>
+</p>
+</div>
+</div>
+<!-- Lock Status Tag -->
+<div class="self-start md:self-center flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface-variant border border-outline-variant text-body-sm font-body-sm">
+<span class="material-symbols-outlined text-[16px] text-secondary" data-icon="lock">lock</span>
+<span>Hồ sơ đã khoá xác thực</span>
+</div>
+</div>
+<!-- Read-only Field Matrix -->
+<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-y-5 gap-x-8">
+<!-- Họ và tên -->
+<div class="space-y-1">
+<label class="text-label-md font-label-md text-secondary font-medium">Họ và tên đại diện</label>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
+<span class="font-medium text-body-md font-body-md">Nguyễn Bảo Long &amp; Trần Phương Linh</span>
+<span class="material-symbols-outlined text-[18px] text-outline" data-icon="person">person</span>
+</div>
+</div>
+<!-- Email -->
+<div class="space-y-1">
+<label class="text-label-md font-label-md text-secondary font-medium">Địa chỉ Email liên hệ</label>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
+<span class="font-medium text-body-md font-body-md">long.nguyenbaolong@@gmail.com</span>
+<span class="material-symbols-outlined text-[18px] text-outline" data-icon="mail">mail</span>
+</div>
+</div>
+<!-- Số điện thoại -->
+<div class="space-y-1">
+<label class="text-label-md font-label-md text-secondary font-medium">Số điện thoại đăng ký</label>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
+<span class="font-medium text-body-md font-body-md tracking-wider">0908 123 456</span>
+<span class="material-symbols-outlined text-[18px] text-outline" data-icon="call">call</span>
+</div>
+</div>
+<!-- Vai trò -->
+<div class="space-y-1">
+<label class="text-label-md font-label-md text-secondary font-medium">Vai trò hệ thống</label>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
+<div class="flex items-center gap-2">
+<span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-secondary-fixed/50 text-on-secondary-container">
+                    Khách hàng
+                  </span>
+<span class="text-body-sm font-body-sm text-on-surface-variant">(Chủ trì tiệc cưới)</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-outline" data-icon="supervisor_account">supervisor_account</span>
+</div>
+</div>
+<!-- Mã hợp đồng liên kết -->
+<div class="space-y-1 md:col-span-2">
+<label class="text-label-md font-label-md text-secondary font-medium">Mã hợp đồng liên kết</label>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary tracking-wide text-title-sm font-title-sm">HD-2025-KC08</span>
+<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Đã ký duyệt &amp; Hoạt động
+                  </span>
+</div>
+<a class="text-body-sm font-body-sm text-primary hover:underline font-semibold flex items-center gap-1" href="#">
+<span>Xem chi tiết hợp đồng</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="arrow_forward">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Subtle Info Note Box -->
+<div class="mt-6 flex items-start gap-3 p-4 rounded-lg bg-surface-container-low border border-outline-variant">
+<span class="material-symbols-outlined text-primary text-[20px] flex-shrink-0 mt-0.5" data-icon="info">info</span>
+<div class="text-body-sm font-body-sm text-on-surface-variant">
+<p class="font-medium text-on-surface">Thông tin cá nhân do trung tâm quản lý.</p>
+<p class="text-on-surface-variant">Vui lòng liên hệ trung tâm nếu cần thay đổi thông tin pháp lý hoặc điều phối lại nhân sự bảo trợ tiệc cưới.</p>
+</div>
+</div>
+</section>
+<!-- THẺ 2: Bảo mật tài khoản (Security Card) -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 md:p-8 shadow-[0_2px_8px_-2px_rgba(43,38,37,0.04),0_1px_3px_-1px_rgba(139,46,74,0.03)]">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-outline-variant gap-4">
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]" data-icon="shield">shield</span>
+<h3 class="text-title-lg font-title-lg text-on-surface font-bold">Bảo mật tài khoản</h3>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant max-w-2xl">
+                Cập nhật mật khẩu định kỳ để bảo vệ tài khoản và thông tin vận hành tiệc cưới của bạn.
+              </p>
+</div>
+<!-- Nút hành động đổi mật khẩu: Primary button rượu vang #8B2E4A, bo góc 8px -->
+<button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary-container text-white font-title-sm text-body-md hover:bg-tertiary active:scale-[0.98] transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="key">key</span>
+<span>Đổi mật khẩu</span>
+</button>
+</div>
+<!-- Grid bảo mật chi tiết -->
+<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Lịch sử mật khẩu -->
+<div class="p-4 rounded-lg bg-surface border border-outline-variant/80 flex items-start gap-3.5">
+<div class="w-9 h-9 rounded-full bg-secondary-fixed/50 flex items-center justify-center text-secondary flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]" data-icon="schedule">schedule</span>
+</div>
+<div class="space-y-1">
+<p class="text-title-sm font-title-sm text-on-surface">Mật khẩu đăng nhập</p>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Mật khẩu đã đổi lần cuối cách đây <strong>45 ngày</strong>.</p>
+<p class="text-[11px] text-secondary font-medium">Khuyến nghị thay đổi sau mỗi 90 ngày.</p>
+</div>
+</div>
+<!-- Xác thực 2 lớp nội bộ -->
+<div class="p-4 rounded-lg bg-surface border border-outline-variant/80 flex items-start gap-3.5">
+<div class="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-800 flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]" data-icon="verified_user">verified_user</span>
+</div>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<p class="text-title-sm font-title-sm text-on-surface">Xác thực 2 lớp (2FA)</p>
+<span class="px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">Đang kích hoạt</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Trạng thái xác thực 2 lớp nội bộ qua tin nhắn OTP số điện thoại <strong>0908 123 456</strong>.</p>
+<p class="text-[11px] text-emerald-700 font-medium">Bảo vệ truy cập dữ liệu bảng chạy tiệc &amp; chi phí.</p>
+</div>
+</div>
+</div>
+<!-- Session log notice -->
+<div class="mt-4 pt-4 border-t border-surface-container flex flex-col sm:flex-row items-start sm:items-center justify-between text-body-sm font-body-sm text-on-surface-variant gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-outline" data-icon="laptop_mac">laptop_mac</span>
+<span>Phiên đăng nhập hiện tại: Chrome trên macOS (TP. Hồ Chí Minh)</span>
+</div>
+<a class="text-secondary hover:text-primary transition-colors text-xs font-semibold" href="#">
+              Quản lý thiết bị đăng nhập →
+            </a>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Footer Component (from JSON specification) -->
+<footer class="bg-surface border-t border-outline-variant mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto gap-3 text-center md:text-left">
+<!-- Copyright text exact match from prompt / JSON -->
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+        © 2025 WPSM – Wedding Planning and Service Management. All rights reserved.
+      </p>
+<!-- Footer Policy Links -->
+<div class="flex items-center gap-6">
+<a class="text-body-sm font-body-sm text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">
+          Điều khoản dịch vụ
+        </a>
+<a class="text-body-sm font-body-sm text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">
+          Chính sách bảo mật
+        </a>
+<a class="text-body-sm font-body-sm text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">
+          Hỗ trợ khẩn cấp
+        </a>
+</div>
+</div>
+</footer>
+
+</div>
