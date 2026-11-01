@@ -9,7 +9,7 @@ builder.Services.AddHttpClient("WpsmApi", client =>
     var apiBaseUrl = builder.Configuration["WpsmApi:BaseUrl"] ?? "http://localhost:5128/";
     client.BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
     client.Timeout = TimeSpan.FromSeconds(5);
-});
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { UseCookies = false });
 
 var app = builder.Build();
 
@@ -76,12 +76,28 @@ app.MapMethods("/api/wpsm/{**path}", ["GET", "POST", "PUT", "DELETE"], async (
         request.Headers.TryAddWithoutValidation("Cookie", context.Request.Headers.Cookie.ToArray());
     if (context.Request.ContentLength is > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding"))
     {
-        request.Content = new StreamContent(context.Request.Body);
+        // The API's HTTPS launch profile redirects HTTP requests with 307.
+        // Buffer the body so HttpClient can replay POST/PUT and multipart uploads.
+        // ASP.NET's incoming request stream is not seekable and cannot be replayed.
+        await using var body = new MemoryStream();
+        await context.Request.Body.CopyToAsync(body, context.RequestAborted);
+        request.Content = new ByteArrayContent(body.ToArray());
         if (context.Request.ContentType is not null)
             request.Content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
     }
 
-    using var response = await clients.CreateClient("WpsmApi").SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+    HttpResponseMessage response;
+    try
+    {
+        response = await clients.CreateClient("WpsmApi").SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+    }
+    catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException && !context.RequestAborted.IsCancellationRequested)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsJsonAsync(new { message = "WPSM API chưa chạy hoặc không phản hồi. Hãy chạy cả WPSM.API và WPSM.Web." });
+        return;
+    }
+    using var responseScope = response;
     context.Response.StatusCode = (int)response.StatusCode;
     if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         foreach (var cookie in cookies) context.Response.Headers.Append("Set-Cookie", cookie);

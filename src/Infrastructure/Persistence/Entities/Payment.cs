@@ -20,6 +20,9 @@ public partial class Payment
     public string? PaymentMethod { get; set; }
 
     public string? ReceiptFilePath { get; set; }
+    public byte[]? ReceiptContent { get; set; }
+    public string? ReceiptFileName { get; set; }
+    public string? ReceiptContentType { get; set; }
 
     public int? RecordedBy { get; set; }
 

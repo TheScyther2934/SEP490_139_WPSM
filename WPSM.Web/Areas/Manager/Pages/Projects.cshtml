@@ -19,7 +19,7 @@
 <span class="w-2 h-2 rounded-full bg-emerald-600 -ml-4"></span>
 <span class="font-title-sm text-on-surface">The Grand Palace Ballroom</span>
 <span class="text-outline">•</span>
-<span class="text-on-surface-variant font-label-md">4 Sảnh tiệc hoạt động</span>
+<span class="text-on-surface-variant font-label-md" id="activeHallCount">Đang tải sảnh</span>
 </div>
 </div>
 <!-- Quick Actions & User Context -->
@@ -27,8 +27,8 @@
 <!-- Notification Button with Badge '5' -->
 <button aria-label="Thông báo" class="relative p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-lg transition-colors duration-150">
 <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
-<span class="absolute top-1.5 right-1.5 w-4 h-4 bg-error text-on-error text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-surface">
-            5
+<span class="absolute top-1.5 right-1.5 w-4 h-4 bg-error text-on-error text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-surface" data-unread-count hidden>
+            0
           </span>
 </button>
 <!-- Help Button -->
@@ -39,10 +39,9 @@
 <!-- User Profile Dropdown Anchor -->
 <div class="flex items-center gap-2.5 pl-1.5 pr-2 py-1 bg-surface hover:bg-surface-container rounded-lg cursor-pointer transition-colors duration-150 border border-transparent hover:border-outline-variant">
 <div class="w-8 h-8 rounded-full bg-primary-container text-on-primary font-title-sm flex items-center justify-center ring-1 ring-secondary-container">
-            QM
-          </div>
+<span data-profile-initials>—</span></div>
 <div class="hidden md:flex flex-col text-left">
-<span class="text-title-sm font-title-sm text-on-surface leading-tight">Mai Anh</span>
+<span class="text-title-sm font-title-sm text-on-surface leading-tight" data-profile-name>Đang tải</span>
 <span class="text-label-sm font-label-sm text-on-surface-variant">Quản lý</span>
 </div>
 <span class="material-symbols-outlined text-outline text-lg" data-icon="expand_more">expand_more</span>
@@ -59,10 +58,9 @@
 <!-- Header User Section from Shared Components Blueprint -->
 <div class="flex items-center gap-3 px-2 py-2 bg-surface-container-low rounded-xl border border-outline-variant/60">
 <div class="w-10 h-10 rounded-full bg-tertiary-container text-on-tertiary flex items-center justify-center font-title-md font-bold shadow-sm">
-            MA
-          </div>
+<span data-profile-initials>—</span></div>
 <div class="flex flex-col overflow-hidden">
-<span class="text-title-md font-title-md text-on-surface font-semibold truncate">Mai Anh</span>
+<span class="text-title-md font-title-md text-on-surface font-semibold truncate" data-profile-name>Đang tải</span>
 <span class="text-label-md font-label-md text-on-surface-variant truncate">Quản lý Vận hành</span>
 </div>
 </div>
@@ -88,7 +86,7 @@
 <span class="material-symbols-outlined text-xl" data-icon="folder_special">folder_special</span>
 <span class="text-title-sm">Dự án</span>
 </div>
-<span class="px-2 py-0.5 text-xs font-bold bg-secondary text-on-secondary rounded-full">24</span>
+<span class="px-2 py-0.5 text-xs font-bold bg-secondary text-on-secondary rounded-full" id="projects-nav-badge">0</span>
 </a>
 <!-- 3. Lịch tài nguyên -->
 <a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant rounded-lg hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
@@ -101,7 +99,7 @@
 <span class="material-symbols-outlined text-xl text-error" data-icon="warning">warning</span>
 <span class="text-title-sm font-medium">Cảnh báo quá hạn</span>
 </div>
-<span class="px-1.5 py-0.2 bg-error text-on-error text-xs font-bold rounded-full">3</span>
+<span class="px-1.5 py-0.2 bg-error text-on-error text-xs font-bold rounded-full" data-overdue-count hidden>0</span>
 </a>
 <!-- 5. Thông báo -->
 <a class="flex items-center justify-between px-4 py-2.5 text-on-surface-variant rounded-lg hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
@@ -109,10 +107,10 @@
 <span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
 <span class="text-title-sm font-medium">Thông báo</span>
 </div>
-<span class="px-1.5 py-0.2 bg-surface-container-highest text-on-surface text-xs font-semibold rounded-full border border-outline-variant">5</span>
+<span class="px-1.5 py-0.2 bg-surface-container-highest text-on-surface text-xs font-semibold rounded-full border border-outline-variant" data-unread-count hidden>0</span>
 </a>
 <!-- 6. Hồ sơ -->
-<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant rounded-lg hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
+<a class="flex items-center gap-3 px-4 py-2.5 text-on-surface-variant rounded-lg hover:bg-surface-container hover:text-primary transition-colors duration-150" href="/G02">
 <span class="material-symbols-outlined text-xl" data-icon="account_circle">account_circle</span>
 <span class="text-title-sm font-medium">Hồ sơ</span>
 </a>
@@ -125,13 +123,13 @@
 <div class="p-3 bg-surface rounded-xl border border-outline-variant shadow-sm space-y-2">
 <div class="flex justify-between items-center text-label-md">
 <span class="font-title-sm text-on-surface">Sức chứa phòng tiệc</span>
-<span class="font-bold text-primary">82%</span>
+<span class="font-bold text-primary" id="hallOccupancyPercent">Đang tải</span>
 </div>
 <div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
-<div class="bg-primary h-2 rounded-full transition-all duration-500" style="width: 82%;"></div>
+<div class="bg-primary h-2 rounded-full transition-all duration-500" id="hallOccupancyBar" style="width: 0%;"></div>
 </div>
 <p class="text-[11px] text-on-surface-variant leading-tight">
-            4/4 Sảnh tiệc đã lên lịch tiệc tối nay
+            <span id="hallOccupancySummary">Đang tải lịch sảnh hôm nay</span>
           </p>
 </div>
 <!-- Hotline Card -->
@@ -201,33 +199,25 @@
 </div>
 <!-- Dropdown: Trạng thái (2 cols) -->
 <div class="md:col-span-2">
-<select class="w-full py-2 pl-3 pr-8 text-body-md bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all">
+<select class="w-full py-2 pl-3 pr-8 text-body-md bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" id="status-filter">
 <option value="">Tất cả trạng thái</option>
-<option value="active">Active Baseline</option>
-<option value="frozen">Baseline Frozen</option>
-<option value="completed">Event Completed</option>
-<option value="settled">Settled</option>
-<option value="closed">Closed</option>
+<option value="Active Baseline">Active Baseline</option>
+<option value="Baseline Frozen">Baseline Frozen</option>
+<option value="Event Completed">Event Completed</option>
+<option value="Settled">Settled</option>
+<option value="Closed">Closed</option>
 </select>
 </div>
 <!-- Dropdown: Sảnh (2 cols) -->
 <div class="md:col-span-2">
-<select class="w-full py-2 pl-3 pr-8 text-body-md bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all">
+<select class="w-full py-2 pl-3 pr-8 text-body-md bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" id="hall-filter">
 <option value="">Tất cả sảnh</option>
-<option value="kimcuong">Sảnh Kim Cương</option>
-<option value="phale">Sảnh Pha Lê</option>
-<option value="ngocbich">Sảnh Ngọc Bích</option>
-<option value="hoahong">Sảnh Hoa Hồng</option>
 </select>
 </div>
 <!-- Dropdown: Tháng tổ chức (2 cols) -->
 <div class="md:col-span-2">
-<select class="w-full py-2 pl-3 pr-8 text-body-md bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all">
+<select class="w-full py-2 pl-3 pr-8 text-body-md bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer transition-all" id="month-filter">
 <option value="">Tất cả các tháng</option>
-<option value="12-2025">Tháng 12/2025</option>
-<option value="01-2026">Tháng 01/2026</option>
-<option value="02-2026">Tháng 02/2026</option>
-<option value="12-2026">Tháng 12/2026</option>
 </select>
 </div>
 <!-- Count Tag & Quick Reset (1 col) -->
@@ -241,13 +231,13 @@
 <div class="flex items-center justify-between text-label-md pt-2 border-t border-outline-variant/40">
 <div class="flex items-center gap-2">
 <span class="text-on-surface-variant">Phạm vi xem:</span>
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container/40 text-on-secondary-container font-title-sm border border-secondary-container">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container/40 text-on-secondary-container font-title-sm border border-secondary-container" id="projects-scope-pill">
 <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                24 dự án được phân công
+                 Đang tải phạm vi dự án
               </span>
 </div>
 <div class="text-xs text-on-surface-variant">
-              Tự động đồng bộ: <span class="font-medium text-on-surface">Vừa xong (11:42)</span>
+              Tự động đồng bộ: <span class="font-medium text-on-surface"><span id="projectsUpdatedAt">Đang tải</span></span>
 </div>
 </div>
 </div>
@@ -267,305 +257,9 @@
 <th class="py-3.5 px-4 font-semibold text-right" scope="col">Thao tác</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-outline-variant/60 text-body-md text-on-surface">
-<!-- Row 1 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2025-008</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Nguyễn Bảo Long &amp; Trần Phương Linh</div>
-<div class="text-xs text-on-surface-variant font-normal">long.nguyenbaolong@@gmail.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Kim Cương
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-surface-variant text-on-surface-variant">Tối</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    28/12/2025
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                      T-48
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Active Baseline
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 2 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2026-014</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Nguyễn Minh Anh &amp; Trần Thu Hà</div>
-<div class="text-xs text-on-surface-variant font-normal">minhanh.wedding@@gmail.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Hoa Hồng
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-surface-variant text-on-surface-variant">Tối</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    20/12/2026
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                      T-58
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#8B2E4A]/10 text-[#8B2E4A] border border-[#8B2E4A]/30">
-<span class="w-1.5 h-1.5 rounded-full bg-[#8B2E4A]"></span> Baseline Frozen
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2025-019</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Lê Hoàng Nam &amp; Vũ Hoài Phương</div>
-<div class="text-xs text-on-surface-variant font-normal">nam.lehoang@@corp.vn</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Pha Lê
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-secondary-container/40 text-on-secondary-container">Trưa</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    15/12/2025
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                      T-35
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Active Baseline
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 4 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group bg-amber-50/20">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2025-002</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface flex items-center gap-1.5">
-                      Phạm Tuấn &amp; Đỗ Lan Hương
-                      <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-</div>
-<div class="text-xs text-on-surface-variant font-normal">tuanlan.wedding25@@yahoo.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Ngọc Bích
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-surface-variant text-on-surface-variant">Tối</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    10/11/2025
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-3 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 pulse-subtle">
-                      Hôm nay
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Active Baseline
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 5 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2025-001</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Trần Văn An &amp; Lê Mai Chi</div>
-<div class="text-xs text-on-surface-variant font-normal">anchi.tran@@gmail.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Kim Cương
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-surface-variant text-on-surface-variant">Tối</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    25/10/2025
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-variant">
-                      Đã diễn ra
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300">
-<span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Event Completed
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 6 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2025-011</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Hoàng Quốc Bảo &amp; Phạm Thảo Linh</div>
-<div class="text-xs text-on-surface-variant font-normal">baolinh2025@@outlook.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Pha Lê
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-surface-variant text-on-surface-variant">Tối</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    05/10/2025
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-variant">
-                      Đã diễn ra
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Settled
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 7 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2025-004</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Đặng Tuấn Kiệt &amp; Bùi Thúy Hạnh</div>
-<div class="text-xs text-on-surface-variant font-normal">kiethanh.wedding@@gmail.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Hoa Hồng
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-secondary-container/40 text-on-secondary-container">Trưa</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    18/09/2025
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-variant">
-                      Đã quyết toán
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
-<span class="w-1.5 h-1.5 rounded-full bg-gray-500"></span> Closed
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
-</tr>
-<!-- Row 8 -->
-<tr class="hover:bg-surface-container-low/60 transition-colors group">
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="font-semibold text-primary font-title-sm">WPSM-2026-003</span>
-</td>
-<td class="py-4 px-4">
-<div class="font-medium text-on-surface">Võ Minh Khôi &amp; Trịnh Diệu My</div>
-<div class="text-xs text-on-surface-variant font-normal">khoimy.votri@@gmail.com</div>
-</td>
-<td class="py-4 px-4 whitespace-nowrap">
-<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-title-sm bg-surface-container text-on-surface border border-secondary-container">
-                      Sảnh Ngọc Bích
-                    </span>
-</td>
-<td class="py-4 px-3 text-center whitespace-nowrap">
-<span class="inline-block px-2 py-0.5 rounded text-xs font-title-sm bg-surface-variant text-on-surface-variant">Tối</span>
-</td>
-<td class="py-4 px-4 whitespace-nowrap font-medium text-on-surface">
-                    14/02/2026
-                  </td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300">
-                      T-114
-                    </span>
-</td>
-<td class="py-4 px-4 text-center whitespace-nowrap">
-<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#8B2E4A]/10 text-[#8B2E4A] border border-[#8B2E4A]/30">
-<span class="w-1.5 h-1.5 rounded-full bg-[#8B2E4A]"></span> Baseline Frozen
-                    </span>
-</td>
-<td class="py-4 px-4 text-right whitespace-nowrap">
-<button class="inline-flex items-center gap-1 px-3 py-1 text-xs font-title-sm text-primary hover:text-on-primary hover:bg-primary border border-outline-variant hover:border-primary rounded-lg transition-all duration-150 active:scale-95">
-<span>Mở</span>
-<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
-</button>
-</td>
+<tbody class="divide-y divide-outline-variant/60 text-body-md text-on-surface" id="projects-tbody">
+<tr>
+<td class="py-10 px-4 text-center text-on-surface-variant" colspan="8">Đang tải danh sách dự án...</td>
 </tr>
 </tbody>
 </table>
@@ -585,25 +279,16 @@
 </div>
 <!-- ================= PAGINATION BAR ================= -->
 <div class="p-4 bg-surface-container-low border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-4 text-label-md">
-<div class="text-on-surface-variant text-center sm:text-left">
-              Hiển thị <span class="font-semibold text-on-surface">1–8</span> trên <span class="font-semibold text-on-surface">24</span> dự án 
-              <span class="hidden md:inline">(Chỉ hiển thị các dự án được phân công cho Quản lý Mai Anh)</span>
-</div>
+<div class="text-on-surface-variant text-center sm:text-left" id="projects-pagination-info">
+              Đang tải danh sách dự án...
+            </div>
 <!-- Page Controller -->
-<div class="flex items-center gap-1">
-<button aria-label="Trang trước" class="p-1.5 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed" disabled="">
+<div class="flex items-center gap-1" id="projects-pager">
+<button aria-label="Trang trước" class="p-1.5 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed" data-page-prev disabled="">
 <span class="material-symbols-outlined text-base" data-icon="chevron_left">chevron_left</span>
 </button>
-<button class="w-8 h-8 rounded-lg bg-primary text-on-primary font-bold text-xs flex items-center justify-center shadow-sm">
-                1
-              </button>
-<button class="w-8 h-8 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container text-on-surface text-xs flex items-center justify-center transition-colors">
-                2
-              </button>
-<button class="w-8 h-8 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container text-on-surface text-xs flex items-center justify-center transition-colors">
-                3
-              </button>
-<button aria-label="Trang sau" class="p-1.5 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container text-on-surface-variant transition-colors">
+<span class="px-3 text-on-surface font-semibold" data-page-label>1 / 1</span>
+<button aria-label="Trang sau" class="p-1.5 rounded-lg border border-outline-variant bg-surface hover:bg-surface-container text-on-surface-variant transition-colors disabled:opacity-40 disabled:cursor-not-allowed" data-page-next disabled="">
 <span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
 </button>
 </div>
@@ -617,7 +302,7 @@
 </div>
 <div>
 <h4 class="text-title-sm font-semibold text-on-surface">Quy chuẩn mốc đóng băng dự án (Baseline Lock)</h4>
-<p class="text-body-sm text-on-surface-variant">Tất cả dự án trước ngày sự kiện 30 ngày (T-30) sẽ tự động kích hoạt trạng thái Frozen để chốt thực đơn và nhà thầu trang trí.</p>
+<p class="text-body-sm text-on-surface-variant">Quản lý kiểm tra đủ đặc tả và khung giá, sau đó xác nhận đóng băng baseline để sinh lộ trình dự án.</p>
 </div>
 </div>
 <a class="text-primary hover:underline text-xs font-semibold whitespace-nowrap flex items-center gap-1" href="#">
@@ -642,49 +327,4 @@
 </div>
 </div>
 </footer>
-<!-- Interactive Client-side Script for Search & Filter Mocking -->
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const searchInput = document.getElementById('search-input');
-      const table = document.getElementById('projects-table');
-      const emptyState = document.getElementById('empty-state');
-      const resetBtn = document.getElementById('reset-btn');
-      const clearSearchBtn = document.getElementById('clear-search-btn');
-
-      function filterTable() {
-        const query = searchInput.value.toLowerCase().trim();
-        const rows = table.querySelectorAll('tbody tr');
-        let visibleCount = 0;
-
-        rows.forEach(row => {
-          const text = row.innerText.toLowerCase();
-          if (text.includes(query)) {
-            row.style.display = '';
-            visibleCount++;
-          } else {
-            row.style.display = 'none';
-          }
-        });
-
-        if (visibleCount === 0) {
-          table.classList.add('hidden');
-          emptyState.classList.remove('hidden');
-        } else {
-          table.classList.remove('hidden');
-          emptyState.classList.add('hidden');
-        }
-      }
-
-      searchInput.addEventListener('input', filterTable);
-
-      function resetSearch() {
-        searchInput.value = '';
-        filterTable();
-      }
-
-      resetBtn.addEventListener('click', resetSearch);
-      clearSearchBtn.addEventListener('click', resetSearch);
-    });
-  </script>
-
 </div>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace WPSM.Infrastructure.Persistence.Entities;
@@ -22,6 +22,10 @@ public partial class User
     public bool MustChangePassword { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public string? RefreshToken { get; set; }
+
+    public DateTime? RefreshTokenExpiryTime { get; set; }
 
     public virtual ICollection<Beo> Beos { get; set; } = new List<Beo>();
 
