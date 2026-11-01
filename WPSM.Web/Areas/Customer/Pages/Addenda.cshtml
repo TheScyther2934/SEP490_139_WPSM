@@ -1,0 +1,22 @@
+@page "/C09"
+@{ ViewData["Title"] = "WPSM Luxury Weddings - Phụ lục hợp đồng (C-09)"; }
+<div data-wpsm-screen="C09">
+
+@await Html.PartialAsync("/Areas/Customer/Pages/Shared/_CustomerNavigation.cshtml")
+<main class="ml-64 flex-1 p-8 space-y-6 max-w-[1280px]">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center gap-2.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase bg-primary-container text-on-primary">MÃ: C-09</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-surface-container-high text-on-surface-variant border border-outline-variant/40">
+<span class="material-symbols-outlined text-[14px]">visibility</span>
+            Chế độ: Khách hàng (Chỉ đọc)
+          </span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight font-semibold">Phụ lục hợp đồng</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Các phụ lục phát sinh từ Yêu cầu thay đổi đã được hai bên phê duyệt. <a class="text-primary font-semibold underline underline-offset-2" href="/C02">Quay lại Hợp đồng &amp; đặc tả</a></p>
+</div>
+<div class="space-y-4" id="addendaList">
+<p class="rounded-xl bg-surface-container-low p-5 text-on-surface-variant">Đang tải phụ lục…</p>
+</div>
+</main>
+</div>

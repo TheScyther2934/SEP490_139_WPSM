@@ -39,3 +39,18 @@ dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<your-manager-password-12-
 3. Start the API and Web projects using the commands above. The opt-in development seeder creates halls, lunch/evening slots, baseline Catalog/PriceFrames and initial policy records. Creating a project creates a Customer account; its temporary password is returned once to the Manager for delivery.
 
 The NRD policy is enforced at project creation; bank transfers require a PDF/JPG/PNG receipt (maximum 10 MB), which is stored privately under the API's `App_Data/receipts` directory and linked to the payment record. Cash payments are recorded as paid at creation. Customer passwords are generated once and displayed to the Manager for secure delivery; email dispatch is not integrated yet. The prototype's late-penalty rule is also not represented by the current schema/service. New projects start with editable v1 specification rows from the five required Catalog categories, and freezing a baseline generates its roadmap.
+
+## Files, email and background jobs (API-01..04, JOB-07)
+
+Re-run `Database/WPSM_DB_Schema.sql` on existing databases; it adds `StoredFiles` and `EmailOutbox`. Hangfire creates its own `HangFire` schema when WPSM.API starts.
+
+Set these with User Secrets or environment variables on WPSM.API:
+
+| Key | Purpose |
+| --- | --- |
+| `Files:SigningKey` | Signs file URLs (valid 5 minutes). Required outside Development. |
+| `Files:RootPath` | Private file folder. Default: `App_Data/files`. |
+| `Smtp:Host`, `Smtp:Port`, `Smtp:User`, `Smtp:Password`, `Smtp:EnableSsl`, `Smtp:From` | SMTP server. In Development without `Smtp:Host`, emails are written as `.eml` files to `App_Data/mail`. |
+| `Smtp:WebhookSecret` | HMAC-SHA256 secret for `POST /api/wpsm/notifications/email-status`, sent as the hex `X-Wpsm-Signature` header. The webhook returns 503 until it is set. |
+| `Wpsm:PublicBaseUrl` | Site address used in email links. |
+| `Hangfire:Enabled` | Set to `false` to stop background jobs. |
