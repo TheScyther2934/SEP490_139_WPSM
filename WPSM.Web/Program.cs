@@ -40,7 +40,7 @@ app.Use(async (context, next) =>
     {
         "/A02" or "/A03" or "/A04" or "/A05" or "/A06" or "/A07" or "/A08" => "Admin",
         "/M02" or "/M03" or "/M04" or "/M05" => "Manager",
-        "/C01" or "/C02" or "/C03" or "/C04" => "Customer",
+        "/C01" or "/C02" or "/C03" or "/C04" or "/C09" => "Customer",
         _ => null
     };
     var protectedPath = requiredRole is not null || path is "/G02" or "/G03";

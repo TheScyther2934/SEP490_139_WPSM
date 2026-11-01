@@ -27,6 +27,7 @@ builder.Services.AddScoped<ProjectReadModel>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ISpecificationRoadmapRepository, SpecificationRoadmapRepository>();
 builder.Services.AddScoped<IConfigurationRepository, ConfigurationRepository>();
+builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
 builder.Services.AddScoped<IAccountProfileRepository, AccountProfileRepository>();
 builder.Services.AddScoped<IWpsmPortalSnapshotReader, WpsmPortalSnapshotReader>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -168,6 +169,9 @@ api.MapPost("/projects/{id}/nrd-receipt", async (string id, IFormFile receipt, I
         throw;
     }
 }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
+api.MapGet("/addenda", async (string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    await repo.GetAddendaAsync(projectCode, UserId(user), user.FindFirstValue(ClaimTypes.Role), ct) is { } addenda ? Results.Ok(addenda) : Results.NotFound())
+    .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
 api.MapPost("/files", async (IFormFile file, [FromForm] string purpose, [FromForm] string projectCode, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
 {
     await using var content = file.OpenReadStream();

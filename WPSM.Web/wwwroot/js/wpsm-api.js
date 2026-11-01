@@ -58,6 +58,7 @@
     if (document.querySelector('[data-wpsm-screen="M05"]')) renderSpecificationEditor(data);
 
     if (document.querySelector('[data-wpsm-screen="C02"]')) renderCustomerContract(data.project);
+    if (document.querySelector('[data-wpsm-screen="C09"]')) loadCustomerAddenda();
 
     const hub = document.querySelector('[data-wpsm-screen="M04"] main');
     if (hub && data.project?.credentialEmailStatus === "Failed") hub.insertAdjacentHTML("afterbegin", `<div class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[#991B1B]" id="credentialAlert">
@@ -97,8 +98,6 @@
     setField(root, "c02NrdPercent", `${project.baseValue ? Math.round(project.nrdAmount * 100 / project.baseValue) : 0}%`);
     setField(root, "c02NrdStatus", nrdPaid ? "Đã xác nhận thanh toán" : "Chờ xác nhận thanh toán");
     setField(root, "c02AddendumCount", String(project.addendumCount));
-    const addenda = root.querySelector("#btnAddenda");
-    if (addenda) { addenda.disabled = project.addendumCount === 0; addenda.classList.toggle("opacity-50", addenda.disabled); addenda.title = addenda.disabled ? "Chưa có phụ lục hợp đồng" : ""; }
     root.querySelector("#c02SpecSection")?.classList.toggle("hidden", !frozen);
     root.querySelector("#c02PendingNotice")?.classList.toggle("hidden", frozen);
     if (!frozen) return;
@@ -121,6 +120,36 @@
         <div class="md:col-span-6"><div class="font-semibold">${escapeHtml(item.name)} <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-fixed text-primary">Baseline v1</span></div><p class="text-sm text-on-surface-variant">${escapeHtml(item.description)}</p></div>
         <div class="md:col-span-2 md:text-center">${item.quantity} ${escapeHtml(item.unit)}</div><div class="md:col-span-2 md:text-right">${money(item.unitPrice)}</div><div class="md:col-span-2 md:text-right font-semibold">${money(item.lineTotal)}</div></div>`).join("")}</div>
     </div>`).join("");
+  };
+
+  // ---- C-09 Contract Addendum (UC-11, read-only) ----
+  const signedMoney = value => `${value > 0 ? "+" : ""}${money(value)}`;
+  const renderAddendum = addendum => {
+    const signed = addendum.status === "Signed";
+    const signedAt = addendum.signedAt ? new Intl.DateTimeFormat("vi-VN").format(new Date(addendum.signedAt)) : "—";
+    return `<article class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden" data-addendum="${escapeHtml(addendum.code)}">
+      <div class="p-5 border-b border-outline-variant/30 flex flex-wrap items-center justify-between gap-3">
+        <div><h2 class="font-title-lg text-title-lg text-primary font-semibold">${escapeHtml(addendum.code)}</h2><p class="text-body-sm text-on-surface-variant">Theo yêu cầu thay đổi ${escapeHtml(addendum.crCode)}</p></div>
+        <div class="flex items-center gap-3"><span class="px-3 py-1 rounded-full text-label-sm font-semibold border ${signed ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-secondary-fixed/30 text-secondary border-secondary/30"}" data-addendum-status>${signed ? "Đã ký &amp; xác nhận" : "Chờ ký bản giấy"}</span>
+        <button class="px-3.5 py-2 rounded-lg border border-outline-variant/50 text-on-surface font-title-sm text-title-sm ${addendum.fileId ? "hover:bg-surface-container-low" : "opacity-50"}" data-action="download-addendum" data-file-id="${addendum.fileId || ""}" ${addendum.fileId ? "" : 'disabled title="Bản PDF chưa sẵn sàng"'}>Tải PDF</button></div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 text-body-md">
+        <div><span class="text-on-surface-variant">Tổng chênh lệch</span><p class="font-bold ${addendum.totalVariance > 0 ? "text-[#B91C1C]" : "text-emerald-800"}" data-addendum-variance>${signedMoney(addendum.totalVariance)} (${addendum.totalVariance > 0 ? "phụ thu" : addendum.totalVariance < 0 ? "giảm trừ" : "không đổi"})</p></div>
+        <div><span class="text-on-surface-variant">Ngày ký</span><p class="font-semibold" data-addendum-signed>${signedAt}</p></div>
+      </div>
+      ${addendum.items.length ? `<div class="overflow-x-auto"><table class="w-full text-body-sm"><thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="py-2 px-5 text-left">Hạng mục</th><th class="py-2 px-3 text-right">Trước thay đổi</th><th class="py-2 px-3 text-right">Sau thay đổi</th><th class="py-2 px-5 text-right">Chênh lệch</th></tr></thead>
+      <tbody>${addendum.items.map(item => `<tr class="border-t border-outline-variant/20" data-addendum-item><td class="py-2 px-5">${escapeHtml(item.itemName)}</td><td class="py-2 px-3 text-right">${item.oldQuantity} × ${money(item.oldUnitPrice)}</td><td class="py-2 px-3 text-right">${item.newQuantity} × ${money(item.newUnitPrice)}</td><td class="py-2 px-5 text-right font-semibold">${signedMoney(item.deltaAmount)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    </article>`;
+  };
+  const loadCustomerAddenda = async () => {
+    const list = document.getElementById("addendaList");
+    if (!list) return;
+    try {
+      const response = await fetch("/api/wpsm/addenda", { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error(`API trả về ${response.status}`);
+      const addenda = await response.json();
+      list.innerHTML = addenda.length ? addenda.map(renderAddendum).join("") : `<p class="rounded-xl bg-surface-container-low p-5 text-on-surface-variant" id="addendaEmpty">Chưa có phụ lục hợp đồng. Phụ lục sẽ xuất hiện sau khi một Yêu cầu thay đổi được hai bên phê duyệt.</p>`;
+    } catch (error) { list.innerHTML = ""; showError(error); }
   };
 
   // ---- M-05 Specification Editor & Freeze Baseline (UC-20, GBR-01/02/15) ----
@@ -436,6 +465,17 @@
           ? `Đã tạo ${project.id}, ghi nhận NRD${temporaryPassword ? `. Mật khẩu tạm của khách: ${temporaryPassword} (chỉ hiển thị lần này).` : ""}`
           : `Đã tạo dự án ${project.id}. Thông tin đăng nhập sẽ được gửi tới email khách hàng.`);
       } catch (error) { showError(error); }
+    }
+    if (screen === "C02" && button.id === "btnAddenda") {
+      event.preventDefault(); window.location.href = "/C09"; return;
+    }
+    if (screen === "C09" && button.dataset.action === "download-addendum") {
+      event.preventDefault(); event.stopImmediatePropagation();
+      try {
+        const signed = await send(`files/${encodeURIComponent(button.dataset.fileId)}`, "GET");
+        window.location.href = signed.url;
+      } catch (error) { showError(error); }
+      return;
     }
     if (screen === "M04" && button.dataset.action === "resend-credentials") {
       event.preventDefault(); event.stopImmediatePropagation();
