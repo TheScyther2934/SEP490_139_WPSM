@@ -7,10 +7,10 @@ namespace WPSM.Infrastructure.Persistence.Repositories;
 
 public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectReadModel readModel) : ISpecificationRoadmapRepository
 {
-    public async Task<WeddingProjectView?> UpdateSpecificationAsync(string projectCode, SpecificationCommand command, CancellationToken cancellationToken = default)
+    public async Task<WeddingProjectView?> UpdateSpecificationAsync(string projectCode, int managerId, SpecificationCommand command, CancellationToken cancellationToken = default)
     {
         var project = await db.WeddingProjects.Include(x => x.SpecItems)
-            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
         if (project is null) return null;
         if (project.Status != "Active Baseline") throw new InvalidOperationException("Baseline đã đóng băng; hãy tạo Change Request để thay đổi.");
         if (command.GuestCount < 0) throw new InvalidOperationException("Số lượng khách không hợp lệ.");
@@ -59,10 +59,10 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
         return await readModel.MapProjectAsync(loaded, cancellationToken);
     }
 
-    public async Task<WeddingProjectView?> FreezeBaselineAsync(string projectCode, CancellationToken cancellationToken = default)
+    public async Task<WeddingProjectView?> FreezeBaselineAsync(string projectCode, int managerId, CancellationToken cancellationToken = default)
     {
         var project = await db.WeddingProjects.Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem)
-            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
         if (project is null) return null;
         if (project.Status != "Active Baseline") throw new InvalidOperationException("Dự án không còn ở trạng thái có thể đóng băng baseline.");
 
@@ -70,13 +70,17 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
         var configuredCategories = project.SpecItems.Where(x => x.IsBaseline && x.Version == 1).Select(x => x.CatalogItem.Category).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = required.Where(x => !configuredCategories.Contains(x)).ToArray();
         if (missing.Length > 0) throw new InvalidOperationException($"Cần cấu hình đủ 5 hạng mục nền tảng trước khi đóng băng: {string.Join(", ", missing)}.");
+        if (project.SpecItems.Any(x => x.IsBaseline && x.Version == 1 && x.CatalogItem.Status != "Active"))
+            throw new InvalidOperationException("Đặc tả đang chứa dịch vụ đã ngừng hoạt động trong Catalog. Hãy thay thế bằng dịch vụ đang hoạt động trước khi đóng băng.");
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var frames = await db.PriceFrames.AsNoTracking().Where(x => x.EffectiveFrom <= today)
             .GroupBy(x => x.ItemId).Select(g => g.OrderByDescending(x => x.EffectiveFrom).First()).ToDictionaryAsync(x => x.ItemId, cancellationToken);
         foreach (var item in project.SpecItems.Where(x => x.IsBaseline && x.Version == 1))
         {
-            if (frames.TryGetValue(item.CatalogItemId, out var frame) && (item.UnitPrice < frame.MinPrice || item.UnitPrice > frame.MaxPrice))
+            if (!frames.TryGetValue(item.CatalogItemId, out var frame))
+                throw new InvalidOperationException($"'{item.CatalogItem.Name}' chưa có PriceFrame hiện hành.");
+            if (item.UnitPrice < frame.MinPrice || item.UnitPrice > frame.MaxPrice)
                 throw new InvalidOperationException($"Đơn giá của '{item.CatalogItem.Name}' nằm ngoài PriceFrame hiện hành.");
         }
 
