@@ -1,11 +1,24 @@
 ﻿(() => {
   const status = document.getElementById("wpsm-api-status");
   const formatMoney = value => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
+const replaceText = (root, values) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      let text = node.nodeValue;
+      for (const [from, to] of Object.entries(values)) text = text.replaceAll(from, to);
+      node.nodeValue = text;
+    }
+  };
+  let messageTimer;
+
   const message = text => {
     status.textContent = text;
     status.classList.remove("is-error");
     status.classList.add("is-ready");
-    window.setTimeout(() => {
+    window.clearTimeout(messageTimer);
+    messageTimer = window.setTimeout(() => {
       if (window.wpsm?.project) status.textContent = `API kết nối · ${window.wpsm.project.id}`;
     }, 4500);
   };
@@ -397,9 +410,10 @@
     const priceBody = document.querySelector('[data-wpsm-screen="A04"] table tbody');
     if (priceBody) priceBody.innerHTML = data.priceFrames.map(frame => `<tr class="hover:bg-surface-container-low transition-colors"><td class="py-3.5 px-4"><div class="font-semibold text-primary">${escapeHtml(frame.serviceName)}</div><div class="text-xs text-on-surface-variant">${escapeHtml(frame.id)}</div></td><td class="py-3 px-3">${escapeHtml(frame.variant)}</td><td class="py-3 px-3 text-right">${money((frame.minPrice + frame.maxPrice) / 2)}</td><td class="py-3 px-4">${money(frame.minPrice)} – ${money(frame.maxPrice)}</td><td class="py-3 px-3">Đang hiệu lực</td><td class="py-3 px-3 text-center">—</td><td class="py-3 px-4 text-right">${escapeHtml(frame.currency)}</td></tr>`).join("");
 
-    renderManagerSpecification(data);
+renderManagerSpecification(data);
 
     hydrateCustomerContract(data.project);
+
 
     const roadmapSection = document.querySelector('[data-wpsm-screen="C03"] main section');
     if (roadmapSection && data.project) {
@@ -409,7 +423,7 @@
         <div class="text-right"><div class="font-semibold">Hạn: ${new Intl.DateTimeFormat("vi-VN").format(new Date(`${task.dueDate}T00:00:00`))}</div><span class="text-sm">${task.status === "Done" ? "Đã hoàn thành" : task.status === "Overdue" ? "Quá hạn" : "Chờ thực hiện"}</span></div></div></article>`).join("") : `<p class="rounded-xl bg-surface-container-low p-5">Roadmap sẽ được tạo sau khi Manager đóng băng baseline.</p>`;
     }
   };
-  const showError = error => { status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
+const showError = error => { status.textContent = error.message; status.classList.remove("is-ready"); status.classList.add("is-error"); };
   const showM05Error = error => {
     showError(error);
     const box = document.querySelector('[data-wpsm-screen="M05"] #m05Error');
@@ -757,7 +771,7 @@
         }
         message(temporaryPassword
           ? `Đã tạo ${project.id}, ghi nhận NRD${temporaryPassword ? `. Mật khẩu tạm của khách: ${temporaryPassword} (chỉ hiển thị lần này).` : ""}`
-          : `Đã tạo dự án ${project.id} và ghi nhận NRD qua database.`);
+: `Đã tạo dự án ${project.id} và ghi nhận NRD qua database.`);
         const success = document.getElementById("createProjectSuccess");
         if (success) {
           const emailNote = { Sent: "Email tài khoản đã được gửi.", Pending: "Email tài khoản đang chờ gửi. Trạng thái được lưu và cập nhật trong dự án.", NotConfigured: "Chưa cấu hình gửi email. Vui lòng chuyển thông tin đăng nhập cho khách.", Failed: "Gửi email chưa thành công. Vui lòng chuyển thông tin đăng nhập cho khách.", ExistingAccount: "Khách hàng sử dụng tài khoản đã có." }[window.wpsm.credentialEmailStatus] || "";
@@ -773,12 +787,54 @@
         window.wpsm.createdProjectId = project.id;
         button.disabled = true;
         document.querySelectorAll('[data-wpsm-screen="M03"] input, [data-wpsm-screen="M03"] select').forEach(field => { field.disabled = true; });
+
       } catch (error) { showError(error); }
       finally { button.disabled = !!button.dataset.projectCreated; }
     }
+    if (screen === "C02" && button.id === "btnAddenda") {
+      event.preventDefault(); window.location.href = "/C09"; return;
+    }
+    if (screen === "C09" && button.dataset.action === "download-addendum") {
+      event.preventDefault(); event.stopImmediatePropagation();
+      try {
+        const signed = await send(`files/${encodeURIComponent(button.dataset.fileId)}`, "GET");
+        window.location.href = signed.url;
+      } catch (error) { showError(error); }
+      return;
+    }
+    if (screen === "M04" && button.dataset.action === "resend-credentials") {
+      event.preventDefault(); event.stopImmediatePropagation();
+      const project = window.wpsm?.project;
+      if (!project) return;
+      try {
+        const result = await send(`projects/${encodeURIComponent(project.id)}/resend-credentials`, "POST", {});
+        document.getElementById("credentialAlert")?.remove();
+        message(result.temporaryPassword ? `Đã xếp lại email. Mật khẩu tạm: ${result.temporaryPassword} (chỉ hiển thị lần này).` : "Đã xếp lại email thông tin đăng nhập.");
+      } catch (error) { showError(error); }
+      return;
+    }
+    if (screen === "M05" && button.id === "btnOpenFreeze") {
+      const consent = document.getElementById("freezeConsent");
+      const confirm = document.getElementById("confirmFreezeBtn");
+      if (consent) consent.checked = false;
+      if (confirm) { confirm.disabled = true; confirm.classList.add("opacity-50"); }
+      return;
+    }
+    if (screen === "M05" && button.id === "btnBackToProject") {
+      event.preventDefault();
+      const project = window.wpsm?.project;
+      window.location.href = project ? `/M04?id=${encodeURIComponent(project.id)}` : "/M02";
+      return;
+    }
+    if (screen === "M05" && button.dataset.action === "filter-spec-category") {
+      event.preventDefault();
+      specFilter.category = button.dataset.category;
+      renderCategoryFilter(document.querySelector('[data-wpsm-screen="M05"]'), window.wpsm?.project?.specification || []);
+      return;
+    }
     if (screen === "M05" && button.id === "confirmFreezeBtn") {
       event.preventDefault(); event.stopImmediatePropagation();
-      clearM05Messages();
+clearM05Messages();
       button.disabled = true;
       try {
         const saved = await saveM05Specification();
@@ -810,7 +866,31 @@
   document.addEventListener("input", event => {
     if (document.querySelector('[data-wpsm-screen="M05"]') && event.target.matches("#specItemsBody input, #specItemsBody textarea"))
       updateManagerSummary(window.wpsm);
+
   }, true);
+
+  document.addEventListener("input", event => {
+    const root = document.querySelector('[data-wpsm-screen="M05"]');
+    const project = window.wpsm?.project;
+    if (!root || !project) return;
+    const target = event.target;
+    if (target.id === "specSearch") { specFilter.query = target.value.trim(); applySpecFilter(root); return; }
+    if (target.id === "catalogSearch" || target.id === "catalogCategoryFilter") {
+      specFilter[target.id === "catalogSearch" ? "catalogQuery" : "catalogCategory"] = target.value.trim();
+      renderCatalogPicker(root, window.wpsm.catalog, project.specification || []);
+      return;
+    }
+    const row = target.closest("tr[data-spec-item-id]");
+    if (!row) return;
+    const line = readSpecRows(row.parentElement).find(item => item.catalogItemId === Number(row.dataset.specItemId));
+    row.querySelector("[data-spec-line-total]").textContent = money(line.quantity * line.unitPrice);
+    const frame = priceFrameFor(row.dataset.specName);
+    const priceInput = row.querySelector("[data-spec-price]");
+    const outOfFrame = !!frame && (line.unitPrice < frame.minPrice || line.unitPrice > frame.maxPrice);
+    priceInput.classList.toggle("text-[#B91C1C]", outOfFrame);
+    priceInput.title = outOfFrame ? `Ngoài khung giá ${money(frame.minPrice)} - ${money(frame.maxPrice)}` : "";
+    renderReconciliation(root, project, readSpecRows(root).reduce((sum, item) => sum + item.quantity * item.unitPrice, 0));
+  });
 
   const receiptInput = document.getElementById("nrdReceiptFile");
   const paymentSelector = document.getElementById("nrdPaymentMethod");
@@ -1012,8 +1092,8 @@
 
       const project = data.project;
       if (project) {
-        const specificationLink = document.getElementById("projectSpecificationLink");
-        if (specificationLink) specificationLink.href = `/M05?id=${encodeURIComponent(project.id)}`;
+document.querySelectorAll('a[href="/M04"], a[href="/M05"]').forEach(link => { if (project) link.href = ${link.getAttribute('href')}?id=; });
+
         const dateVi = new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`));
         const daysLeft = Math.max(0, Math.ceil((new Date(`${project.eventDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
         const displayValues = {

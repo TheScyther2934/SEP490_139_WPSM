@@ -1,0 +1,83 @@
+const puppeteer = require("puppeteer-core");
+const { execSync } = require("child_process");
+const BASE = "http://localhost:5301";
+const sql = q => execSync(`sqlcmd -S "(localdb)\\MSSQLLocalDB" -d WPSM_E2E_Test -I -b -h -1 -W -Q "set nocount on; ${q}"`).toString().trim();
+const results = [];
+const check = (name, ok, extra = "") => { results.push(!!ok); console.log(`${ok ? "PASS" : "FAIL"} ${name} ${extra}`); };
+const client = async browser => {
+  const ctx = await browser.createBrowserContext();
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push(e.message));
+  await page.goto(`${BASE}/G01`, { waitUntil: "domcontentloaded" });
+  const api = (path, method = "GET", body) => page.evaluate(async (path, method, body) => { const r = await fetch(`/api/wpsm/${path}`, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => null) }; }, path, method, body);
+  return { page, api, errors };
+};
+(async () => {
+  const browser = await puppeteer.launch({ headless: "new", executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe" });
+  const email = sql("select top 1 Email from Users where Role='Customer' and MustChangePassword=0 order by UserId");
+  const customer = await client(browser);
+  check("customer login", (await customer.api("auth/login", "POST", { email, password: "Cust0mer-Pass-2026!" })).status === 200);
+  const projectId = sql(`select top 1 w.ProjectId from WeddingProjects w join Users u on u.UserId=w.CustomerId where u.Email='${email}'`);
+  const code = sql(`select ProjectCode from WeddingProjects where ProjectId=${projectId}`);
+
+  await customer.page.goto(`${BASE}/C09`, { waitUntil: "networkidle2" });
+  check("C-09 empty state", !!(await customer.page.$("#addendaEmpty")));
+
+  const specId = sql(`select top 1 SpecItemId from SpecItems where ProjectId=${projectId}`);
+  const userId = sql(`select UserId from Users where Email='${email}'`);
+  const fileId = sql(`select top 1 FileId from StoredFiles where ProjectId=${projectId}`);
+  const addCr = (cr, impact, penalty) => sql(`insert ChangeRequests(CRCode,ProjectId,CreatedBy,Type,Description,CostImpact,PenaltyFee,Status,CustomerApprovedAt,ManagerApprovedAt) output inserted.CRId values ('${cr}',${projectId},${userId},'Other','x',${impact},${penalty},'Approved',sysutcdatetime(),sysutcdatetime())`);
+  const cr1 = addCr("CR-T1", 2000000, 100000);
+  sql(`insert CRItems(CRId,TargetSpecItemId,OldQuantity,OldUnitPrice,NewQuantity,NewUnitPrice) values (${cr1},${specId},1,1000000,3,1000000)`);
+  sql(`insert ContractAddenda(AddendumCode,CRId,ProjectId,TotalVariance,FilePath,SignedAt,Status) values ('AD-T1',${cr1},${projectId},2100000,'${fileId}','2026-11-02','Signed')`);
+  const cr2 = addCr("CR-T2", -500000, 0);
+  sql(`insert ContractAddenda(AddendumCode,CRId,ProjectId,TotalVariance,Status) values ('AD-T2',${cr2},${projectId},-500000,'Generated')`);
+
+  await customer.page.goto(`${BASE}/C02`, { waitUntil: "networkidle2" });
+  check("C-02 shows addendum count", (await customer.page.$eval('[data-field="c02AddendumCount"]', e => e.textContent)) === "2");
+  await Promise.all([customer.page.waitForNavigation({ waitUntil: "networkidle2" }), customer.page.click("#btnAddenda")]);
+  check("C-02 link opens C-09", customer.page.url().endsWith("/C09"), customer.page.url());
+  const cards = await customer.page.$$eval("[data-addendum]", c => c.map(x => x.dataset.addendum));
+  check("C-09 lists addenda", cards.join() === "AD-T2,AD-T1", cards.join());
+  const text = sel => customer.page.$eval(sel, e => e.textContent.trim());
+  const t1 = '[data-addendum="AD-T1"]', t2 = '[data-addendum="AD-T2"]';
+  check("C-09 CR reference", (await text(t1)).includes("CR-T1"));
+  check("C-09 surcharge", (await text(`${t1} [data-addendum-variance]`)).startsWith("+2.100.000") && (await text(`${t1} [data-addendum-variance]`)).includes("phụ thu"), await text(`${t1} [data-addendum-variance]`));
+  check("C-09 deduction", /^-.*500\.000/.test(await text(`${t2} [data-addendum-variance]`)) && (await text(`${t2} [data-addendum-variance]`)).includes("giảm trừ"), await text(`${t2} [data-addendum-variance]`));
+  check("C-09 signed date", (await text(`${t1} [data-addendum-signed]`)) === "2/11/2026", await text(`${t1} [data-addendum-signed]`));
+  check("C-09 blank until signed", (await text(`${t2} [data-addendum-signed]`)) === "—");
+  check("C-09 signed status", (await text(`${t1} [data-addendum-status]`)).startsWith("Đã ký") && (await text(`${t2} [data-addendum-status]`)).startsWith("Chờ ký"));
+  check("C-09 itemized changes", (await customer.page.$$eval(`${t1} [data-addendum-item]`, r => r.length)) === 1 && (await text(`${t1} [data-addendum-item]`)).includes("+2.000.000"), await text(`${t1} [data-addendum-item]`));
+  check("C-09 download disabled without PDF", await customer.page.$eval(`${t2} [data-action="download-addendum"]`, b => b.disabled));
+  check("C-09 read-only", (await customer.page.$$eval('[data-wpsm-screen="C09"] input, [data-wpsm-screen="C09"] select, [data-wpsm-screen="C09"] textarea', i => i.length)) === 0);
+  const download = await customer.page.evaluate(async id => { const s = await (await fetch(`/api/wpsm/files/${id}`)).json(); return (await fetch(s.url)).status; }, await customer.page.$eval(`${t1} [data-action="download-addendum"]`, b => b.dataset.fileId));
+  check("C-09 download works", download === 200, String(download));
+  let requested = "";
+  customer.page.on("request", r => { if (r.url().includes("/content?")) requested = r.url(); });
+  await customer.page.$eval(`${t1} [data-action="download-addendum"]`, b => b.click());
+  await new Promise(r => setTimeout(r, 1000));
+  check("C-09 button requests signed URL", requested.includes("sig="));
+  check("C-09 no JS errors", customer.errors.length === 0, customer.errors.join(" | "));
+
+  const anon = await client(browser);
+  check("addenda anonymous 401", (await anon.api("addenda")).status === 401);
+  const anonPage = await anon.page.goto(`${BASE}/C09`, { waitUntil: "domcontentloaded" });
+  check("C-09 anonymous redirected", anon.page.url().endsWith("/G01"), anon.page.url());
+  const admin = await client(browser);
+  await admin.api("auth/login", "POST", { email: "admin@test.local", password: process.env.TEST_PW });
+  check("addenda admin 403", (await admin.api("addenda")).status === 403);
+  const manager = await client(browser);
+  await manager.api("auth/login", "POST", { email: "manager@test.local", password: process.env.TEST_PW });
+  check("assigned manager can read", (await manager.api(`addenda?projectCode=${code}`)).body?.length === 2);
+  check("C-09 page is customer-only", (await manager.page.goto(`${BASE}/C09`)).status() === 403);
+  await manager.page.goto(`${BASE}/G01`, { waitUntil: "domcontentloaded" });
+  sql(`update WeddingProjects set ManagerId=1 where ProjectId=${projectId}`);
+  check("other manager 404", (await manager.api(`addenda?projectCode=${code}`)).status === 404);
+  sql(`update WeddingProjects set ManagerId=2 where ProjectId=${projectId}`);
+  check("customer cannot read another project", (await customer.api("addenda?projectCode=WPSM-NOPE")).status === 404);
+
+  await browser.close();
+  console.log(`${results.filter(Boolean).length}/${results.length} passed`);
+  process.exit(results.every(Boolean) ? 0 : 1);
+})().catch(e => { console.error(e); process.exit(2); });

@@ -1,15 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
+using Infrastructure.Email;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
-public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readModel) : IProjectRepository
+public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readModel, IEmailOutbox emailOutbox, EmailOptions emailOptions) : IProjectRepository
 {
     public Task<bool> CanAccessAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default) =>
         db.WeddingProjects.AnyAsync(x => x.ProjectCode == projectCode &&
             (role == "Admin" || role == "Manager" && x.ManagerId == userId || role == "Customer" && x.CustomerId == userId), cancellationToken);
+
     public async Task<IReadOnlyList<WeddingProjectView>> GetProjectsAsync(int? userId = null, string? role = null, CancellationToken cancellationToken = default)
     {
         var query = readModel.ProjectViewsQuery();
@@ -123,6 +125,10 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
             PaidDate = payByCash ? DateOnly.FromDateTime(DateTime.Today) : null,
             RecordedBy = payByCash ? manager.UserId : null
         });
+        if (newCustomer)
+            emailOutbox.Enqueue(customer.Email, $"Tài khoản WPSM cho dự án {project.ProjectCode}",
+                EmailTemplates.Credentials(customer.FullName, customer.Email, temporaryPassword, project.ProjectCode, emailOptions.PublicBaseUrl),
+                "Credentials", project.ProjectId);
         await db.SaveChangesAsync(cancellationToken);
         if (newCustomer && command.ProtectedCredentialPayload is not null)
         {
@@ -139,6 +145,20 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         return new CreatedProjectView(await readModel.MapProjectAsync(loaded, cancellationToken), newCustomer ? temporaryPassword : null);
     }
 
+    public async Task<bool> ResendCredentialsAsync(string projectCode, int managerId, string customerPasswordHash, string temporaryPassword, CancellationToken cancellationToken = default)
+    {
+        var project = await db.WeddingProjects.Include(x => x.Customer)
+            .FirstOrDefaultAsync(x => x.ProjectCode == projectCode && x.ManagerId == managerId, cancellationToken);
+        if (project is null) return false;
+        if (!project.Customer.MustChangePassword) throw new InvalidOperationException("Khách hàng đã kích hoạt tài khoản nên không cần gửi lại thông tin đăng nhập.");
+        project.Customer.PasswordHash = customerPasswordHash;
+        emailOutbox.Enqueue(project.Customer.Email, $"Tài khoản WPSM cho dự án {project.ProjectCode}",
+            EmailTemplates.Credentials(project.Customer.FullName, project.Customer.Email, temporaryPassword, project.ProjectCode, emailOptions.PublicBaseUrl),
+            "Credentials", project.ProjectId);
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<bool> RecordNrdReceiptAsync(string projectCode, int managerId, byte[] content, string fileName, string contentType, CancellationToken cancellationToken = default)
     {
         var payment = await db.Payments.Include(x => x.Project)
@@ -151,6 +171,21 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         payment.ReceiptContent = content;
         payment.ReceiptFileName = fileName;
         payment.ReceiptContentType = contentType;
+        payment.PaidDate = DateOnly.FromDateTime(DateTime.Today);
+        payment.RecordedBy = managerId;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> RecordNrdReceiptAsync(string projectCode, int managerId, string receiptPath, CancellationToken cancellationToken = default)
+    {
+        var payment = await db.Payments.Include(x => x.Project)
+            .SingleOrDefaultAsync(x => x.Project.ProjectCode == projectCode && x.PaymentType == "NRD", cancellationToken);
+        if (payment is null || payment.Project.ManagerId != managerId) return false;
+        if (payment.Status == "Paid") throw new InvalidOperationException("NRD đã được ghi nhận là đã thanh toán.");
+        payment.Status = "Paid";
+        payment.PaymentMethod = "Bank";
+        payment.ReceiptFilePath = receiptPath;
         payment.PaidDate = DateOnly.FromDateTime(DateTime.Today);
         payment.RecordedBy = managerId;
         await db.SaveChangesAsync(cancellationToken);

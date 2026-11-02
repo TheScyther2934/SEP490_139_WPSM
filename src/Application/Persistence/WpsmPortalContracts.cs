@@ -30,7 +30,9 @@ public sealed record WeddingProjectView(
     int GuestCount = 0,
     IReadOnlyList<SpecificationLineView>? Specification = null,
     DateTime? BaselineFrozenAt = null,
-    string NrdStatus = "Unknown")
+    string NrdStatus = "Unknown",
+    string SlotTime = "",
+    int AddendumCount = 0)
 {
     public string CustomerEmail { get; init; } = "";
     public string CustomerPhone { get; init; } = "";

@@ -32,12 +32,19 @@ public sealed class ProjectReadModel(WpsmDbContext db)
         var summary = spec.Count == 0 ? "Chưa nhập đặc tả" : $"{spec.Count} hạng mục đã cấu hình";
         var guestCount = spec.FirstOrDefault(s => s.Category == "Ẩm thực")?.Quantity ?? 0;
 
+        var addendumCount = await db.ContractAddenda.CountAsync(a => a.ProjectId == x.ProjectId, cancellationToken);
+        var slotTime = $"{x.Slot.StartTime:HH:mm} - {x.Slot.EndTime:HH:mm}";
+        var emailDeliveryStatus = await db.EmailDeliveries.Where(e => e.ProjectId == x.ProjectId).Select(e => e.Status).FirstOrDefaultAsync(cancellationToken);
+        var emailOutboxStatus = await db.EmailOutbox.Where(e => e.RelatedProjectId == x.ProjectId && e.Kind == "Credentials")
+            .OrderByDescending(e => e.EmailId).Select(e => e.Status).FirstOrDefaultAsync(cancellationToken);
+        var credentialStatus = emailDeliveryStatus ?? emailOutboxStatus ?? "ExistingAccount";
+
         return new WeddingProjectView(x.ProjectCode, x.Customer.FullName, x.Hall.Name, x.Slot.SlotName, x.EventDate,
             x.BaseContractValue, x.Nrdamount, x.Status,
             totalTasks == 0 ? 0 : (int)Math.Round(completedTasks * 100d / totalTasks),
             x.ChangeRequests.Count(c => c.Status is "Draft" or "Negotiating"),
             x.Beos.OrderByDescending(b => b.Version).FirstOrDefault()?.Status ?? "Not started",
-            Math.Max(0, x.CurrentTotal - paid), summary, guestCount, spec, x.BaselineFrozenAt, nrdStatus)
+            Math.Max(0, x.CurrentTotal - paid), summary, guestCount, spec, x.BaselineFrozenAt, nrdStatus, slotTime, addendumCount)
         {
             CustomerEmail = x.Customer.Email,
             CustomerPhone = x.Customer.Phone ?? "",
@@ -50,7 +57,7 @@ public sealed class ProjectReadModel(WpsmDbContext db)
             Beos = x.Beos.OrderByDescending(b => b.Version).Select(b => new ProjectModuleItem($"BEO v{b.Version}", b.Status, b.Notes)).ToList(),
             Complaints = x.Complaints.Select(c => new ProjectModuleItem(c.ComplaintCode, c.Status, c.Description)).ToList(),
             DayOfTasks = x.DayOfTasks.OrderBy(t => t.DeadlineTime).Select(t => new ProjectModuleItem(t.TaskName, t.Status, t.DeadlineTime.ToString("dd/MM/yyyy HH:mm"))).ToList(),
-            CredentialEmailStatus = await db.EmailDeliveries.Where(e => e.ProjectId == x.ProjectId).Select(e => e.Status).FirstOrDefaultAsync(cancellationToken) ?? "ExistingAccount"
+            CredentialEmailStatus = credentialStatus
         };
     }
 }

@@ -5,6 +5,7 @@ public interface IProjectRepository
     Task<bool> CanAccessAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WeddingProjectView>> GetProjectsAsync(int? userId = null, string? role = null, CancellationToken cancellationToken = default);
     Task<WeddingProjectView?> GetProjectAsync(string projectCode, CancellationToken cancellationToken = default);
+    Task<bool> ResendCredentialsAsync(string projectCode, int managerId, string customerPasswordHash, string temporaryPassword, CancellationToken cancellationToken = default);
     Task<CreatedProjectView> CreateProjectAsync(CreateProjectCommand command, int managerId, string customerPasswordHash, string temporaryPassword, CancellationToken cancellationToken = default);
     Task<bool> RecordNrdReceiptAsync(string projectCode, int managerId, byte[] content, string fileName, string contentType, CancellationToken cancellationToken = default);
 }
