@@ -16,7 +16,7 @@ public sealed class WpsmPortalSnapshotReader(
         var projects = await projectRepository.GetProjectsAsync(userId, profile?.Role, cancellationToken);
         var selected = string.IsNullOrWhiteSpace(projectCode)
             ? projects.FirstOrDefault()
-            : projects.FirstOrDefault(x => x.Id == projectCode) ?? projects.FirstOrDefault();
+            : projects.FirstOrDefault(x => x.Id == projectCode);
         var roadmap = selected is null
             ? Array.Empty<RoadmapTaskView>()
             : await specificationRoadmapRepository.GetRoadmapAsync(selected.Id, cancellationToken);
