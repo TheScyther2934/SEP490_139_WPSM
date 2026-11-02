@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence.Entities;
@@ -35,6 +35,7 @@ public partial class WpsmDbContext : DbContext
     public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<Payment> Payments { get; set; }
+    public DbSet<EmailDelivery> EmailDeliveries { get; set; }
 
     public virtual DbSet<PolicyConfig> PolicyConfigs { get; set; }
 
@@ -323,6 +324,15 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Notifications_Recipient");
         });
 
+        modelBuilder.Entity<EmailDelivery>(entity =>
+        {
+            entity.ToTable("EmailDeliveries");
+            entity.HasKey(e => e.EmailDeliveryId);
+            entity.Property(e => e.Recipient).HasMaxLength(100);
+            entity.Property(e => e.Status).HasMaxLength(20);
+            entity.HasIndex(e => e.ProjectId).IsUnique();
+            entity.HasOne<WeddingProject>().WithMany().HasForeignKey(e => e.ProjectId).OnDelete(DeleteBehavior.NoAction);
+        });
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.PaymentType }, "UQ_Payment_Project_Type").IsUnique();
@@ -331,6 +341,8 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.PaymentMethod).HasMaxLength(10);
             entity.Property(e => e.PaymentType).HasMaxLength(10);
             entity.Property(e => e.ReceiptFilePath).HasMaxLength(500);
+            entity.Property(e => e.ReceiptFileName).HasMaxLength(255);
+            entity.Property(e => e.ReceiptContentType).HasMaxLength(100);
             entity.Property(e => e.Status)
                 .HasMaxLength(10)
                 .HasDefaultValue("Upcoming");
@@ -537,6 +549,8 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
+            entity.Property(e => e.RefreshToken).HasMaxLength(255);
+            entity.Property(e => e.RefreshTokenExpiryTime).HasPrecision(0);
         });
 
         modelBuilder.Entity<WeddingProject>(entity =>

@@ -7,7 +7,11 @@ public sealed record WpsmPortalSnapshot(
     IReadOnlyList<PriceFrameView> PriceFrames,
     PolicyView Policies,
     ProfileView Profile,
-    IReadOnlyList<RoadmapTaskView> Roadmap);
+    IReadOnlyList<RoadmapTaskView> Roadmap)
+{
+    public int UnreadNotifications { get; init; }
+    public int OverdueTasks { get; init; }
+}
 
 public sealed record WeddingProjectView(
     string Id,
@@ -26,7 +30,23 @@ public sealed record WeddingProjectView(
     int GuestCount = 0,
     IReadOnlyList<SpecificationLineView>? Specification = null,
     DateTime? BaselineFrozenAt = null,
-    string NrdStatus = "Unknown");
+    string NrdStatus = "Unknown")
+{
+    public string CustomerEmail { get; init; } = "";
+    public string CustomerPhone { get; init; } = "";
+    public decimal CurrentTotal { get; init; }
+    public int OpenComplaints { get; init; }
+    public int DayOfTotal { get; init; }
+    public int DayOfCompleted { get; init; }
+    public IReadOnlyList<PaymentView> Payments { get; init; } = [];
+    public IReadOnlyList<ProjectModuleItem> Changes { get; init; } = [];
+    public IReadOnlyList<ProjectModuleItem> Beos { get; init; } = [];
+    public IReadOnlyList<ProjectModuleItem> Complaints { get; init; } = [];
+    public IReadOnlyList<ProjectModuleItem> DayOfTasks { get; init; } = [];
+    public string CredentialEmailStatus { get; init; } = "ExistingAccount";
+}
+public sealed record PaymentView(string Type, string Status, decimal Amount, DateOnly? DueDate, DateOnly? PaidDate, bool HasReceipt);
+public sealed record ProjectModuleItem(string Title, string Status, string? Detail = null);
 
 public sealed record SpecificationLineView(
     int CatalogItemId,
@@ -54,7 +74,8 @@ public sealed record CreateProjectCommand(
     decimal BaseValue,
     decimal NrdAmount,
     string PaymentMethod,
-    string? ReceiptFilePath);
+    string? ReceiptFilePath,
+    string? ProtectedCredentialPayload = null);
 public sealed record CreatedProjectView(WeddingProjectView Project, string? TemporaryPassword);
 
 public sealed record SpecificationCommand(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null);
@@ -128,3 +149,6 @@ public sealed record CompleteTaskResult(
     bool Success,
     string Message,
     CustomerRoadmapTaskView? UpdatedTask);
+
+public sealed record HallView(int HallId, string Name, int MinCapacity, int MaxCapacity, decimal BasePrice, string Status, IReadOnlyList<SlotView> Slots);
+public sealed record SlotView(int SlotId, string SlotName, TimeOnly StartTime, TimeOnly EndTime, bool Available);
