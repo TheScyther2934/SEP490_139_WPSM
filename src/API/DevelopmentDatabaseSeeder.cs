@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using WPSM.Infrastructure.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
+using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.API;
+namespace API;
 
 public sealed class DevelopmentDatabaseSeeder(
     WpsmDbContext db,

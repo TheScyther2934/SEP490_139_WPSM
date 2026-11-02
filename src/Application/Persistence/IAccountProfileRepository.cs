@@ -1,4 +1,4 @@
-namespace WPSM.Application.Persistence;
+﻿namespace Application.Persistence;
 
 public interface IAccountProfileRepository
 {
