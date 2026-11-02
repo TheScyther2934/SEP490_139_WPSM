@@ -1,8 +1,8 @@
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
+﻿using Application.Persistence;
+using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Email;
+namespace Infrastructure.Email;
 
 public sealed class EmailOutbox(WpsmDbContext db) : IEmailOutbox
 {

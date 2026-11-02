@@ -1,10 +1,10 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence;
+using Application.Persistence;
+using Infrastructure.Persistence;
 
-namespace WPSM.Infrastructure.Email;
+namespace Infrastructure.Email;
 
 public sealed class EmailDeliveryService(WpsmDbContext db, EmailOptions options) : IEmailDeliveryService
 {

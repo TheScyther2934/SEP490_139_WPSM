@@ -1,6 +1,6 @@
-using WPSM.Application.Persistence;
+﻿using Application.Persistence;
 
-namespace WPSM.Infrastructure.Files;
+namespace Infrastructure.Files;
 
 public sealed class FileStorageOptions
 {

@@ -1,11 +1,11 @@
-using Hangfire;
+﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
+using Application.Persistence;
+using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Jobs;
+namespace Infrastructure.Jobs;
 
 /// <summary>JOB-07: sends queued emails every minute; 3 retries at 5-minute intervals.</summary>
 public sealed class EmailDispatchJob(WpsmDbContext db, IEmailSender sender, ILogger<EmailDispatchJob> logger)

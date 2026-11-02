@@ -1,4 +1,4 @@
-namespace WPSM.Infrastructure.Files;
+﻿namespace Infrastructure.Files;
 
 /// <summary>Removes EXIF/GPS and text metadata without re-encoding the image (SDS security design).</summary>
 internal static class ImageMetadataStripper

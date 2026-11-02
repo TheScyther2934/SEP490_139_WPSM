@@ -1,6 +1,6 @@
-using System.Net;
+﻿using System.Net;
 
-namespace WPSM.Infrastructure.Email;
+namespace Infrastructure.Email;
 
 internal static class EmailTemplates
 {

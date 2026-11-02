@@ -1,4 +1,4 @@
-namespace WPSM.Application.Persistence;
+﻿namespace Application.Persistence;
 
 public sealed record AddendumItemView(string ItemName, int OldQuantity, decimal OldUnitPrice, int NewQuantity, decimal NewUnitPrice, decimal DeltaAmount);
 public sealed record AddendumView(string Code, string CrCode, string Status, decimal TotalVariance, DateTime? SignedAt, Guid? FileId, IReadOnlyList<AddendumItemView> Items);

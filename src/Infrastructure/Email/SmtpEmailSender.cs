@@ -1,9 +1,9 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Mail;
 using System.Text;
-using WPSM.Application.Persistence;
+using Application.Persistence;
 
-namespace WPSM.Infrastructure.Email;
+namespace Infrastructure.Email;
 
 public sealed class EmailOptions
 {

@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using WPSM.Infrastructure.Persistence.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Persistence;
+namespace Infrastructure.Persistence;
 
 // Kept apart from the scaffolded context so re-scaffolding does not drop the integration tables.
 public partial class WpsmDbContext

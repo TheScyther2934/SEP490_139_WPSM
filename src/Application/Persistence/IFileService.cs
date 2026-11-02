@@ -1,4 +1,4 @@
-namespace WPSM.Application.Persistence;
+﻿namespace Application.Persistence;
 
 public sealed record FileUploadCommand(Stream Content, string OriginalName, string Purpose, string ProjectCode, int UploadedBy);
 public sealed record StoredFileView(Guid Id, string Purpose, string OriginalName, string ContentType, long SizeBytes, DateTime UploadedAt);

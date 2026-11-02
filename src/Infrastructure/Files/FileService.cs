@@ -1,12 +1,12 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
+using Application.Persistence;
+using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Files;
+namespace Infrastructure.Files;
 
 public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStorageOptions options) : IFileService
 {

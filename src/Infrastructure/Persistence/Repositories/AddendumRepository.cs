@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using WPSM.Application.Persistence;
+﻿using Microsoft.EntityFrameworkCore;
+using Application.Persistence;
 
-namespace WPSM.Infrastructure.Persistence.Repositories;
+namespace Infrastructure.Persistence.Repositories;
 
 public sealed class AddendumRepository(WpsmDbContext db) : IAddendumRepository
 {
