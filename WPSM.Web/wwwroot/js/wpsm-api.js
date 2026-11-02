@@ -243,10 +243,6 @@ const replaceText = (root, values) => {
       }).join("") : '<p class="rounded-lg bg-surface-container-low p-4 text-sm text-on-surface-variant">Không còn dịch vụ đang hoạt động để thêm.</p>';
     }
   };
-  const hydrateTables = data => {
-    const projectBody = document.querySelector('[data-wpsm-screen="M02"] #projects-table tbody');
-    if (projectBody) projectBody.innerHTML = data.projects.map(project => {
-
   const homeForRole = role => role === "Admin" ? "/A02" : role === "Manager" ? "/M02" : "/C01";
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
   const dateVi = value => value ? new Intl.DateTimeFormat("vi-VN").format(new Date(`${value}T00:00:00`)) : "—";
@@ -499,8 +495,8 @@ const showError = error => { status.textContent = error.message; status.classLis
       try {
         const user = await send("auth/login", "POST", { email: form.querySelector("#email").value, password: form.querySelector("#password").value });
         if (user.mustChangePassword) { window.location.href = "/G03"; return; }
-        message(`Đăng nhập thành công · ${user.user.fullName}`);
-        window.location.href = homeForRole(user.user.role);
+        message(`Đăng nhập thành công · ${user.fullName}`);
+        window.location.href = homeForRole(user.role);
       } catch (error) {
         showError(error);
         if (errArea && errMsg) {
@@ -1089,29 +1085,6 @@ clearM05Messages();
           } else {
             staleBanner.classList.add("hidden");
           }
-
-      const project = data.project;
-      if (project) {
-document.querySelectorAll('a[href="/M04"], a[href="/M05"]').forEach(link => { if (project) link.href = ${link.getAttribute('href')}?id=; });
-
-        const dateVi = new Intl.DateTimeFormat("vi-VN").format(new Date(`${project.eventDate}T00:00:00`));
-        const daysLeft = Math.max(0, Math.ceil((new Date(`${project.eventDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000));
-        const displayValues = {
-          "Minh Anh & Thu Hà": project.coupleName,
-          "WPSM-2026-014": project.id,
-          "Sảnh Hoàng Gia": project.hall,
-          "20/12/2026": dateVi,
-          "185.000.000 ₫": formatMoney(project.baseValue),
-          "18.500.000 ₫": formatMoney(project.nrdAmount),
-          "NL Long & Linh": data.profile.fullName,
-          "minhanh@example.com": data.profile.email,
-          "0912 345 678": data.profile.phone
-        };
-        if (document.querySelector('[data-wpsm-screen="C03"]')) displayValues["T-58 ngày"] = `T-${daysLeft} ngày`;
-        if (document.querySelector('[data-wpsm-screen="A06"]')) {
-          displayValues["30%"] = `${data.policies.nrdRatio}%`;
-          displayValues["70%"] = `${data.policies.t30Ratio}%`;
-
         }
       }
       status.textContent = project ? `Database · ${project.id}` : "Database · chưa có dự án";
