@@ -27,7 +27,7 @@ test('project pagination and filters use the assigned database snapshot', async 
   }));
   const fetch = async url => ({ ok: true, json: async () => url.endsWith('/halls') ? [] : { projects, project: null } });
   vm.runInNewContext(fs.readFileSync('WPSM.Web/wwwroot/js/wpsm-api.js', 'utf8'), {
-    document, window: { location: { search: '' }, setTimeout() {} }, fetch, URLSearchParams, Intl
+    document, window: { location: { search: '' }, setTimeout() {}, clearTimeout() {} }, fetch, URLSearchParams, Intl
   });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal((tbody.innerHTML.match(/<tr /g) || []).length, 5);
