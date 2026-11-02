@@ -8,7 +8,12 @@ builder.Services.AddHttpClient("WpsmApi", client =>
 {
     var apiBaseUrl = builder.Configuration["WpsmApi:BaseUrl"] ?? "http://localhost:5128/";
     client.BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute);
-    client.Timeout = TimeSpan.FromSeconds(5);
+    client.Timeout = TimeSpan.FromSeconds(30);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    // The handler is shared by all users; a cookie container here would leak one user's session to everyone.
+    UseCookies = false,
+    AllowAutoRedirect = false
 });
 
 var app = builder.Build();
@@ -35,7 +40,7 @@ app.Use(async (context, next) =>
     {
         "/A02" or "/A03" or "/A04" or "/A05" or "/A06" or "/A07" or "/A08" => "Admin",
         "/M02" or "/M03" or "/M04" or "/M05" => "Manager",
-        "/C01" or "/C02" or "/C03" or "/C04" or "/C05" or "/C10" or "/C11" => "Customer",
+        "/C01" or "/C02" or "/C03" or "/C04" or "/C05" or "/C09" or "/C10" or "/C11" => "Customer",
         _ => null
     };
     var protectedPath = requiredRole is not null || path is "/G02" or "/G03";
@@ -74,14 +79,32 @@ app.MapMethods("/api/wpsm/{**path}", ["GET", "POST", "PUT", "DELETE"], async (
     using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), apiPath);
     if (context.Request.Headers.Cookie.Count > 0)
         request.Headers.TryAddWithoutValidation("Cookie", context.Request.Headers.Cookie.ToArray());
+    if (context.Request.Headers.TryGetValue("X-Wpsm-Signature", out var webhookSignature))
+        request.Headers.TryAddWithoutValidation("X-Wpsm-Signature", webhookSignature.ToArray());
     if (context.Request.ContentLength is > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding"))
     {
-        request.Content = new StreamContent(context.Request.Body);
+        // The API's HTTPS launch profile redirects HTTP requests with 307.
+        // Buffer the body so HttpClient can replay POST/PUT and multipart uploads.
+        // ASP.NET's incoming request stream is not seekable and cannot be replayed.
+        await using var body = new MemoryStream();
+        await context.Request.Body.CopyToAsync(body, context.RequestAborted);
+        request.Content = new ByteArrayContent(body.ToArray());
         if (context.Request.ContentType is not null)
             request.Content.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(context.Request.ContentType);
     }
 
-    using var response = await clients.CreateClient("WpsmApi").SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+    HttpResponseMessage response;
+    try
+    {
+        response = await clients.CreateClient("WpsmApi").SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.RequestAborted);
+    }
+    catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException && !context.RequestAborted.IsCancellationRequested)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsJsonAsync(new { message = "WPSM API chưa chạy hoặc không phản hồi. Hãy chạy cả WPSM.API và WPSM.Web." });
+        return;
+    }
+    using var responseScope = response;
     context.Response.StatusCode = (int)response.StatusCode;
     if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         foreach (var cookie in cookies) context.Response.Headers.Append("Set-Cookie", cookie);
@@ -89,6 +112,10 @@ app.MapMethods("/api/wpsm/{**path}", ["GET", "POST", "PUT", "DELETE"], async (
         foreach (var challenge in challenges) context.Response.Headers.Append("WWW-Authenticate", challenge);
     if (response.Content.Headers.ContentType is not null)
         context.Response.ContentType = response.Content.Headers.ContentType.ToString();
+    if (response.Content.Headers.ContentDisposition is not null)
+        context.Response.Headers.ContentDisposition = response.Content.Headers.ContentDisposition.ToString();
+    if (response.Headers.TryGetValues("X-Content-Type-Options", out var contentTypeOptions))
+        context.Response.Headers.XContentTypeOptions = contentTypeOptions.ToArray();
     await response.Content.CopyToAsync(context.Response.Body, context.RequestAborted);
 });
 

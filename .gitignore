@@ -118,3 +118,13 @@ desktop.ini
 # --- Docs: keep Stitch exports and reports tracked; ignore Office lock files ---
 ~$*
 *.tmp.docx
+
+# Local test scratch
+.tmp_scratch/
+
+# Claude workspace and local project docs (keep out of git)
+.claude/
+CLAUDE.md
+AGENT_WORKSPACE_BLUEPRINT*.md
+doc/
+docs/

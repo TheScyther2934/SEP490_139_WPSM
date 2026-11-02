@@ -57,7 +57,7 @@
         </p>
 </div>
 <!-- Form Elements -->
-<form class="space-y-4" id="loginForm" onsubmit="handleLoginSubmit(event)">
+<form class="space-y-4" id="loginForm">
 <!-- Email Field -->
 <div>
 <label class="block font-label-md text-label-md text-on-surface mb-1" for="email">
@@ -67,7 +67,7 @@
 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
 <span class="material-symbols-outlined text-[18px]" data-icon="mail">mail</span>
 </div>
-<input class="w-full h-10 pl-9 pr-3 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline-variant" id="email" name="email" placeholder="email@@example.com" required="" type="email" value="dieuhanh.sanhkimgcuong@@wpsm.vn"/>
+<input class="w-full h-10 pl-9 pr-3 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline-variant" id="email" name="email" placeholder="email@@example.com" required="" type="email"/>
 </div>
 </div>
 <!-- Password Field with Show/Hide toggle -->
@@ -79,27 +79,19 @@
 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
 <span class="material-symbols-outlined text-[18px]" data-icon="lock">lock</span>
 </div>
-<input class="w-full h-10 pl-9 pr-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline-variant" id="password" name="password" placeholder="Nhập mật khẩu được cấp" required="" type="password" value="Wedding2025!"/>
+<input class="w-full h-10 pl-9 pr-10 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline-variant" id="password" name="password" placeholder="Nhập mật khẩu được cấp" required="" type="password"/>
 <button aria-label="Ẩn hiện mật khẩu" class="absolute inset-y-0 right-0 pr-3 flex items-center text-outline hover:text-primary transition-colors focus:outline-none" id="togglePasswordBtn" onclick="togglePasswordVisibility()" type="button">
 <span class="material-symbols-outlined text-[19px]" data-icon="visibility" id="pwdIcon">visibility</span>
 </button>
 </div>
 </div>
-<!-- Inline Error / Warning Notification Area (Sample state rendered as requested) -->
-<div class="space-y-2 pt-1" id="errorNotificationArea">
-<!-- Error 1: Incorrect credentials state -->
+<!-- Inline Error / Warning Notification Area -->
+<div class="space-y-2 pt-1 hidden" id="errorNotificationArea">
 <div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-error-container/60 border border-error/30 text-error animate-fadeIn">
 <span class="material-symbols-outlined text-[18px] shrink-0 mt-0.5" data-icon="error">error</span>
-<div class="flex-1 text-label-md font-label-md leading-snug">
-              Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.
-            </div>
+<div class="flex-1 text-label-md font-label-md leading-snug" id="loginErrorMessage">
+  Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.
 </div>
-<!-- Error 2: Account deactivated notice -->
-<div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[#991B1B]">
-<span class="material-symbols-outlined text-[18px] shrink-0 mt-0.5" data-icon="gpp_maybe">gpp_maybe</span>
-<div class="flex-1 text-label-md font-label-md leading-snug">
-              Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ trung tâm.
-            </div>
 </div>
 </div>
 <!-- Primary Full-Width Button -->
