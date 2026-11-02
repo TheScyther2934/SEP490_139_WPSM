@@ -20,8 +20,8 @@ Drop-TestDatabase
 Remove-Item "$Out\files","$Out\mail" -Recurse -Force -ErrorAction SilentlyContinue
 if (-not (Test-Path "$Here\node_modules")) { Push-Location $Here; npm install --no-audit --no-fund | Out-Null; Pop-Location }
 
-dotnet build src\API\WPSM.API.csproj -c Release -o "$Out\api" -v q --nologo | Select-Object -Last 3
-dotnet build WPSM.Web\WPSM.Web.csproj -c Release -o "$Out\web" -v q --nologo | Select-Object -Last 3
+dotnet build src\API\API.csproj -c Release -o "$Out\api" -v q --nologo | Select-Object -Last 3
+dotnet build WPSM.Web\Web.csproj -c Release -o "$Out\web" -v q --nologo | Select-Object -Last 3
 
 sqlcmd -S $Sql -b -Q "CREATE DATABASE $Db"
 $schema = [IO.File]::ReadAllText("$Root\Database\WPSM_DB_Schema.sql").Replace("WPSM_DB", $Db)
@@ -39,22 +39,23 @@ $env:Wpsm__Seed__Manager__Email = "manager@test.local"; $env:Wpsm__Seed__Manager
 $env:Files__RootPath = "$Out\files"; $env:Smtp__PickupDirectory = "$Out\mail"; $env:Smtp__WebhookSecret = $hook
 
 $env:ASPNETCORE_URLS = "http://localhost:5300"
-Start-Process "$Out\api\WPSM.API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden -RedirectStandardOutput "$Out\api.out" -RedirectStandardError "$Out\api.err" | Out-Null
+Start-Process "$Out\api\API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden -RedirectStandardOutput "$Out\api.out" -RedirectStandardError "$Out\api.err" | Out-Null
 $env:ASPNETCORE_URLS = "http://localhost:5301"; $env:WpsmApi__BaseUrl = "http://localhost:5300/"
-Start-Process "$Out\web\WPSM.Web.exe" -ArgumentList "--contentRoot", "$Root\WPSM.Web" -WorkingDirectory "$Out\web" -WindowStyle Hidden -RedirectStandardOutput "$Out\web.out" -RedirectStandardError "$Out\web.err" | Out-Null
+Start-Process "$Out\web\Web.exe" -ArgumentList "--contentRoot", "$Root\WPSM.Web" -WorkingDirectory "$Out\web" -WindowStyle Hidden -RedirectStandardOutput "$Out\web.out" -RedirectStandardError "$Out\web.err" | Out-Null
 foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5300/api/wpsm/auth/me" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { break } }; Start-Sleep 1 }
 foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5301/G01" -UseBasicParsing -TimeoutSec 3 | Out-Null; break } catch { Start-Sleep 1 } }
 
 $env:TEST_PW = $pw; $env:HOOK_SECRET = $hook; $env:FILE_ROOT = "$Out\files"; $env:MAIL_DIR = "$Out\mail"
 $failed = 0
 $env:SHOT = "$Out\c02.png"; $env:EVENT_DATE = "2027-03-15"
+"--- G-01 form login"; node "$Here\login.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 "--- integration"; node "$Here\integration.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 "--- C-09"; node "$Here\c09.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 "--- all screens"; node "$Here\screens.js" | Select-String 'FAIL|sweep'; if ($LASTEXITCODE) { $failed++ }
 
 "--- SMTP configured"
 $env:ASPNETCORE_URLS = "http://localhost:5302"; $env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "1"; $env:Hangfire__Enabled = "false"; $env:Wpsm__SeedDevelopmentData = "false"
-Start-Process "$Out\api\WPSM.API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden | Out-Null
+Start-Process "$Out\api\API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden | Out-Null
 foreach ($i in 1..20) { try { Invoke-WebRequest "http://localhost:5302/api/wpsm/auth/me" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { break } }; Start-Sleep 1 }
 node "$Here\smtp.js"; if ($LASTEXITCODE) { $failed++ }
 
