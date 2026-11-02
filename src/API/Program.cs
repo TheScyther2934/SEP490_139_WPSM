@@ -5,11 +5,11 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
-using WPSM.API;
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
-using WPSM.Infrastructure.Persistence.Repositories;
+using API;
+using Application.Persistence;
+using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
+using Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("WpsmDb");
@@ -25,6 +25,8 @@ builder.Services.AddScoped<IAccountProfileRepository, AccountProfileRepository>(
 builder.Services.AddScoped<IWpsmPortalSnapshotReader, WpsmPortalSnapshotReader>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
+builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
+builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
     options.Cookie.Name = "WPSM.Auth";
@@ -193,6 +195,105 @@ api.MapPost("/auth/change-password", async (ChangePasswordRequest request, IAcco
     }
     return Results.NoContent();
 }).RequireAuthorization();
+
+// ── C-01: Customer Dashboard ─────────────────────────────────────────────────
+api.MapGet("/customer/projects/{projectCode}/dashboard",
+    async (string projectCode, ICustomerDashboardRepository dashboard, ClaimsPrincipal user, CancellationToken ct) =>
+    {
+        var result = await dashboard.GetDashboardAsync(UserId(user), projectCode, ct);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    })
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+// ── C-11: Serve ExecutionPhoto by ID (Customer-owned projects only) ───────────
+// GET /api/wpsm/customer/photos/{photoId}
+// Verifies the photo belongs to a project owned by the requesting Customer.
+// Returns the image file stream with appropriate Content-Type.
+api.MapGet("/customer/photos/{photoId:int}",
+    async (int photoId, WpsmDbContext db, ClaimsPrincipal user, CancellationToken ct) =>
+    {
+        var userId = UserId(user);
+
+        // Load photo + verify ownership through DayOfTask → WeddingProject → Customer
+        var photo = await db.ExecutionPhotos
+            .AsNoTracking()
+            .Include(ep => ep.DayOfTask)
+                .ThenInclude(dot => dot.Project)
+            .FirstOrDefaultAsync(ep => ep.PhotoId == photoId, ct);
+
+        if (photo is null) return Results.NotFound();
+
+        // Security: Customer may only access photos from their own project
+        if (photo.DayOfTask.Project.CustomerId != userId)
+            return Results.Forbid();
+
+        // Resolve file path — ImageFilePath may be absolute or relative to ContentRoot
+        var filePath = photo.ImageFilePath;
+        if (!Path.IsPathRooted(filePath))
+        {
+            var env = app.Services.GetRequiredService<IWebHostEnvironment>();
+            filePath = Path.Combine(env.ContentRootPath, filePath);
+        }
+
+        if (!File.Exists(filePath)) return Results.NotFound();
+
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "application/octet-stream"
+        };
+
+        return Results.File(filePath, contentType, enableRangeProcessing: true);
+    })
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+// ── C-01: Customer first project (convenience, no explicit projectCode) ───────
+api.MapGet("/customer/dashboard",
+    async (IProjectRepository projects, ICustomerDashboardRepository dashboard, ClaimsPrincipal user, CancellationToken ct) =>
+    {
+        var userId = UserId(user);
+        var myProjects = await projects.GetProjectsAsync(userId, "Customer", ct);
+        if (myProjects.Count == 0) return Results.NotFound();
+        var result = await dashboard.GetDashboardAsync(userId, myProjects[0].Id, ct);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    })
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+// ── C-03: Customer Roadmap (UC-05) ───────────────────────────────────────────
+api.MapGet("/customer/projects/{projectCode}/roadmap",
+    async (string projectCode, ICustomerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    {
+        var result = await repo.GetRoadmapAsync(UserId(user), projectCode, ct);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    })
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+// ── C-03: Complete Customer task (UC-06) ─────────────────────────────────────
+api.MapPost("/customer/projects/{projectCode}/roadmap/tasks/{taskId:int}/complete",
+    async (string projectCode, int taskId, ICustomerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    {
+        var result = await repo.CompleteTaskAsync(UserId(user), projectCode, taskId, ct);
+        if (!result.Success)
+            return Results.BadRequest(new { error = result.Message });
+        return Results.Ok(result);
+    })
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+// ── C-03: Convenience — roadmap for customer's first project ─────────────────
+api.MapGet("/customer/roadmap",
+    async (IProjectRepository projects, ICustomerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+    {
+        var userId = UserId(user);
+        var myProjects = await projects.GetProjectsAsync(userId, "Customer", ct);
+        if (myProjects.Count == 0) return Results.NotFound();
+        var result = await repo.GetRoadmapAsync(userId, myProjects[0].Id, ct);
+        return result is null ? Results.NotFound() : Results.Ok(result);
+    })
+    .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
 app.Run();
 

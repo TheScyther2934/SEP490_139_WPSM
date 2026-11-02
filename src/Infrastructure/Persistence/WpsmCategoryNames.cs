@@ -1,4 +1,4 @@
-namespace WPSM.Infrastructure.Persistence;
+﻿namespace Infrastructure.Persistence;
 
 internal static class WpsmCategoryNames
 {

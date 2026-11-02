@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace WPSM.Infrastructure.Persistence.Entities;
+namespace Infrastructure.Persistence.Entities;
 
 public partial class Crhistory
 {

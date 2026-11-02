@@ -1,9 +1,9 @@
-using Microsoft.EntityFrameworkCore;
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using Application.Persistence;
+using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Persistence.Repositories;
+namespace Infrastructure.Persistence.Repositories;
 
 public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectReadModel readModel) : ISpecificationRoadmapRepository
 {

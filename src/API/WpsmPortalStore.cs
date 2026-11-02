@@ -1,4 +1,4 @@
-namespace WPSM.API;
+﻿namespace API;
 
 public sealed class WpsmPortalStore
 {

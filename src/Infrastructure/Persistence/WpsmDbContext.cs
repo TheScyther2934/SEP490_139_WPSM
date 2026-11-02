@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using WPSM.Infrastructure.Persistence.Entities;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Persistence;
+namespace Infrastructure.Persistence;
 
 public partial class WpsmDbContext : DbContext
 {

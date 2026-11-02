@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
-using WPSM.Application.Persistence;
-using WPSM.Infrastructure.Persistence.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using Application.Persistence;
+using Infrastructure.Persistence.Entities;
 
-namespace WPSM.Infrastructure.Persistence;
+namespace Infrastructure.Persistence;
 
 public sealed class WpsmPortalSnapshotReader(
     IProjectRepository projectRepository,
