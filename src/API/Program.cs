@@ -120,7 +120,8 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Wps
 }
 if (backgroundJobsEnabled)
 {
-    RecurringJob.AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    app.Services.GetRequiredService<IRecurringJobManager>()
+        .AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
 }
 
 app.UseCors();
