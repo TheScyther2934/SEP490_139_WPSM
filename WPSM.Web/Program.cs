@@ -13,7 +13,9 @@ builder.Services.AddHttpClient("WpsmApi", client =>
 {
     // The handler is shared by all users; a cookie container here would leak one user's session to everyone.
     UseCookies = false,
-    AllowAutoRedirect = false
+    // Request bodies are buffered below, so 307/308 redirects can be replayed
+    // when Visual Studio launches the API with its HTTPS profile.
+    AllowAutoRedirect = true
 });
 
 var app = builder.Build();

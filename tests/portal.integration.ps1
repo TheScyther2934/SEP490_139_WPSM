@@ -10,8 +10,8 @@ $web = $null
 $createdDatabase = $false
 $checks = 0
 $baseUri = if ($HttpsApi) { 'https://localhost:15387' } else { 'http://localhost:15382' }
-$webAssemblyPath = if ($WebAssembly) { (Resolve-Path -LiteralPath $WebAssembly).Path } else { Join-Path $repo 'WPSM.Web/bin/Debug/net8.0/WPSM.Web.dll' }
-$apiAssemblyPath = if ($ApiAssembly) { (Resolve-Path -LiteralPath $ApiAssembly).Path } else { Join-Path $repo 'src/API/bin/Debug/net8.0/WPSM.API.dll' }
+$webAssemblyPath = if ($WebAssembly) { (Resolve-Path -LiteralPath $WebAssembly).Path } else { Join-Path $repo 'WPSM.Web/bin/Debug/net8.0/Web.dll' }
+$apiAssemblyPath = if ($ApiAssembly) { (Resolve-Path -LiteralPath $ApiAssembly).Path } else { Join-Path $repo 'src/API/bin/Debug/net8.0/API.dll' }
 
 function Check($condition, $name) {
     if (!$condition) { throw "FAILED: $name" }
@@ -33,8 +33,8 @@ function Start-App($dll, $contentRoot, $urls, $settings) {
     foreach ($arg in @($dll, '--urls', $urls, '--environment', 'Development')) { $start.ArgumentList.Add($arg) }
     foreach ($key in $settings.Keys) { $start.Environment[$key] = $settings[$key] }
     $process = [Diagnostics.Process]::Start($start)
-    $null = $process.StandardOutput.ReadToEndAsync()
-    $null = $process.StandardError.ReadToEndAsync()
+    $process | Add-Member -NotePropertyName OutputLogTask -NotePropertyValue $process.StandardOutput.ReadToEndAsync()
+    $process | Add-Member -NotePropertyName ErrorLogTask -NotePropertyValue $process.StandardError.ReadToEndAsync()
     return $process
 }
 function Request($path, $session, $method = 'GET', $body = $null) {
@@ -73,7 +73,10 @@ try {
     $ready = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
         try { $r = Invoke-WebRequest 'http://localhost:15381/api/wpsm/auth/me' -SkipHttpErrorCheck -TimeoutSec 1; if ($r.StatusCode -eq 401) { $ready = $true; break } } catch {}
-        if ($api.HasExited) { throw 'Test API exited during initialization' }
+        if ($api.HasExited) {
+            $startupLog = $api.OutputLogTask.GetAwaiter().GetResult() + $api.ErrorLogTask.GetAwaiter().GetResult()
+            throw "Test API exited during initialization: $startupLog"
+        }
         Start-Sleep -Milliseconds 250
     }
     Check $ready 'API initialized against isolated SQL Server database'

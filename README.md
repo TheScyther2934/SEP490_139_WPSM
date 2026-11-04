@@ -38,6 +38,14 @@ dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<your-manager-password-12-
 
 3. Start the API and Web projects using the commands above. The opt-in development seeder creates halls, lunch/evening slots, baseline Catalog/PriceFrames and initial policy records. Creating a project creates a Customer account; its temporary password is returned once to the Manager for delivery.
 
+### SQL INSERT demo data (alternative to the API seeder)
+
+On an empty development database, run `Database/WPSM_DB_Schema.sql` followed by `Database/WPSM_DB_Seed.sql` in SSMS. The seed script contains explicit INSERT statements for 9 demo users, 4 halls, 8 slots, 5 services, price frames/policies, 7 projects, 35 specification rows, 7 NRD payments and 28 roadmap tasks. It can be run twice without duplicates and does not overwrite existing accounts or projects. If the same sample project codes already belong to other accounts, it rolls back instead of modifying them.
+
+The SQL demo uses `demo.admin@example.invalid`, `demo.manager@example.invalid` and `demo.customer1@example.invalid` through `demo.customer7@example.invalid`. Their initial demo-only password is `WpsmDemo@2026!`, stored as an ASP.NET Identity hash; first login requires a password change. No live SQL login, real account hash, receipt or refresh token is exported. Set `Wpsm:SeedDevelopmentData=false` when using this SQL demo; choose either SQL demo data or the API development seeder.
+
+For an existing database receiving the merge-all features, run `Database/Updates/20261103_Integration.sql` after the portal persistence update. This adds integration tables and baseline protection without deleting existing data.
+
 The NRD policy is enforced at project creation. Bank transfers require a PDF/JPG/PNG receipt (maximum 10 MB); its content and metadata are stored in SQL Server's `Payments` table and downloads require project access. Cash payments are recorded as paid at creation. New projects start with editable v1 specification rows from the five required Catalog categories, and freezing a baseline generates its roadmap.
 
 For an existing SQL Server database, run `Database/Updates/20261102_PortalPersistence.sql` against that database before starting the updated API. It adds receipt content, email delivery storage and compatibility columns without deleting existing data. Use the same SQL Server instance in SSMS and `ConnectionStrings:WpsmDb`; a named instance such as `MACHINE\INSTANCE` is different from `localhost` or LocalDB. Keep SQL passwords in User Secrets, not in tracked configuration.
@@ -57,8 +65,6 @@ Wpsm:PortalUrl            (public login URL)
 Preserve the API's Data Protection key store across restarts so queued credential messages can still be decrypted. For multiple deployed API instances, use a shared key store and a single email dispatcher instance.
 
 Validation: `node --test tests/*.test.cjs` exercises project form handling, filters and pagination. `pwsh -File tests/portal.integration.ps1` exercises SQL persistence, authentication, password changes, project isolation and receipt downloads using a disposable `WPSM_Test_<guid>` database on SQL Server `localhost` (Windows Authentication). It creates and drops only its own test database, and does not change the configured application database.
-
-The NRD policy is enforced at project creation; bank transfers require a PDF/JPG/PNG receipt (maximum 10 MB), which is stored privately under the API's `App_Data/receipts` directory and linked to the payment record. Cash payments are recorded as paid at creation. Customer passwords are generated once and displayed to the Manager for secure delivery; email dispatch is not integrated yet. The prototype's late-penalty rule is also not represented by the current schema/service. New projects start with editable v1 specification rows from the five required Catalog categories, and freezing a baseline generates its roadmap.
 
 ## Files, email and background jobs (API-01..04, JOB-07)
 

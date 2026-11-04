@@ -37,7 +37,7 @@ function setup() {
       { slotName: 'Lunch', startTime: '11:00:00', endTime: '14:00:00', available: false },
       { slotName: 'Evening', startTime: '17:30:00', endTime: '21:30:00', available: true }
     ] }];
-  const window = { location: { search: '' }, setTimeout() {} };
+  const window = { location: { search: '' }, setTimeout() {}, clearTimeout() {} };
   const fetch = async (url, options = {}) => {
     requests.push({ url, ...options });
     const result = url.includes('/halls') ? halls : url.endsWith('/projects')
