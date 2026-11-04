@@ -29,16 +29,24 @@
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <button type="button" disabled title="Chức năng tải hợp đồng PDF chưa được cung cấp" class="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-outline-variant/50 px-3.5 py-2 font-title-sm text-title-sm text-on-surface-variant opacity-60"><span class="material-symbols-outlined text-[18px]">download</span> Tải bản in hợp đồng</button>
-                <button type="button" disabled title="Màn hình phụ lục hợp đồng thuộc phạm vi C-09" class="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-secondary/40 px-3.5 py-2 font-title-sm text-title-sm text-secondary opacity-60"><span class="material-symbols-outlined text-[18px]">attach_file</span> Phụ lục hợp đồng <span data-c02="addenda-count" class="rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-bold text-on-secondary">—</span></button>
+                <a href="/C09" class="inline-flex items-center gap-2 rounded-lg border border-secondary/40 px-3.5 py-2 font-title-sm text-title-sm text-secondary hover:bg-secondary-fixed/20 no-underline transition-colors"><span class="material-symbols-outlined text-[18px]">attach_file</span> Phụ lục hợp đồng (C-09)</a>
             </div>
         </section>
 
-        <section class="overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm" aria-label="Tóm tắt hợp đồng gốc">
-            <div class="grid grid-cols-1 divide-y divide-outline-variant/30 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+        <section class="overflow-hidden rounded-xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm">
+            <header class="border-b border-outline-variant/30 bg-surface-container-low p-5">
+                <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                    <div>
+                        <span class="rounded bg-secondary-fixed/50 px-2 py-0.5 text-label-sm font-semibold text-secondary">Hồ sơ tiệc cưới gốc</span>
+                        <h2 class="mt-1 font-headline-sm text-headline-sm font-semibold text-primary" data-c02="couple-name">Hợp đồng tiệc cưới</h2>
+                    </div>
+                </div>
+            </header>
+            <div class="grid grid-cols-1 divide-y divide-outline-variant/30 sm:grid-cols-2 sm:divide-y-0 sm:divide-x md:grid-cols-4">
                 <article class="p-5">
-                    <p class="mb-2 flex items-center justify-between text-label-md text-on-surface-variant">Sảnh tiệc <span class="material-symbols-outlined text-primary">room_preferences</span></p>
-                    <h2 class="font-title-lg text-title-lg font-semibold text-primary" data-c02="summary-hall">—</h2>
-                    <p class="mt-1 text-body-sm text-on-surface-variant">Địa điểm tổ chức theo hợp đồng</p>
+                    <p class="mb-2 flex items-center justify-between text-label-md text-on-surface-variant">Sảnh tiệc <span class="material-symbols-outlined text-secondary">location_on</span></p>
+                    <h2 class="font-title-lg text-title-lg font-semibold text-on-surface" data-c02="summary-hall">—</h2>
+                    <p class="mt-1 text-body-sm text-on-surface-variant">Không gian tổ chức chính</p>
                 </article>
                 <article class="p-5">
                     <p class="mb-2 flex items-center justify-between text-label-md text-on-surface-variant">Ca tiệc <span class="material-symbols-outlined text-secondary">schedule</span></p>

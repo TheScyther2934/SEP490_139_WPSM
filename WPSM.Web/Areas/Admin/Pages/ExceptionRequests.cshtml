@@ -1,0 +1,32 @@
+@page "/A18"
+@{ ViewData["Title"] = "WPSM Executive - Yêu cầu ngoại lệ (A-18)"; ViewData["AdminCrumb"] = "Yêu cầu ngoại lệ (A-18)"; }
+<div data-wpsm-screen="A18">
+<div class="flex flex-1 w-full relative">
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminNavigation.cshtml")
+<div class="flex-1 ml-64 flex flex-col min-w-0">
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminHeader.cshtml")
+<main class="flex-1 p-8 max-w-[1440px] w-full mx-auto space-y-6">
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Yêu cầu ngoại lệ đặc biệt</h1>
+<table class="w-full text-sm bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden">
+<thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="py-3 px-4 text-left">Mã yêu cầu</th><th class="py-3 px-4 text-left">Nguồn</th><th class="py-3 px-4 text-left">Dự án</th><th class="py-3 px-4 text-left">Nội dung</th><th class="py-3 px-4 text-left">Trạng thái</th><th class="py-3 px-4 text-left">Thao tác</th></tr></thead>
+<tbody id="a18Table"></tbody>
+</table>
+<section id="a18Detail" class="hidden rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-6 space-y-4">
+<h2 class="font-title-md text-title-md font-bold text-on-surface"><span data-field="code"></span> · chi tiết</h2>
+<dl class="grid grid-cols-[160px_1fr] gap-x-4 gap-y-3 text-sm">
+<dt class="text-on-surface-variant">Bối cảnh</dt><dd data-field="context"></dd>
+<dt class="text-on-surface-variant">Ghi chú của Manager</dt><dd data-field="managerNote"></dd>
+<dt class="text-on-surface-variant">Quyết định trước đó</dt><dd data-field="decisionNote"></dd>
+</dl>
+<div id="a18Decide" class="flex flex-wrap items-end gap-4">
+<label class="flex-1 min-w-[280px] text-sm text-on-surface-variant">Ghi chú quyết định (bắt buộc, tối đa 300 ký tự)*
+<textarea id="a18Note" maxlength="300" rows="3" class="mt-1 block w-full rounded-lg border-outline-variant bg-surface-container-lowest text-sm"></textarea></label>
+<button type="button" data-action="approve-exception" class="px-6 py-2.5 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800">Chấp thuận</button>
+<button type="button" data-action="reject-exception" class="px-6 py-2.5 rounded-lg bg-error text-on-error font-semibold hover:opacity-90">Từ chối</button>
+</div>
+<p id="a18Error" class="hidden text-sm text-error"></p>
+</section>
+</main>
+</div>
+</div>
+</div>

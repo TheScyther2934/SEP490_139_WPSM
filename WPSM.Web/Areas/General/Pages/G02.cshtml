@@ -37,19 +37,18 @@
 <div class="relative group">
 <button class="flex items-center gap-2.5 pl-1.5 pr-2 py-1 rounded-lg border border-outline-variant bg-surface-container-lowest hover:bg-surface-container hover:border-outline transition-colors duration-150">
 <div class="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center font-title-sm text-xs font-semibold ring-1 ring-primary/20">
-              NL
-            </div>
+<span data-profile-initials>—</span></div>
 <div class="text-left hidden sm:block">
-<p class="text-label-md font-label-md font-medium text-on-surface leading-tight">Long &amp; Linh</p>
-<p class="text-[10px] text-secondary font-medium uppercase">Khách hàng</p>
+<p class="text-label-md font-label-md font-medium text-on-surface leading-tight" data-profile-name>Đang tải</p>
+<p class="text-[10px] text-secondary font-medium uppercase" data-profile-role>—</p>
 </div>
 <span class="material-symbols-outlined text-[18px] text-on-surface-variant" data-icon="expand_more">expand_more</span>
 </button>
 <!-- Dropdown flyout menu -->
 <div class="absolute right-0 mt-2 w-56 rounded-xl bg-surface-container-lowest border border-outline-variant shadow-lg py-1.5 hidden group-hover:block transition-all z-50">
 <div class="px-4 py-2 border-b border-surface-container">
-<p class="text-label-sm font-label-sm text-secondary uppercase font-bold">Tài khoản Cặp đôi</p>
-<p class="text-body-sm font-body-sm font-medium text-on-surface truncate">long.nguyenbaolong@@gmail.com</p>
+<p class="text-label-sm font-label-sm text-secondary uppercase font-bold">Tài khoản WPSM</p>
+<p class="text-body-sm font-body-sm font-medium text-on-surface truncate">Đang tải</p>
 </div>
 <a class="flex items-center gap-2.5 px-4 py-2.5 text-body-sm font-body-sm text-primary font-semibold bg-surface-container-low" href="#">
 <span class="material-symbols-outlined text-[18px]" data-icon="account_circle">account_circle</span>
@@ -76,17 +75,17 @@
 <!-- Wedding Event Banner Mini -->
 <div class="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant flex flex-col gap-1.5">
 <div class="flex items-center justify-between">
-<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]">Sảnh Kim Cương</span>
-<span class="text-label-sm font-label-sm text-secondary font-semibold">T-48 Ngày</span>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]" id="profileProjectHall">—</span>
+<span class="text-label-sm font-label-sm text-secondary font-semibold" id="profileProjectCountdown">—</span>
 </div>
-<h4 class="text-title-sm font-title-sm text-primary mt-0.5">Tiệc Cưới Long &amp; Linh</h4>
+<h4 class="text-title-sm font-title-sm text-primary mt-0.5">Hồ sơ tài khoản</h4>
 <div class="flex items-center gap-1.5 text-body-sm font-body-sm text-on-surface-variant">
 <span class="material-symbols-outlined text-[16px] text-secondary" data-icon="event">event</span>
-<span>28/12/2025 • Tối (18:00)</span>
+<span id="profileProjectDate">—</span>
 </div>
 </div>
 <!-- Navigation Link List -->
-<nav class="space-y-1">
+<nav class="space-y-1" id="profileNavigation">
 <p class="px-3 pb-2 text-[11px] font-semibold tracking-wider text-secondary uppercase">Điều hướng sự kiện</p>
 <!-- 1. Tổng quan -->
 <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-body-md font-body-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors duration-150" href="#">
@@ -177,26 +176,21 @@
 <div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-outline-variant gap-4">
 <div class="flex items-center gap-4">
 <!-- Initials Avatar -->
-<div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary-container text-white flex items-center justify-center font-display-lg text-2xl md:text-3xl font-semibold shadow-md ring-4 ring-secondary-fixed/40">
-                NL
-              </div>
+<div class="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary-container text-white flex items-center justify-center font-display-lg text-2xl md:text-3xl font-semibold shadow-md ring-4 ring-secondary-fixed/40" id="profileInitials">
+<span data-profile-initials>—</span></div>
 <div class="space-y-1">
 <div class="flex flex-wrap items-center gap-2.5">
-<h2 class="text-title-lg font-title-lg text-on-surface font-bold">
-                    Nguyễn Bảo Long &amp; Trần Phương Linh
+<h2 class="text-title-lg font-title-lg text-on-surface font-bold" id="profileHeaderName">
+                    Đang tải
                   </h2>
 <!-- Luxury Champagne Role Badge -->
-<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-label-sm font-label-sm font-bold bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] uppercase tracking-wide">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-label-sm font-label-sm font-bold bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] uppercase tracking-wide" id="profileRoleBadge">
 <span class="material-symbols-outlined text-[14px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
                     Khách hàng
                   </span>
 </div>
-<p class="text-body-md font-body-md text-on-surface-variant flex items-center gap-2">
-<span>Cặp đôi đám cưới</span>
-<span class="text-outline-variant">•</span>
-<span class="text-primary font-medium">Sảnh Kim Cương</span>
-<span class="text-outline-variant">•</span>
-<span>Ngày cưới chính thức: <strong class="text-on-surface font-semibold">28/12/2025</strong></span>
+<p class="text-body-md font-body-md text-on-surface-variant flex items-center gap-2" id="profileSubtitle">
+<span>Tài khoản xác thực hệ thống WPSM</span>
 </p>
 </div>
 </div>
@@ -212,7 +206,7 @@
 <div class="space-y-1">
 <label class="text-label-md font-label-md text-secondary font-medium">Họ và tên đại diện</label>
 <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
-<span class="font-medium text-body-md font-body-md">Nguyễn Bảo Long &amp; Trần Phương Linh</span>
+<span class="font-medium text-body-md font-body-md" id="profileFullName">Nguyễn Bảo Long &amp; Trần Phương Linh</span>
 <span class="material-symbols-outlined text-[18px] text-outline" data-icon="person">person</span>
 </div>
 </div>
@@ -220,7 +214,7 @@
 <div class="space-y-1">
 <label class="text-label-md font-label-md text-secondary font-medium">Địa chỉ Email liên hệ</label>
 <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
-<span class="font-medium text-body-md font-body-md">long.nguyenbaolong@@gmail.com</span>
+<span class="font-medium text-body-md font-body-md" id="profileEmail">long.nguyenbaolong@@gmail.com</span>
 <span class="material-symbols-outlined text-[18px] text-outline" data-icon="mail">mail</span>
 </div>
 </div>
@@ -228,7 +222,7 @@
 <div class="space-y-1">
 <label class="text-label-md font-label-md text-secondary font-medium">Số điện thoại đăng ký</label>
 <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
-<span class="font-medium text-body-md font-body-md tracking-wider">0908 123 456</span>
+<span class="font-medium text-body-md font-body-md tracking-wider" id="profilePhone">—</span>
 <span class="material-symbols-outlined text-[18px] text-outline" data-icon="call">call</span>
 </div>
 </div>
@@ -237,10 +231,10 @@
 <label class="text-label-md font-label-md text-secondary font-medium">Vai trò hệ thống</label>
 <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
 <div class="flex items-center gap-2">
-<span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-secondary-fixed/50 text-on-secondary-container">
+<span class="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-secondary-fixed/50 text-on-secondary-container" id="profileRoleText">
                     Khách hàng
                   </span>
-<span class="text-body-sm font-body-sm text-on-surface-variant">(Chủ trì tiệc cưới)</span>
+<span class="text-body-sm font-body-sm text-on-surface-variant" id="profileRoleDesc">(Phân quyền tài khoản)</span>
 </div>
 <span class="material-symbols-outlined text-[18px] text-outline" data-icon="supervisor_account">supervisor_account</span>
 </div>
@@ -250,13 +244,13 @@
 <label class="text-label-md font-label-md text-secondary font-medium">Mã hợp đồng liên kết</label>
 <div class="flex items-center justify-between p-3 rounded-lg bg-surface border border-outline-variant/80 text-on-surface">
 <div class="flex items-center gap-3">
-<span class="font-bold text-primary tracking-wide text-title-sm font-title-sm">HD-2025-KC08</span>
+<span class="font-bold text-primary tracking-wide text-title-sm font-title-sm" id="profileContractCode">—</span>
 <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Đã ký duyệt &amp; Hoạt động
+                    <span id="profileContractStatus">Đang tải</span>
                   </span>
 </div>
 <a class="text-body-sm font-body-sm text-primary hover:underline font-semibold flex items-center gap-1" href="#">
-<span>Xem chi tiết hợp đồng</span>
+<span id="profileContractLinkLabel">Xem chi tiết hợp đồng</span>
 <span class="material-symbols-outlined text-[16px]" data-icon="arrow_forward">arrow_forward</span>
 </a>
 </div>
@@ -298,7 +292,7 @@
 </div>
 <div class="space-y-1">
 <p class="text-title-sm font-title-sm text-on-surface">Mật khẩu đăng nhập</p>
-<p class="text-body-sm font-body-sm text-on-surface-variant">Mật khẩu đã đổi lần cuối cách đây <strong>45 ngày</strong>.</p>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Bạn có thể đổi mật khẩu bằng nút bên trên.</p>
 <p class="text-[11px] text-secondary font-medium">Khuyến nghị thay đổi sau mỗi 90 ngày.</p>
 </div>
 </div>
@@ -310,9 +304,9 @@
 <div class="space-y-1">
 <div class="flex items-center gap-2">
 <p class="text-title-sm font-title-sm text-on-surface">Xác thực 2 lớp (2FA)</p>
-<span class="px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">Đang kích hoạt</span>
+<span class="px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">Chưa hỗ trợ</span>
 </div>
-<p class="text-body-sm font-body-sm text-on-surface-variant">Trạng thái xác thực 2 lớp nội bộ qua tin nhắn OTP số điện thoại <strong>0908 123 456</strong>.</p>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Tài khoản hiện đăng nhập bằng email và mật khẩu.</p>
 <p class="text-[11px] text-emerald-700 font-medium">Bảo vệ truy cập dữ liệu bảng chạy tiệc &amp; chi phí.</p>
 </div>
 </div>
@@ -321,10 +315,10 @@
 <div class="mt-4 pt-4 border-t border-surface-container flex flex-col sm:flex-row items-start sm:items-center justify-between text-body-sm font-body-sm text-on-surface-variant gap-2">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-[16px] text-outline" data-icon="laptop_mac">laptop_mac</span>
-<span>Phiên đăng nhập hiện tại: Chrome trên macOS (TP. Hồ Chí Minh)</span>
+<span>Phiên đăng nhập hiện tại đang được xác thực bởi WPSM.</span>
 </div>
 <a class="text-secondary hover:text-primary transition-colors text-xs font-semibold" href="#">
-              Quản lý thiết bị đăng nhập →
+              Đăng xuất
             </a>
 </div>
 </section>

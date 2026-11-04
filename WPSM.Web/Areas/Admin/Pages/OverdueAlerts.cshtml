@@ -1,0 +1,17 @@
+@page "/A15"
+@{ ViewData["Title"] = "WPSM Executive - Cảnh báo quá hạn (A-15)"; ViewData["AdminCrumb"] = "Cảnh báo quá hạn (A-15)"; }
+<div data-wpsm-screen="A15">
+<div class="flex flex-1 w-full relative">
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminNavigation.cshtml")
+<div class="flex-1 ml-64 flex flex-col min-w-0">
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminHeader.cshtml")
+<main class="flex-1 p-8 max-w-[1440px] w-full mx-auto space-y-6">
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Cảnh báo quá hạn</h1>
+<table class="w-full text-sm bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden">
+<thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="py-3 px-4 text-left">Dự án</th><th class="py-3 px-4 text-left">Nhiệm vụ</th><th class="py-3 px-4 text-left">Hạn chót</th><th class="py-3 px-4 text-left">Quá hạn</th><th class="py-3 px-4 text-left">Trạng thái</th><th class="py-3 px-4 text-left">Thao tác</th></tr></thead>
+<tbody id="a15Table"></tbody>
+</table>
+</main>
+</div>
+</div>
+</div>
