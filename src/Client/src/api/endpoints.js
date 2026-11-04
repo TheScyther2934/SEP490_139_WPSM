@@ -32,6 +32,10 @@ export const ENDPOINTS = {
     exceptionRequests: "/admin/exception-requests",
     decideException: (id) => `/admin/exception-requests/${id}/decision`,
   },
+  manager: {
+    roadmap: (code) => `/manager/projects/${encodeURIComponent(code)}/roadmap`,
+    completeTask: (code, taskId) => `/manager/projects/${encodeURIComponent(code)}/roadmap/tasks/${taskId}/complete`,
+  },
   customer: {
     dashboard: "/customer/dashboard",
     roadmap: "/customer/roadmap",

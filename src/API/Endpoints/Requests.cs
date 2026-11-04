@@ -17,3 +17,4 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
 public sealed record ResolveComplaintRequest(string Decision);
 public sealed record ExceptionDecisionRequest(bool Approve, string Note);
+public sealed record CompleteManagerTaskRequest(IReadOnlyList<string>? ProofPhotoPaths = null);

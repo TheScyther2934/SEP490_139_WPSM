@@ -41,6 +41,8 @@ public static class EndpointHelpers
 
     public static string PasswordVersion(string passwordHash) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(passwordHash)));
 
+    public static string Role(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Role) ?? "";
+
     public static int UserId(ClaimsPrincipal user) => int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
         ? id : throw new InvalidOperationException("Phiên đăng nhập không hợp lệ.");
 }
