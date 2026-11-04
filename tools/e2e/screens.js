@@ -7,7 +7,7 @@ let bad = 0;
   const browser = await puppeteer.launch({ headless: "new", executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe" });
   const customerEmail = sql("select top 1 Email from Users where Role='Customer' and MustChangePassword=0 order by UserId");
   const roles = [
-    ["admin@test.local", process.env.TEST_PW, ["/A02", "/A04", "/A06", "/G02", "/G03"]],
+    ["admin@test.local", process.env.TEST_PW, ["/A01", "/A02", "/A04", "/A06", "/A09", "/A10", "/A11", "/A12", "/A13", "/A14", "/A15", "/A16", "/A18", "/G02", "/G03"]],
     ["manager@test.local", process.env.TEST_PW, ["/M02", "/M03", "/M04", "/M05", "/G02", "/G03"]],
     [customerEmail, "Cust0mer-Pass-2026!", ["/C01", "/C02", "/C03", "/C09", "/G02", "/G03"]]
   ];

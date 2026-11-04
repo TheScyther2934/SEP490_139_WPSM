@@ -17,15 +17,6 @@ public sealed class AccountProfileRepository(WpsmDbContext db) : IAccountProfile
             .Select(x => new AccountView(x.UserId, x.Email, x.FullName, x.Phone, x.Role, x.Status, x.PasswordHash, x.MustChangePassword))
             .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<AccountView?> FindByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
-    {
-        var now = DateTime.UtcNow;
-        return await db.Users.AsNoTracking()
-            .Where(x => x.RefreshToken == refreshToken && x.RefreshTokenExpiryTime > now && x.Status == "Active")
-            .Select(x => new AccountView(x.UserId, x.Email, x.FullName, x.Phone, x.Role, x.Status, x.PasswordHash, x.MustChangePassword))
-            .FirstOrDefaultAsync(cancellationToken);
-    }
-
     public async Task<ProfileView?> GetProfileAsync(int userId, CancellationToken cancellationToken = default) =>
         await db.Users.AsNoTracking().Where(x => x.UserId == userId)
             .Select(x => new ProfileView(x.FullName, x.Email, x.Phone ?? "", x.Role))
@@ -48,26 +39,6 @@ public sealed class AccountProfileRepository(WpsmDbContext db) : IAccountProfile
         if (user is null) return false;
         user.PasswordHash = passwordHash;
         user.MustChangePassword = false;
-        await db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
-    public async Task<bool> SaveRefreshTokenAsync(int userId, string refreshToken, DateTime expiryTime, CancellationToken cancellationToken = default)
-    {
-        var user = await db.Users.SingleOrDefaultAsync(x => x.UserId == userId, cancellationToken);
-        if (user is null) return false;
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = expiryTime;
-        await db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
-    public async Task<bool> RevokeRefreshTokenAsync(int userId, CancellationToken cancellationToken = default)
-    {
-        var user = await db.Users.SingleOrDefaultAsync(x => x.UserId == userId, cancellationToken);
-        if (user is null) return false;
-        user.RefreshToken = null;
-        user.RefreshTokenExpiryTime = null;
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }

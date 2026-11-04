@@ -119,7 +119,11 @@ public sealed record DashboardPhotoView(
     int PhotoId,
     string ImagePath,
     DateTime UploadedAt,
-    string UploaderName);
+    string UploaderName)
+{
+    /// <summary>Signed, short-lived URL filled in by the API layer (img tags cannot send a Bearer token).</summary>
+    public string ImageUrl { get; init; } = "";
+}
 
 // ── C-03 Customer Roadmap & Task Detail ─────────────────────────────────────
 public sealed record CustomerRoadmapView(
