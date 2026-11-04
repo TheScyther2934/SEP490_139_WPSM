@@ -11,7 +11,7 @@ const submit = async (page, email, password) => {
 };
 (async () => {
   const browser = await puppeteer.launch({ headless: "new", executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe" });
-  const roles = [["admin@test.local", "/A02"], ["manager@test.local", "/M02"]];
+  const roles = [["admin@test.local", "/A01"], ["manager@test.local", "/M02"]];
   for (const [email, home] of roles) {
     const ctx = await browser.createBrowserContext();
     const page = await ctx.newPage();

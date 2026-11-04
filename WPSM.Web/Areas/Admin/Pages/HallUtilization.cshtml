@@ -1,0 +1,24 @@
+@page "/A10"
+@{ ViewData["Title"] = "WPSM Executive - Công suất sảnh (A-10)"; ViewData["AdminCrumb"] = "Công suất sảnh (A-10)"; }
+<div data-wpsm-screen="A10">
+<div class="flex flex-1 w-full relative">
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminNavigation.cshtml")
+<div class="flex-1 ml-64 flex flex-col min-w-0">
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_AdminHeader.cshtml")
+<main class="flex-1 p-8 max-w-[1440px] w-full mx-auto space-y-6">
+<div class="flex items-center gap-3"><a href="/A09" class="text-sm text-secondary hover:underline">← Báo cáo</a><h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">Công suất sảnh</h1></div>
+@await Html.PartialAsync("/Areas/Admin/Pages/Shared/_ReportFilter.cshtml")
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<section class="rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-5">
+<h2 class="font-title-sm text-title-sm font-semibold text-on-surface mb-3">Công suất (%) theo sảnh</h2>
+<div id="reportChart"></div>
+</section>
+<table class="w-full text-sm bg-surface-container-lowest rounded-xl border border-outline-variant/30 overflow-hidden">
+<thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="py-3 px-4 text-left">Sảnh</th><th class="py-3 px-4 text-right">Ca khả dụng</th><th class="py-3 px-4 text-right">Ca đã đặt</th><th class="py-3 px-4 text-right">Công suất</th></tr></thead>
+<tbody id="reportTable"></tbody>
+</table>
+</div>
+</main>
+</div>
+</div>
+</div>
