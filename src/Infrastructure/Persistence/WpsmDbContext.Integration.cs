@@ -10,9 +10,34 @@ public partial class WpsmDbContext
 
     public virtual DbSet<EmailOutboxMessage> EmailOutbox { get; set; }
 
+    public virtual DbSet<ExceptionRequest> ExceptionRequests { get; set; }
+
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<SpecItem>().ToTable(table => table.HasTrigger("TR_SpecItems_BaselineImmutable"));
+
+        modelBuilder.Entity<Complaint>(entity =>
+        {
+            entity.Property(e => e.EscalatedAt).HasPrecision(0);
+            entity.Property(e => e.ResolvedAt).HasPrecision(0);
+        });
+
+        modelBuilder.Entity<ExceptionRequest>(entity =>
+        {
+            entity.HasKey(e => e.ExceptionRequestId);
+            entity.Property(e => e.RequestCode).HasMaxLength(30);
+            entity.Property(e => e.SourceType).HasMaxLength(20);
+            entity.Property(e => e.Crid).HasColumnName("CRId");
+            entity.Property(e => e.RequestNote).HasMaxLength(300);
+            entity.Property(e => e.Status).HasMaxLength(10);
+            entity.Property(e => e.DecisionNote).HasMaxLength(300);
+            entity.Property(e => e.DecidedAt).HasPrecision(0);
+            entity.Property(e => e.CreatedAt).HasPrecision(0).HasDefaultValueSql("(sysutcdatetime())");
+            entity.HasOne(d => d.Project).WithMany().HasForeignKey(d => d.ProjectId).OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(d => d.Cr).WithMany().HasForeignKey(d => d.Crid).OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(d => d.Allocation).WithMany().HasForeignKey(d => d.AllocationId).OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(d => d.RequestedByNavigation).WithMany().HasForeignKey(d => d.RequestedBy).OnDelete(DeleteBehavior.ClientSetNull);
+        });
 
         modelBuilder.Entity<StoredFile>(entity =>
         {

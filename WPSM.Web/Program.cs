@@ -38,7 +38,8 @@ app.Use(async (context, next) =>
     var path = (context.Request.Path.Value ?? string.Empty).TrimEnd('/').ToUpperInvariant();
     var requiredRole = path switch
     {
-        "/A02" or "/A03" or "/A04" or "/A05" or "/A06" or "/A07" or "/A08" => "Admin",
+        "/A01" or "/A02" or "/A03" or "/A04" or "/A05" or "/A06" or "/A07" or "/A08" or "/A09" or "/A10" or "/A11" or "/A12"
+            or "/A13" or "/A14" or "/A15" or "/A16" or "/A17" or "/A18" => "Admin",
         "/M02" or "/M03" or "/M04" or "/M05" => "Manager",
         "/C01" or "/C02" or "/C03" or "/C04" or "/C05" or "/C09" or "/C10" or "/C11" => "Customer",
         _ => null
@@ -124,6 +125,7 @@ app.MapGet("/A03", () => Results.Redirect("/A02"));
 app.MapGet("/A05", () => Results.Redirect("/A04"));
 app.MapGet("/A07", () => Results.Redirect("/A06"));
 app.MapGet("/A08", () => Results.Redirect("/A06"));
+app.MapGet("/A17", () => Results.Redirect("/A16"));
 app.MapGet("/C04", () => Results.Redirect("/C03"));
 
 app.Run();

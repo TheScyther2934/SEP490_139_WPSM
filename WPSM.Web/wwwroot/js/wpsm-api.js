@@ -243,7 +243,7 @@ const replaceText = (root, values) => {
       }).join("") : '<p class="rounded-lg bg-surface-container-low p-4 text-sm text-on-surface-variant">Không còn dịch vụ đang hoạt động để thêm.</p>';
     }
   };
-  const homeForRole = role => role === "Admin" ? "/A02" : role === "Manager" ? "/M02" : "/C01";
+  const homeForRole = role => role === "Admin" ? "/A01" : role === "Manager" ? "/M02" : "/C01";
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
   const dateVi = value => value ? new Intl.DateTimeFormat("vi-VN").format(new Date(`${value}T00:00:00`)) : "—";
   let createHalls = [];
@@ -610,6 +610,11 @@ const showError = error => { status.textContent = error.message; status.classLis
     const button = event.target.closest("button, a, [data-hub-module]");
     if (!button) return;
     const screen = document.querySelector("[data-wpsm-screen]")?.dataset.wpsmScreen;
+    if (adminLoaders[screen] && adminActions[button.dataset.action]) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      await adminActions[button.dataset.action](button);
+      return;
+    }
     const label = button.innerText.replace(/\s+/g, " ").trim();
     if (label.includes("Đăng xuất")) {
       event.preventDefault(); event.stopImmediatePropagation();
@@ -902,6 +907,225 @@ clearM05Messages();
     preview.classList.remove("hidden");
   });
 
+  // ── Admin A-01, A-09..A-18 ─────────────────────────────────────────────────
+  const adminScreen = document.querySelector("[data-wpsm-screen]")?.dataset.wpsmScreen;
+  const getJson = async path => {
+    const response = await fetch(`/api/wpsm/${path}`, { headers: { Accept: "application/json" } });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(result?.message || `API trả về ${response.status}`);
+    return result;
+  };
+  const adminPage = () => document.querySelector("[data-wpsm-screen]");
+  const setField = (root, key, text) => root.querySelectorAll(`[data-field="${key}"]`).forEach(el => { el.textContent = text; });
+  const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const dateTimeVi = value => value ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—";
+  const timeVi = value => new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  const shortMoney = value => Math.abs(value) >= 1e9 ? `${(value / 1e9).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tỷ`
+    : Math.abs(value) >= 1e6 ? `${(value / 1e6).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr` : value.toLocaleString("vi-VN");
+  const signedMoney = value => `${value > 0 ? "+" : ""}${money(value)}`;
+  const emptyRow = cols => `<tr><td colspan="${cols}" class="py-6 px-4 text-center text-on-surface-variant">Không có dữ liệu.</td></tr>`;
+  const badge = (text, tone) => `<span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${tone}">${escapeHtml(text)}</span>`;
+  const tones = { red: "bg-error-container text-on-error-container", green: "bg-emerald-50 text-emerald-800", amber: "bg-amber-50 text-amber-800", grey: "bg-surface-container-high text-on-surface-variant" };
+  const photoCard = (photo, height) => `<a href="/A14?id=${photo.photoId}" class="block group">
+    <img loading="lazy" src="/api/wpsm/admin/photos/${photo.photoId}/content" alt="${escapeHtml(photo.taskName)}" class="w-full ${height} object-cover rounded-lg border border-outline-variant/40 bg-surface-container-low group-hover:border-primary">
+    <div class="mt-1 text-sm font-semibold text-on-surface">${escapeHtml(photo.projectCode)} · ${escapeHtml(photo.taskName)}</div>
+    <div class="text-xs text-on-surface-variant">${timeVi(photo.uploadedAt)} · ${escapeHtml(photo.uploaderName)}</div></a>`;
+  const showInline = (id, text) => { const box = document.getElementById(id); if (!box) return; box.textContent = text; box.classList.toggle("hidden", !text); };
+  const pollWhileVisible = load => window.setInterval(() => { if (document.visibilityState === "visible") load().catch(showError); }, 30000);
+
+  // Single series per chart: one hue, value above each bar, tooltip on the bar; the table beside it is the data view.
+  const renderBars = (container, bars, format, max) => {
+    if (!container) return;
+    if (!bars.length) { container.innerHTML = `<p class="text-sm text-on-surface-variant">Không có dữ liệu.</p>`; return; }
+    const top = max ?? (Math.max(...bars.map(b => b.value)) || 1);
+    container.innerHTML = `<div class="flex items-end gap-[2px] h-64 border-b border-outline-variant/60">${bars.map(b => `
+      <div class="flex-1 h-full min-w-0 flex flex-col justify-end items-center" title="${escapeHtml(b.label)}: ${escapeHtml(format(b.value))}">
+        <span class="text-xs text-on-surface-variant mb-1">${escapeHtml(format(b.value))}</span>
+        <div class="w-3/4 rounded-t bg-primary" style="height:${Math.max(0, b.value) / top * 85}%"></div></div>`).join("")}</div>
+      <div class="flex gap-[2px] mt-2">${bars.map(b => `<div class="flex-1 min-w-0 truncate text-center text-xs text-on-surface-variant">${escapeHtml(b.label)}</div>`).join("")}</div>`;
+  };
+
+  const crStatusVi = { Approved: "Đã duyệt", Rejected: "Từ chối", Negotiating: "Đang thương lượng", Draft: "Nháp" };
+  const loadReport = async () => {
+    const from = document.getElementById("reportFrom"), to = document.getElementById("reportTo");
+    if (!from.value) {
+      const params = new URLSearchParams(location.search), now = new Date();
+      from.value = params.get("from") || isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+      to.value = params.get("to") || isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    }
+    if (!from.value || !to.value || from.value > to.value) { showInline("reportError", "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc."); return; }
+    showInline("reportError", "");
+    const query = `from=${from.value}&to=${to.value}`;
+    history.replaceState(null, "", `${location.pathname}?${query}`);
+    adminPage().querySelectorAll('main a[href^="/A09"], main a[href^="/A10"], main a[href^="/A11"], main a[href^="/A12"]')
+      .forEach(a => { a.href = `${a.getAttribute("href").split("?")[0]}?${query}`; });
+    const report = await getJson(`admin/reports?${query}`);
+    const table = document.getElementById("reportTable"), chart = document.getElementById("reportChart");
+    if (adminScreen === "A09") {
+      setField(adminPage(), "utilization", `${report.utilization.toLocaleString("vi-VN")} %`);
+      setField(adminPage(), "netRevenue", shortMoney(report.netRevenue));
+      setField(adminPage(), "crsApproved", report.crsApproved);
+    }
+    if (adminScreen === "A10") {
+      renderBars(chart, report.halls.map(h => ({ label: h.hall, value: h.utilization })), v => `${v.toLocaleString("vi-VN")} %`, 100);
+      table.innerHTML = report.halls.length ? report.halls.map(h => `<tr class="border-t border-outline-variant/30"><td class="py-3 px-4">${escapeHtml(h.hall)}</td><td class="py-3 px-4 text-right">${h.available}</td><td class="py-3 px-4 text-right">${h.booked}</td><td class="py-3 px-4 text-right">${h.utilization.toLocaleString("vi-VN")} %</td></tr>`).join("") : emptyRow(4);
+    }
+    if (adminScreen === "A11") {
+      const monthVi = m => `${m.slice(5)}/${m.slice(0, 4)}`;
+      renderBars(chart, report.revenue.map(r => ({ label: monthVi(r.month), value: r.received })), shortMoney);
+      table.innerHTML = report.revenue.length ? report.revenue.map(r => `<tr class="border-t border-outline-variant/30"><td class="py-3 px-4">${monthVi(r.month)}</td><td class="py-3 px-4 text-right">${money(r.baseValue)}</td><td class="py-3 px-4 text-right">${signedMoney(r.crVariance)}</td><td class="py-3 px-4 text-right">${money(r.received)}</td><td class="py-3 px-4 text-right">${money(r.outstanding)}</td></tr>`).join("") : emptyRow(5);
+    }
+    if (adminScreen === "A12") {
+      renderBars(chart, report.crByStatus.map(s => ({ label: crStatusVi[s.status] || s.status, value: s.count })), v => String(v));
+      table.innerHTML = report.crByType.length ? report.crByType.map(t => `<tr class="border-t border-outline-variant/30"><td class="py-3 px-4">${escapeHtml(t.type)}</td><td class="py-3 px-4 text-right">${t.count}</td><td class="py-3 px-4 text-right">${signedMoney(t.amount)}</td><td class="py-3 px-4 text-right">${t.averageDays == null ? "—" : t.averageDays.toLocaleString("vi-VN")}</td></tr>`).join("") : emptyRow(4);
+    }
+  };
+
+  const loadDashboard = async () => {
+    const d = await getJson("admin/dashboard"), page = adminPage();
+    setField(page, "upcomingEvents", d.upcomingEvents);
+    setField(page, "hallUtilization", `${d.hallUtilization.toLocaleString("vi-VN")} %`);
+    setField(page, "netRevenue", shortMoney(d.netRevenueThisMonth));
+    setField(page, "activeCrs", d.activeCrs);
+    setField(page, "overdueTasks", d.overdueTasks);
+    setField(page, "escalatedComplaints", d.escalatedComplaints);
+    document.getElementById("a01Alerts").innerHTML = d.overdueAlerts.length ? d.overdueAlerts.map(a => `<a href="/A13?projectCode=${encodeURIComponent(a.projectCode)}" class="block rounded-lg border border-error/50 bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-error hover:bg-error-container/30">${escapeHtml(a.projectCode)} · ${escapeHtml(a.taskName)} quá hạn ${a.overdueMinutes} phút → mở ảnh minh chứng</a>`).join("")
+      + (d.overdueTasks > d.overdueAlerts.length ? `<a href="/A15" class="text-sm text-secondary hover:underline">Xem tất cả ${d.overdueTasks} cảnh báo →</a>` : "")
+      : `<p class="text-sm text-on-surface-variant">Không có nhiệm vụ quá hạn.</p>`;
+    document.getElementById("a01Photos").innerHTML = d.latestPhotos.length ? d.latestPhotos.map(p => photoCard(p, "h-28")).join("") : `<p class="col-span-full text-sm text-on-surface-variant">Chưa có ảnh minh chứng.</p>`;
+  };
+
+  let feedPhotos = [];
+  const renderFeed = () => {
+    const project = document.getElementById("feedProject").value, hall = document.getElementById("feedHall").value, status = document.getElementById("feedStatus").value;
+    const photos = feedPhotos.filter(p => (!project || p.projectCode === project) && (!hall || p.hallName === hall) && (!status || p.taskStatus === status));
+    document.getElementById("a13Photos").innerHTML = photos.length ? photos.map(p => photoCard(p, "h-48")).join("") : `<p class="col-span-full text-sm text-on-surface-variant">Không có dữ liệu.</p>`;
+  };
+  const fillOptions = (select, values, allLabel) => {
+    const current = select.value;
+    const options = [...new Set([...values, current].filter(Boolean))].sort();
+    select.innerHTML = `<option value="">${allLabel}</option>` + options.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    select.value = current;
+  };
+  const loadFeed = async () => {
+    const date = document.getElementById("feedDate");
+    feedPhotos = await getJson(`admin/photos?date=${date.value}`);
+    fillOptions(document.getElementById("feedProject"), feedPhotos.map(p => p.projectCode), "Tất cả dự án");
+    fillOptions(document.getElementById("feedHall"), feedPhotos.map(p => p.hallName), "Tất cả sảnh");
+    renderFeed();
+  };
+  const initFeed = async () => {
+    document.getElementById("feedDate").value = isoDate(new Date());
+    const project = document.getElementById("feedProject"), wanted = new URLSearchParams(location.search).get("projectCode");
+    if (wanted) { project.innerHTML += `<option value="${escapeHtml(wanted)}">${escapeHtml(wanted)}</option>`; project.value = wanted; }
+    document.getElementById("feedDate").addEventListener("change", () => loadFeed().catch(showError));
+    ["feedProject", "feedHall", "feedStatus"].forEach(id => document.getElementById(id).addEventListener("change", renderFeed));
+    await loadFeed();
+    pollWhileVisible(loadFeed);
+  };
+
+  const loadPhotoAudit = async () => {
+    const id = new URLSearchParams(location.search).get("id"), image = document.getElementById("a14Image"), empty = document.getElementById("a14Empty");
+    if (!id) { empty.textContent = "Không có dữ liệu."; return; }
+    const photo = await getJson(`admin/photos/${encodeURIComponent(id)}`), page = adminPage();
+    setField(page, "project", photo.projectCode);
+    setField(page, "hallSlot", `${photo.hallName} – ${photo.slotName === "Evening" ? "Tối" : photo.slotName === "Lunch" ? "Trưa" : photo.slotName}`);
+    setField(page, "task", photo.taskName);
+    setField(page, "deadline", dateTimeVi(photo.deadline));
+    setField(page, "uploadedAt", `${dateTimeVi(photo.uploadedAt)}${photo.isLate ? " (trễ hạn)" : ""}`);
+    setField(page, "uploader", photo.uploaderName);
+    image.onload = () => { image.classList.remove("hidden"); empty.classList.add("hidden"); };
+    image.onerror = () => { empty.textContent = "Không tải được ảnh."; };
+    image.src = `/api/wpsm/admin/photos/${photo.photoId}/content`;
+  };
+
+  const loadOverdue = async () => {
+    const alerts = await getJson("admin/overdue-alerts");
+    document.getElementById("a15Table").innerHTML = alerts.length ? alerts.map(a => `<tr class="border-t border-outline-variant/30"><td class="py-3 px-4">${escapeHtml(a.projectCode)}</td><td class="py-3 px-4">${escapeHtml(a.taskName)}</td><td class="py-3 px-4">${dateTimeVi(a.deadline)}</td><td class="py-3 px-4">${a.overdueMinutes} phút</td><td class="py-3 px-4">${badge("Quá hạn", tones.red)}</td><td class="py-3 px-4"><a class="text-secondary hover:underline" href="/A13?projectCode=${encodeURIComponent(a.projectCode)}">Mở ảnh minh chứng</a></td></tr>`).join("") : emptyRow(6);
+  };
+
+  let complaints = [], openComplaint = null;
+  const loadComplaints = async () => {
+    complaints = await getJson("admin/complaints");
+    document.getElementById("a16Table").innerHTML = complaints.length ? complaints.map(c => `<tr class="border-t border-outline-variant/30"><td class="py-3 px-4">${escapeHtml(c.code)}</td><td class="py-3 px-4">${escapeHtml(c.projectCode)}</td><td class="py-3 px-4">${escapeHtml(c.description)}</td><td class="py-3 px-4">${c.escalatedAt ? new Intl.DateTimeFormat("vi-VN").format(new Date(c.escalatedAt)) : "—"}</td><td class="py-3 px-4"><button type="button" data-action="open-complaint" data-id="${c.complaintId}" class="text-secondary hover:underline">Mở</button></td></tr>`).join("") : emptyRow(5);
+    document.getElementById("a16Detail").classList.add("hidden");
+  };
+
+  let exceptions = [], openException = null;
+  const exceptionTone = { Pending: tones.amber, Approved: tones.green, Rejected: tones.red };
+  const exceptionStatusVi = { Pending: "Chờ quyết định", Approved: "Đã chấp thuận", Rejected: "Đã từ chối" };
+  const loadExceptions = async () => {
+    exceptions = await getJson("admin/exception-requests");
+    document.getElementById("a18Table").innerHTML = exceptions.length ? exceptions.map(x => `<tr class="border-t border-outline-variant/30"><td class="py-3 px-4">${escapeHtml(x.code)}</td><td class="py-3 px-4">${escapeHtml(x.source)}</td><td class="py-3 px-4">${escapeHtml(x.projectCode)}</td><td class="py-3 px-4">${escapeHtml(x.request)}</td><td class="py-3 px-4">${badge(exceptionStatusVi[x.status] || x.status, exceptionTone[x.status] || tones.grey)}</td><td class="py-3 px-4"><button type="button" data-action="open-exception" data-id="${x.id}" class="text-secondary hover:underline">${x.status === "Pending" ? "Xem xét" : "Xem"}</button></td></tr>`).join("") : emptyRow(6);
+    document.getElementById("a18Detail").classList.add("hidden");
+  };
+
+  const decideException = async approve => {
+    const note = document.getElementById("a18Note").value.trim();
+    if (!note) { showInline("a18Error", "Trường Ghi chú quyết định là bắt buộc."); return; }
+    try {
+      await send(`admin/exception-requests/${openException.id}/decision`, "POST", { approve, note });
+      message(`Đã ${approve ? "chấp thuận" : "từ chối"} yêu cầu ${openException.code}.`);
+      await loadExceptions();
+    } catch (error) { showInline("a18Error", error.message); showError(error); }
+  };
+  const adminActions = {
+    "apply-report": () => loadReport().catch(showError),
+    "open-complaint": button => {
+      openComplaint = complaints.find(c => String(c.complaintId) === button.dataset.id);
+      if (!openComplaint) return;
+      const detail = document.getElementById("a16Detail");
+      setField(adminPage(), "code", openComplaint.code);
+      setField(detail, "description", openComplaint.description);
+      setField(detail, "managerNote", openComplaint.managerNote || "—");
+      const evidence = detail.querySelector('[data-field="evidence"]');
+      evidence.textContent = `BEO v${openComplaint.beoVersion} · ${openComplaint.photoCount} ảnh minh chứng`;
+      evidence.href = `/A13?projectCode=${encodeURIComponent(openComplaint.projectCode)}`;
+      document.getElementById("a16Decision").value = "";
+      showInline("a16Error", "");
+      detail.classList.remove("hidden");
+    },
+    "open-resolve": () => {
+      const decision = document.getElementById("a16Decision").value.trim();
+      if (!decision) { showInline("a16Error", "Trường Quyết định là bắt buộc."); return; }
+      showInline("a16Error", ""); showInline("a17Error", "");
+      document.getElementById("a17Decision").value = decision;
+      document.getElementById("modal-a17").classList.remove("hidden");
+    },
+    "close-resolve": () => document.getElementById("modal-a17").classList.add("hidden"),
+    "confirm-resolve": async () => {
+      const decision = document.getElementById("a17Decision").value.trim();
+      if (!decision) { showInline("a17Error", "Trường Quyết định là bắt buộc."); return; }
+      try {
+        await send(`admin/complaints/${openComplaint.complaintId}/resolve`, "POST", { decision });
+        document.getElementById("modal-a17").classList.add("hidden");
+        message(`Đã giải quyết khiếu nại ${openComplaint.code}.`);
+        await loadComplaints();
+      } catch (error) { showInline("a17Error", error.message); showError(error); }
+    },
+    "open-exception": button => {
+      openException = exceptions.find(x => String(x.id) === button.dataset.id);
+      if (!openException) return;
+      const detail = document.getElementById("a18Detail");
+      setField(detail, "code", openException.code);
+      setField(detail, "context", openException.context);
+      setField(detail, "managerNote", openException.managerNote);
+      setField(detail, "decisionNote", openException.decisionNote || "—");
+      document.getElementById("a18Decide").classList.toggle("hidden", openException.status !== "Pending");
+      document.getElementById("a18Note").value = "";
+      showInline("a18Error", "");
+      detail.classList.remove("hidden");
+    },
+    "approve-exception": () => decideException(true),
+    "reject-exception": () => decideException(false)
+  };
+  const adminLoaders = {
+    A01: async () => { await loadDashboard(); pollWhileVisible(loadDashboard); },
+    A09: loadReport, A10: loadReport, A11: loadReport, A12: loadReport,
+    A13: initFeed, A14: loadPhotoAudit, A15: loadOverdue, A16: loadComplaints, A18: loadExceptions
+  };
+  adminLoaders[adminScreen]?.().catch(showError);
+
   if (document.querySelector('[data-wpsm-screen="G01"]')) return;
   if (document.querySelector('[data-wpsm-screen="G03"]')) {
     fetch("/api/wpsm/auth/me").then(r => {
@@ -1018,7 +1242,7 @@ clearM05Messages();
         setEl("profileProjectDate", profileProject ? `${dateVi(profileProject.eventDate)} · Ca ${slotLabel(profileProject.slot)}` : "Chưa có dự án liên kết");
         const profileNavigation = document.getElementById("profileNavigation");
         if (profileNavigation) {
-          const links = p.role === "Manager" ? [["/M02", "Danh sách dự án"], ["/M03", "Khởi tạo hợp đồng"]] : p.role === "Admin" ? [["/A02", "Danh mục dịch vụ"], ["/A04", "Khung giá"], ["/A06", "Chính sách"]] : [["/C01", "Tổng quan dự án"], ["/C02", "Hợp đồng"], ["/C03", "Lộ trình"]];
+          const links = p.role === "Manager" ? [["/M02", "Danh sách dự án"], ["/M03", "Khởi tạo hợp đồng"]] : p.role === "Admin" ? [["/A01", "Tổng quan"], ["/A02", "Danh mục dịch vụ"], ["/A04", "Khung giá"], ["/A06", "Chính sách"]] : [["/C01", "Tổng quan dự án"], ["/C02", "Hợp đồng"], ["/C03", "Lộ trình"]];
           profileNavigation.innerHTML = links.concat([["/G02", "Hồ sơ cá nhân"], ["/G03", "Đổi mật khẩu"]]).map(([href, label]) => `<a class="block px-3 py-2 rounded-lg hover:bg-surface-container text-primary" href="${href}">${label}</a>`).join("") + '<button class="px-3 py-2 text-error" type="button">Đăng xuất</button>';
         }
         setEl("profileContractCode", profileProject?.id || "Không có hợp đồng liên kết");

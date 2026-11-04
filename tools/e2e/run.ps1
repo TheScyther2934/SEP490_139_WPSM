@@ -51,6 +51,7 @@ $env:SHOT = "$Out\c02.png"; $env:EVENT_DATE = "2027-03-15"
 "--- G-01 form login"; node "$Here\login.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 "--- integration"; node "$Here\integration.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 "--- C-09"; node "$Here\c09.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
+"--- Admin A-01, A-09..A-18"; node "$Here\admin.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 "--- all screens"; node "$Here\screens.js" | Select-String 'FAIL|sweep'; if ($LASTEXITCODE) { $failed++ }
 
 "--- SMTP configured"

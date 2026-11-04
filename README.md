@@ -17,8 +17,8 @@ The Razor UI ports the requested screens. Paired screen IDs share one page: A02/
 Run the API and web app in separate terminals with the `http` launch profile:
 
 ```powershell
-dotnet run --project src/API/WPSM.API.csproj --launch-profile http
-dotnet run --project WPSM.Web/WPSM.Web.csproj --launch-profile http
+dotnet run --project src/API/API.csproj --launch-profile http
+dotnet run --project WPSM.Web/Web.csproj --launch-profile http
 ```
 
 Then open `http://localhost:5231/G01`. The Web app proxies `/api/wpsm/*` to the API at `http://localhost:5128`, so browser requests stay same-origin. The API uses SQL Server through the database-first `WpsmDbContext` in `src/Infrastructure`. Persistence contracts are feature-scoped in `src/Application/Persistence`: `IProjectRepository`, `ISpecificationRoadmapRepository`, `IConfigurationRepository`, and `IAccountProfileRepository`. Their EF implementations live in `src/Infrastructure/Persistence/Repositories`; `IWpsmPortalSnapshotReader` composes the data needed by the Razor screens' bootstrap endpoint. API endpoints should depend on the feature contract they use, not on a catch-all repository or `DbContext`.
@@ -29,11 +29,11 @@ Then open `http://localhost:5231/G01`. The Web app proxies `/api/wpsm/*` to the 
 2. Set development-only accounts with User Secrets. These secrets create an Admin and Manager on first API start and are not stored in source control:
 
 ```powershell
-dotnet user-secrets set "Wpsm:SeedDevelopmentData" "true" --project src/API/WPSM.API.csproj
-dotnet user-secrets set "Wpsm:Seed:Admin:Email" "admin@wpsm.local" --project src/API/WPSM.API.csproj
-dotnet user-secrets set "Wpsm:Seed:Admin:Password" "<your-admin-password-12-chars-or-more>" --project src/API/WPSM.API.csproj
-dotnet user-secrets set "Wpsm:Seed:Manager:Email" "manager@wpsm.local" --project src/API/WPSM.API.csproj
-dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<your-manager-password-12-chars-or-more>" --project src/API/WPSM.API.csproj
+dotnet user-secrets set "Wpsm:SeedDevelopmentData" "true" --project src/API/API.csproj
+dotnet user-secrets set "Wpsm:Seed:Admin:Email" "admin@wpsm.local" --project src/API/API.csproj
+dotnet user-secrets set "Wpsm:Seed:Admin:Password" "<your-admin-password-12-chars-or-more>" --project src/API/API.csproj
+dotnet user-secrets set "Wpsm:Seed:Manager:Email" "manager@wpsm.local" --project src/API/API.csproj
+dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<your-manager-password-12-chars-or-more>" --project src/API/API.csproj
 ```
 
 3. Start the API and Web projects using the commands above. The opt-in development seeder creates halls, lunch/evening slots, baseline Catalog/PriceFrames and initial policy records. Creating a project creates a Customer account; its temporary password is returned once to the Manager for delivery.
