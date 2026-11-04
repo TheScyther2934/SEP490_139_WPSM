@@ -1,8 +1,15 @@
 namespace Application.Persistence;
 
 public sealed record OverdueAlertView(int TaskId, string ProjectCode, string TaskName, DateTime Deadline, int OverdueMinutes);
-public sealed record ProofPhotoView(int PhotoId, string ProjectCode, string HallName, string TaskName, string TaskStatus, string UploaderName, DateTime UploadedAt);
-public sealed record PhotoAuditView(int PhotoId, string ProjectCode, string HallName, string SlotName, string TaskName, DateTime Deadline, DateTime UploadedAt, bool IsLate, string UploaderName);
+public sealed record ProofPhotoView(int PhotoId, string ProjectCode, string HallName, string TaskName, string TaskStatus, string UploaderName, DateTime UploadedAt)
+{
+    /// <summary>Signed, short-lived URL filled in by the API layer (img tags cannot send a Bearer token).</summary>
+    public string ImageUrl { get; init; } = "";
+}
+public sealed record PhotoAuditView(int PhotoId, string ProjectCode, string HallName, string SlotName, string TaskName, DateTime Deadline, DateTime UploadedAt, bool IsLate, string UploaderName)
+{
+    public string ImageUrl { get; init; } = "";
+}
 public sealed record PhotoFeedFilter(string? ProjectCode, int? HallId, string? TaskStatus, DateOnly? Date);
 public sealed record AdminDashboardView(int UpcomingEvents, decimal HallUtilization, decimal NetRevenueThisMonth, int ActiveCrs, int OverdueTasks, int EscalatedComplaints,
     IReadOnlyList<OverdueAlertView> OverdueAlerts, IReadOnlyList<ProofPhotoView> LatestPhotos);

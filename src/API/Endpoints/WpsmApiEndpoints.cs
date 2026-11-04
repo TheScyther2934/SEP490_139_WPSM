@@ -36,4 +36,16 @@ public static class WpsmApiEndpoints
         api.MapCustomerEndpoints();
         return api;
     }
+
+    // React Router owns every non-API path; unknown /api paths stay 404.
+    public static WebApplication MapSpaFallback(this WebApplication app)
+    {
+        app.MapFallback((HttpContext context, IWebHostEnvironment environment) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api")) return Results.NotFound();
+            var index = environment.WebRootFileProvider.GetFileInfo("index.html");
+            return index.Exists && index.PhysicalPath is { } path ? Results.File(path, "text/html; charset=utf-8") : Results.NotFound();
+        });
+        return app;
+    }
 }

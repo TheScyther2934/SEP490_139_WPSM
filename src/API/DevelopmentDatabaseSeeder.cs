@@ -8,7 +8,8 @@ namespace API;
 public sealed class DevelopmentDatabaseSeeder(
     WpsmDbContext db,
     IPasswordHasher<User> passwordHasher,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ILogger<DevelopmentDatabaseSeeder> logger)
 {
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
@@ -111,6 +112,13 @@ public sealed class DevelopmentDatabaseSeeder(
             var slot = await db.Slots.FirstAsync(x => x.HallId == hall.HallId && x.SlotName == p.Slot, cancellationToken);
 
             var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == p.Code, cancellationToken);
+            // A real project may already hold this hall slot (UQ_Projects_Hall_Slot_Date); skip the sample instead of
+            // failing start-up. The open transaction rolls back the sample customer on dispose.
+            if (project is null && await db.WeddingProjects.AnyAsync(x => x.HallId == hall.HallId && x.SlotId == slot.SlotId && x.EventDate == p.EventDate, cancellationToken))
+            {
+                logger.LogWarning("Seed: bỏ qua dự án mẫu {Code} vì {Hall} ca {Slot} ngày {Date} đã có dự án khác.", p.Code, p.Hall, p.Slot, p.EventDate);
+                continue;
+            }
             if (project is null)
             {
             project = new WeddingProject

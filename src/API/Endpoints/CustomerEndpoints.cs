@@ -12,10 +12,10 @@ public static class CustomerEndpoints
     public static RouteGroupBuilder MapCustomerEndpoints(this RouteGroupBuilder api)
     {
         api.MapGet("/customer/projects/{projectCode}/dashboard",
-            async (string projectCode, ICustomerDashboardRepository dashboard, ClaimsPrincipal user, CancellationToken ct) =>
+            async (string projectCode, ICustomerDashboardRepository dashboard, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
             {
                 var result = await dashboard.GetDashboardAsync(UserId(user), projectCode, ct);
-                return result is null ? Results.NotFound() : Results.Ok(result);
+                return result is null ? Results.NotFound() : Results.Ok(WithPhotoUrl(result, links));
             })
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
@@ -38,13 +38,13 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/dashboard",
-            async (IProjectRepository projects, ICustomerDashboardRepository dashboard, ClaimsPrincipal user, CancellationToken ct) =>
+            async (IProjectRepository projects, ICustomerDashboardRepository dashboard, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
             {
                 var userId = UserId(user);
                 var myProjects = await projects.GetProjectsAsync(userId, "Customer", ct);
                 if (myProjects.Count == 0) return Results.NotFound();
                 var result = await dashboard.GetDashboardAsync(userId, myProjects[0].Id, ct);
-                return result is null ? Results.NotFound() : Results.Ok(result);
+                return result is null ? Results.NotFound() : Results.Ok(WithPhotoUrl(result, links));
             })
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
@@ -79,4 +79,9 @@ public static class CustomerEndpoints
 
         return api;
     }
+
+    private static CustomerDashboardView WithPhotoUrl(CustomerDashboardView dashboard, PhotoLinks links) =>
+        dashboard.LatestProofPhoto is { } photo
+            ? dashboard with { LatestProofPhoto = photo with { ImageUrl = links.Url(photo.PhotoId) } }
+            : dashboard;
 }
