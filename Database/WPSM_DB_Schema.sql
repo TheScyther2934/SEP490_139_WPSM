@@ -638,3 +638,24 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Exception_Status' AND object_id=OBJECT_ID('dbo.ExceptionRequests'))
     CREATE INDEX IX_Exception_Status ON dbo.ExceptionRequests(Status, CreatedAt);
 GO
+
+-- ============================================================================
+-- JWT SIGN-IN: refresh tokens (SDS 3.2); same as Updates/20261104_RefreshTokens.sql
+-- ============================================================================
+IF OBJECT_ID(N'dbo.RefreshTokens', N'U') IS NULL
+CREATE TABLE dbo.RefreshTokens (
+    RefreshTokenId    INT IDENTITY(1,1) CONSTRAINT PK_RefreshTokens PRIMARY KEY,
+    UserId            INT          NOT NULL CONSTRAINT FK_RefreshTokens_User REFERENCES dbo.Users(UserId),
+    TokenHash         CHAR(64)     NOT NULL CONSTRAINT UQ_RefreshTokens_Hash UNIQUE,
+    ExpiresAt         DATETIME2(0) NOT NULL,
+    AbsoluteExpiresAt DATETIME2(0) NOT NULL,
+    RevokedAt         DATETIME2(0) NULL,
+    ReplacedByTokenId INT          NULL CONSTRAINT FK_RefreshTokens_ReplacedBy REFERENCES dbo.RefreshTokens(RefreshTokenId),
+    CreatedAt         DATETIME2(0) NOT NULL CONSTRAINT DF_RefreshTokens_CreatedAt DEFAULT SYSUTCDATETIME(),
+    CreatedByIp       NVARCHAR(45) NULL,
+    CONSTRAINT CK_RefreshTokens_Expiry CHECK (ExpiresAt <= AbsoluteExpiresAt)
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RefreshTokens_User' AND object_id=OBJECT_ID('dbo.RefreshTokens'))
+    CREATE INDEX IX_RefreshTokens_User ON dbo.RefreshTokens(UserId, RevokedAt);
+GO

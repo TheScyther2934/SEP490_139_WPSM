@@ -3,6 +3,10 @@ using System.Security.Cryptography;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.IdentityModel.Tokens;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -10,9 +14,11 @@ using Microsoft.Data.SqlClient;
 using API;
 using API.Endpoints;
 using static API.Endpoints.EndpointHelpers;
+using Application.Auth;
 using Application.Persistence;
 using Infrastructure.Email;
 using Infrastructure.Files;
+using Infrastructure.Identity;
 using Infrastructure.Jobs;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
@@ -36,6 +42,18 @@ builder.Services.AddHostedService<CredentialEmailDispatcher>();
 builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
 builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
+builder.Services.AddScoped<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddSingleton<PhotoLinks>();
+
+// SDS III.1.1: HS256 with a 256-bit secret from User Secrets or the environment.
+var jwtSecret = builder.Configuration["Jwt:Secret"];
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    if (!builder.Environment.IsDevelopment()) throw new InvalidOperationException("Thiếu Jwt:Secret. Hãy cấu hình bằng User Secrets hoặc biến môi trường.");
+    jwtSecret = RandomNumberGenerator.GetHexString(64);
+}
+builder.Services.AddSingleton(new JwtOptions { Secret = jwtSecret });
 
 var signingKey = builder.Configuration["Files:SigningKey"];
 if (string.IsNullOrWhiteSpace(signingKey))
@@ -76,7 +94,42 @@ if (backgroundJobsEnabled)
     builder.Services.AddHangfireServer(options => options.WorkerCount = 2);
 }
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
+// Bearer requests (React client) use JWT; everything else keeps the Razor cookie until WPSM.Web is retired.
+const string AuthSelector = "WpsmBearerOrCookie";
+builder.Services.AddAuthentication(AuthSelector)
+.AddPolicyScheme(AuthSelector, "JWT or cookie", options => options.ForwardDefaultSelector = context =>
+    context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+        ? JwtBearerDefaults.AuthenticationScheme : CookieAuthenticationDefaults.AuthenticationScheme)
+.AddJwtBearer(options =>
+{
+    options.MapInboundClaims = false;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidIssuer = JwtOptions.Issuer,
+        ValidAudience = JwtOptions.Audience,
+        IssuerSigningKey = JwtTokenService.SigningKey(jwtSecret),
+        ClockSkew = TimeSpan.FromSeconds(30)
+    };
+    // Re-express the short JWT claims with the claim types the endpoints already read.
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            var token = context.Principal!;
+            var identity = new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, token.FindFirstValue("sub") ?? ""),
+                new Claim(ClaimTypes.Name, token.FindFirstValue("email") ?? ""),
+                new Claim(ClaimTypes.Role, token.FindFirstValue("role") ?? ""),
+                new Claim("FullName", token.FindFirstValue("name") ?? ""),
+                new Claim("MustChangePassword", token.FindFirstValue(JwtTokenService.MustChangePasswordClaim) == "true" ? bool.TrueString : bool.FalseString)
+            ], JwtBearerDefaults.AuthenticationScheme);
+            context.Principal = new ClaimsPrincipal(identity);
+            return Task.CompletedTask;
+        }
+    };
+})
+.AddCookie(options =>
 {
     options.Cookie.Name = "WPSM.Auth";
     options.Cookie.HttpOnly = true;
@@ -100,6 +153,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
 });
 builder.Services.AddAuthorization();
+// SDS III.1.1: at most 5 sign-in attempts per minute per client.
+// Auth:SignInPermitLimit only exists so the e2e run (every suite from one IP) can raise it.
+var signInPermitLimit = builder.Configuration.GetValue("Auth:SignInPermitLimit", 5);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(AuthEndpoints.SignInRateLimit, context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = signInPermitLimit, Window = TimeSpan.FromMinutes(1) }));
+});
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -151,9 +214,14 @@ app.Use(async (context, next) =>
     }
 });
 app.UseHttpsRedirection();
+// Built React client (src/Client → wwwroot) is served from the same origin as the API.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapWpsmApi();
+app.MapSpaFallback();
 
 app.Run();

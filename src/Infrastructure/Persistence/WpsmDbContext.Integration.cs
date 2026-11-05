@@ -12,6 +12,8 @@ public partial class WpsmDbContext
 
     public virtual DbSet<ExceptionRequest> ExceptionRequests { get; set; }
 
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<SpecItem>().ToTable(table => table.HasTrigger("TR_SpecItems_BaselineImmutable"));
@@ -20,6 +22,20 @@ public partial class WpsmDbContext
         {
             entity.Property(e => e.EscalatedAt).HasPrecision(0);
             entity.Property(e => e.ResolvedAt).HasPrecision(0);
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.RefreshTokenId);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.Property(e => e.TokenHash).HasMaxLength(64).IsUnicode(false).IsFixedLength();
+            entity.Property(e => e.ExpiresAt).HasPrecision(0);
+            entity.Property(e => e.AbsoluteExpiresAt).HasPrecision(0);
+            entity.Property(e => e.RevokedAt).HasPrecision(0);
+            entity.Property(e => e.CreatedAt).HasPrecision(0).HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.CreatedByIp).HasMaxLength(45);
+            entity.HasOne(d => d.User).WithMany().HasForeignKey(d => d.UserId).OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(d => d.ReplacedByToken).WithMany().HasForeignKey(d => d.ReplacedByTokenId).OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<ExceptionRequest>(entity =>

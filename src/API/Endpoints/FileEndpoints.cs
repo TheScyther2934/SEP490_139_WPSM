@@ -30,6 +30,16 @@ public static class FileEndpoints
             return Results.File(file.Content, file.ContentType, file.OriginalName);
         }).AllowAnonymous();
 
+        // Proof photo behind a signed URL from PhotoLinks; the signature replaces the Bearer token.
+        api.MapGet("/photos/{photoId:int}/content", async (int photoId, long expires, string sig, PhotoLinks links, IAdminRepository photos,
+            IWebHostEnvironment environment, HttpContext context, CancellationToken ct) =>
+        {
+            if (!links.Verify(photoId, expires, sig)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (await photos.GetPhotoPathAsync(photoId, ct) is not { } path) return Results.NotFound();
+            context.Response.Headers.CacheControl = "private, max-age=300";
+            return PhotoFile(path, environment);
+        }).AllowAnonymous();
+
         api.MapPost("/notifications/email-status", async (HttpRequest request, IEmailDeliveryService delivery, CancellationToken ct) =>
         {
             if (!delivery.IsConfigured) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
