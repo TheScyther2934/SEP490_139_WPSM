@@ -7,7 +7,7 @@ $Db = "WPSM_E2E_Test"
 $Sql = "(localdb)\MSSQLLocalDB"
 
 function Stop-TestPorts {
-    Get-NetTCPConnection -State Listen -LocalPort 5300,5301,5302,5303 -ErrorAction SilentlyContinue |
+    Get-NetTCPConnection -State Listen -LocalPort 5300,5302,5303 -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -Confirm:$false -ErrorAction SilentlyContinue }
 }
 function Drop-TestDatabase {
@@ -21,7 +21,6 @@ Remove-Item "$Out\files","$Out\mail" -Recurse -Force -ErrorAction SilentlyContin
 if (-not (Test-Path "$Here\node_modules")) { Push-Location $Here; npm install --no-audit --no-fund | Out-Null; Pop-Location }
 
 dotnet build src\API\API.csproj -c Release -o "$Out\api" -v q --nologo | Select-Object -Last 3
-dotnet build WPSM.Web\Web.csproj -c Release -o "$Out\web" -v q --nologo | Select-Object -Last 3
 # React client: the test API serves it from its own wwwroot (content root = working directory).
 $Client = Join-Path $Root "src\Client"
 if (-not (Test-Path "$Client\node_modules")) { Push-Location $Client; npm install --no-audit --no-fund | Out-Null; Pop-Location }
@@ -46,29 +45,17 @@ $env:Auth__SignInPermitLimit = "1000"
 
 $env:ASPNETCORE_URLS = "http://localhost:5300"
 Start-Process "$Out\api\API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden -RedirectStandardOutput "$Out\api.out" -RedirectStandardError "$Out\api.err" | Out-Null
-$env:ASPNETCORE_URLS = "http://localhost:5301"; $env:WpsmApi__BaseUrl = "http://localhost:5300/"
-Start-Process "$Out\web\Web.exe" -ArgumentList "--contentRoot", "$Root\WPSM.Web" -WorkingDirectory "$Out\web" -WindowStyle Hidden -RedirectStandardOutput "$Out\web.out" -RedirectStandardError "$Out\web.err" | Out-Null
-foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5300/api/wpsm/auth/me" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { break } }; Start-Sleep 1 }
-foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5301/G01" -UseBasicParsing -TimeoutSec 3 | Out-Null; break } catch { Start-Sleep 1 } }
+foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5300/api/wpsm/projects" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { break } }; Start-Sleep 1 }
+foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5300/login" -UseBasicParsing -TimeoutSec 3 | Out-Null; break } catch { Start-Sleep 1 } }
 
 $env:TEST_PW = $pw; $env:HOOK_SECRET = $hook; $env:FILE_ROOT = "$Out\files"; $env:MAIL_DIR = "$Out\mail"
 $failed = 0
 $env:SHOT = "$Out\c02.png"; $env:EVENT_DATE = "2027-03-15"
-"--- G-01 form login"; node "$Here\login.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
-"--- integration"; node "$Here\integration.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
-"--- C-09"; node "$Here\c09.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
-"--- Admin A-01, A-09..A-18"; node "$Here\admin.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
-"--- all screens"; node "$Here\screens.js" | Select-String 'FAIL|sweep'; if ($LASTEXITCODE) { $failed++ }
-
 "--- SMTP configured"
 $env:ASPNETCORE_URLS = "http://localhost:5302"; $env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "1"; $env:Hangfire__Enabled = "false"; $env:Wpsm__SeedDevelopmentData = "false"
 Start-Process "$Out\api\API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden | Out-Null
-foreach ($i in 1..20) { try { Invoke-WebRequest "http://localhost:5302/api/wpsm/auth/me" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { break } }; Start-Sleep 1 }
+foreach ($i in 1..20) { try { Invoke-WebRequest "http://localhost:5302/api/wpsm/projects" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { break } }; Start-Sleep 1 }
 node "$Here\smtp.js"; if ($LASTEXITCODE) { $failed++ }
-
-"--- M-05"
-$env:SHOT = "$Out\m05.png"; $env:EVENT_DATE = "2027-04-20"
-node "$Here\m05.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 
 "--- React client (src/Client)"
 $env:EVENT_DATE = "2027-05-18"
@@ -80,7 +67,7 @@ sqlcmd -S $Sql -d $Db -I -b -Q "UPDATE dbo.WeddingProjects SET ProjectCode = 'WP
 $env:ASPNETCORE_URLS = "http://localhost:5303"; $env:Wpsm__SeedDevelopmentData = "true"; Remove-Item Env:\Smtp__Host -ErrorAction SilentlyContinue
 Start-Process "$Out\api\API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden -RedirectStandardError "$Out\seed.err" | Out-Null
 $seedUp = $false
-foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5303/api/wpsm/auth/me" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { $seedUp = $true; break } }; Start-Sleep 1 }
+foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5303/api/wpsm/projects" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { $seedUp = $true; break } }; Start-Sleep 1 }
 if ($seedUp) { "PASS API starts when a sample slot is taken" } else { "FAIL API starts when a sample slot is taken"; Get-Content "$Out\seed.err" -Tail 5; $failed++ }
 
 Stop-TestPorts

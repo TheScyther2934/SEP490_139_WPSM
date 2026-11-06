@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using Hangfire;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
@@ -13,7 +11,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using API;
 using API.Endpoints;
-using static API.Endpoints.EndpointHelpers;
 using Application.Auth;
 using Application.Persistence;
 using Infrastructure.Email;
@@ -77,7 +74,7 @@ builder.Services.AddSingleton(new EmailOptions
     From = builder.Configuration["Smtp:From"] ?? "no-reply@wpsm.local",
     PickupDirectory = builder.Configuration["Smtp:PickupDirectory"] ?? (builder.Environment.IsDevelopment() ? Path.Combine(appDataPath, "mail") : null),
     WebhookSecret = builder.Configuration["Smtp:WebhookSecret"],
-    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5231"
+    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5173"
 });
 builder.Services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
 builder.Services.AddScoped<IFileService, FileService>();
@@ -94,12 +91,8 @@ if (backgroundJobsEnabled)
     builder.Services.AddHangfireServer(options => options.WorkerCount = 2);
 }
 
-// Bearer requests (React client) use JWT; everything else keeps the Razor cookie until WPSM.Web is retired.
-const string AuthSelector = "WpsmBearerOrCookie";
-builder.Services.AddAuthentication(AuthSelector)
-.AddPolicyScheme(AuthSelector, "JWT or cookie", options => options.ForwardDefaultSelector = context =>
-    context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-        ? JwtBearerDefaults.AuthenticationScheme : CookieAuthenticationDefaults.AuthenticationScheme)
+// React uses JWT access tokens and an HttpOnly rotating refresh-token cookie.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 .AddJwtBearer(options =>
 {
     options.MapInboundClaims = false;
@@ -128,29 +121,6 @@ builder.Services.AddAuthentication(AuthSelector)
             return Task.CompletedTask;
         }
     };
-})
-.AddCookie(options =>
-{
-    options.Cookie.Name = "WPSM.Auth";
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-    options.SlidingExpiration = true;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    options.Events.OnValidatePrincipal = async context =>
-    {
-        var account = await context.HttpContext.RequestServices.GetRequiredService<IAccountProfileRepository>()
-            .FindAccountAsync(context.Principal?.Identity?.Name ?? "", context.HttpContext.RequestAborted);
-        if (account is null || account.Status != "Active" ||
-            context.Principal?.FindFirstValue("PasswordVersion") != PasswordVersion(account.PasswordHash) ||
-            context.Principal?.FindFirstValue(ClaimTypes.Role) != account.Role)
-        {
-            context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        }
-    };
-    options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
-    options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
 });
 builder.Services.AddAuthorization();
 // SDS III.1.1: at most 5 sign-in attempts per minute per client.
@@ -167,7 +137,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5000", "https://localhost:5001", "http://localhost:5030", "https://localhost:7030", "http://localhost:5231")
+        policy.WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();

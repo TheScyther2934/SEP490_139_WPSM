@@ -3,25 +3,27 @@ Wedding Planning and Service Management
 
 Team onboarding and development workflow: [Dev guide/WPSM_Developer_Guide.md](Dev%20guide/WPSM_Developer_Guide.md).
 
-## WPSM screen prototype
+## Chạy ứng dụng
 
-The Razor UI ports the requested screens. Paired screen IDs share one page: A02/A03, A04/A05, A06/A07/A08, and C03/C04.
+Giao diện hiện tại là React trong `src/Client` (Vite); API ASP.NET Core chạy riêng. Cần Node.js/npm, .NET 8 SDK và SQL Server LocalDB hoặc SQL Server.
 
-| Role | Routes |
-|---|---|
-| General | `/G01`, `/G02`, `/G03` |
-| Admin | `/A02`, `/A04`, `/A06` |
-| Manager | `/M02`, `/M03`, `/M04`, `/M05` |
-| Customer | `/C01`, `/C02`, `/C03` |
+Trước lần chạy đầu, tạo database theo mục **Local database setup** bên dưới. Sau đó mở hai terminal tại thư mục solution:
 
-Run the API and web app in separate terminals with the `http` launch profile:
+Terminal 1 – API:
 
 ```powershell
 dotnet run --project src/API/API.csproj --launch-profile http
-dotnet run --project WPSM.Web/Web.csproj --launch-profile http
 ```
 
-Then open `http://localhost:5231/G01`. The Web app proxies `/api/wpsm/*` to the API at `http://localhost:5128`, so browser requests stay same-origin. The API uses SQL Server through the database-first `WpsmDbContext` in `src/Infrastructure`. Persistence contracts are feature-scoped in `src/Application/Persistence`: `IProjectRepository`, `ISpecificationRoadmapRepository`, `IConfigurationRepository`, and `IAccountProfileRepository`. Their EF implementations live in `src/Infrastructure/Persistence/Repositories`; `IWpsmPortalSnapshotReader` composes the data needed by the Razor screens' bootstrap endpoint. API endpoints should depend on the feature contract they use, not on a catch-all repository or `DbContext`.
+Terminal 2 – React:
+
+```powershell
+cd src/Client
+npm ci
+npm run dev
+```
+
+Open `http://localhost:5173`. Vite proxies `/api/wpsm/*` to the API at `http://localhost:5128`. For a production build, run `npm run build` from `src/Client`; the built React app is written to `src/API/wwwroot` and served by the API. The API uses SQL Server through the database-first `WpsmDbContext` in `src/Infrastructure`. Persistence contracts are feature-scoped in `src/Application/Persistence`: `IProjectRepository`, `ISpecificationRoadmapRepository`, `IConfigurationRepository`, and `IAccountProfileRepository`. Their EF implementations live in `src/Infrastructure/Persistence/Repositories`; `IWpsmPortalSnapshotReader` composes data for the React bootstrap endpoint. API endpoints should depend on the feature contract they use, not on a catch-all repository or `DbContext`.
 
 ## Local database setup (Iteration 1)
 
@@ -36,7 +38,7 @@ dotnet user-secrets set "Wpsm:Seed:Manager:Email" "manager@wpsm.local" --project
 dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<your-manager-password-12-chars-or-more>" --project src/API/API.csproj
 ```
 
-3. Start the API and Web projects using the commands above. The opt-in development seeder creates halls, lunch/evening slots, baseline Catalog/PriceFrames and initial policy records. Creating a project creates a Customer account; its temporary password is returned once to the Manager for delivery.
+3. Start the API and React client using the commands above. The opt-in development seeder creates halls, lunch/evening slots, baseline Catalog/PriceFrames and initial policy records. Creating a project creates a Customer account; its temporary password is returned once to the Manager for delivery.
 
 ### SQL INSERT demo data (alternative to the API seeder)
 
@@ -49,6 +51,8 @@ For an existing database receiving the merge-all features, run `Database/Updates
 The NRD policy is enforced at project creation. Bank transfers require a PDF/JPG/PNG receipt (maximum 10 MB); its content and metadata are stored in SQL Server's `Payments` table and downloads require project access. Cash payments are recorded as paid at creation. New projects start with editable v1 specification rows from the five required Catalog categories, and freezing a baseline generates its roadmap.
 
 For an existing SQL Server database, run `Database/Updates/20261102_PortalPersistence.sql` against that database before starting the updated API. It adds receipt content, email delivery storage and compatibility columns without deleting existing data. Use the same SQL Server instance in SSMS and `ConnectionStrings:WpsmDb`; a named instance such as `MACHINE\INSTANCE` is different from `localhost` or LocalDB. Keep SQL passwords in User Secrets, not in tracked configuration.
+
+For an existing database used by React JWT sign-in, also run `Database/Updates/20261104_RefreshTokens.sql`. It creates `dbo.RefreshTokens`; the API stores only token hashes there. New databases created from `Database/WPSM_DB_Schema.sql` already include this table.
 
 Customer credential emails are queued transactionally in `EmailDeliveries`. The temporary credential payload is protected with ASP.NET Core Data Protection, cleared after successful delivery, and never written to application logs. A worker checks the queue every minute, with up to three retries at five-minute intervals. If SMTP is not configured, delivery stays `Pending`; the UI does not claim that an email was sent. Configure these User Secrets to enable delivery:
 
@@ -64,7 +68,7 @@ Wpsm:PortalUrl            (public login URL)
 
 Preserve the API's Data Protection key store across restarts so queued credential messages can still be decrypted. For multiple deployed API instances, use a shared key store and a single email dispatcher instance.
 
-Validation: `node --test tests/*.test.cjs` exercises project form handling, filters and pagination. `pwsh -File tests/portal.integration.ps1` exercises SQL persistence, authentication, password changes, project isolation and receipt downloads using a disposable `WPSM_Test_<guid>` database on SQL Server `localhost` (Windows Authentication). It creates and drops only its own test database, and does not change the configured application database.
+Validation: `pwsh -File tests/portal.integration.ps1` exercises API persistence, authentication, project isolation and receipt downloads using a disposable `WPSM_Test_<guid>` database on SQL Server `localhost` (Windows Authentication). `pwsh -File tools/e2e/run.ps1` builds and exercises the React client against a throwaway LocalDB database. Both scripts create and drop only their own test databases; neither changes the configured application database.
 
 ## Files, email and background jobs (API-01..04, JOB-07)
 

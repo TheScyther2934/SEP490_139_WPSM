@@ -4,7 +4,6 @@ export const ENDPOINTS = {
     token: "/auth/token",
     refresh: "/auth/token/refresh",
     revoke: "/auth/token/revoke",
-    me: "/auth/me",
     changePassword: "/auth/change-password",
   },
   profile: "/profile",

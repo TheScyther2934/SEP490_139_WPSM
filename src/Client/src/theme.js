@@ -1,6 +1,6 @@
 import { createTheme } from "@mui/material/styles";
 
-// Colours follow the Razor screens (wpsm-theme.js) so both UIs look alike while they run side by side.
+// Shared application palette for the React client.
 const theme = createTheme({
   palette: {
     primary: { main: "#6d1634", light: "#8b2e4a", dark: "#3f0018", contrastText: "#ffffff" },
