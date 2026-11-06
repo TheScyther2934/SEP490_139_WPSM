@@ -9,7 +9,7 @@ internal static class EmailTemplates
         <p>Xin chào {WebUtility.HtmlEncode(fullName)},</p>
         <p>Tài khoản WPSM cho dự án <strong>{WebUtility.HtmlEncode(projectCode)}</strong> đã được tạo.</p>
         <p>Email đăng nhập: <strong>{WebUtility.HtmlEncode(email)}</strong><br>Mật khẩu tạm: <strong>{WebUtility.HtmlEncode(temporaryPassword)}</strong></p>
-        <p>Vui lòng <a href="{WebUtility.HtmlEncode(baseUrl.TrimEnd('/'))}/G01">đăng nhập</a> và đổi mật khẩu ngay trong lần đầu sử dụng.</p>
+        <p>Vui lòng <a href="{WebUtility.HtmlEncode(baseUrl.TrimEnd('/'))}/login">đăng nhập</a> và đổi mật khẩu ngay trong lần đầu sử dụng.</p>
         """;
 
     internal static string BaselineFrozen(string fullName, string projectCode, string baseUrl) =>

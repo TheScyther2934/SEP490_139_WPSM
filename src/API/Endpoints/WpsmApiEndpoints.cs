@@ -17,7 +17,7 @@ public static class WpsmApiEndpoints
             if (context.User.Identity?.IsAuthenticated == true)
             {
                 if (context.User.FindFirstValue("MustChangePassword") == bool.TrueString &&
-                    path is not ("/api/wpsm/auth/me" or "/api/wpsm/auth/change-password" or "/api/wpsm/auth/logout" or "/api/wpsm/profile"))
+                    path is not ("/api/wpsm/auth/change-password" or "/api/wpsm/profile"))
                     return Results.Json(new { message = "Vui lòng đổi mật khẩu trước khi sử dụng hệ thống." }, statusCode: 403);
                 if (path.StartsWith("/api/wpsm/projects/", StringComparison.OrdinalIgnoreCase) &&
                     context.Request.RouteValues["id"] is string code &&

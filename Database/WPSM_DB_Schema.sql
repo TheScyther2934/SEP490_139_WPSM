@@ -35,13 +35,6 @@ CREATE TABLE dbo.Users (
 );
 GO
 
--- Keep existing databases compatible with the account model when re-running this script.
-IF COL_LENGTH(N'dbo.Users', N'RefreshToken') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshToken NVARCHAR(255) NULL;
-IF COL_LENGTH(N'dbo.Users', N'RefreshTokenExpiryTime') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshTokenExpiryTime DATETIME2(0) NULL;
-GO
-
 -- 2. Hall
 IF OBJECT_ID(N'dbo.Halls', N'U') IS NULL
 CREATE TABLE dbo.Halls (
@@ -510,10 +503,6 @@ IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') 
     ALTER TABLE dbo.Payments ALTER COLUMN RecordedBy INT NULL;
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') AND name=N'PaidDate' AND is_nullable=0)
     ALTER TABLE dbo.Payments ALTER COLUMN PaidDate DATE NULL;
-IF COL_LENGTH(N'dbo.Users', N'RefreshToken') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshToken NVARCHAR(255) NULL;
-IF COL_LENGTH(N'dbo.Users', N'RefreshTokenExpiryTime') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshTokenExpiryTime DATETIME2(0) NULL;
 IF COL_LENGTH(N'dbo.Payments', N'ReceiptContent') IS NULL
     ALTER TABLE dbo.Payments ADD ReceiptContent VARBINARY(MAX) NULL;
 IF COL_LENGTH(N'dbo.Payments', N'ReceiptFileName') IS NULL
