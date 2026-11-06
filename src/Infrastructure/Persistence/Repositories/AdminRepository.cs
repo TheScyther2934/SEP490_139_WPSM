@@ -188,8 +188,8 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         complaint.ResolvedBy = adminId;
         complaint.ResolvedAt = DateTime.UtcNow;
         var message = $"Khiếu nại {complaint.ComplaintCode} đã được Admin giải quyết.";
-        db.Notifications.Add(new Notification { RecipientId = complaint.Project.ManagerId, Type = "Complaint", Message = message, LinkUrl = $"/M04?id={complaint.Project.ProjectCode}" });
-        db.Notifications.Add(new Notification { RecipientId = complaint.Project.CustomerId, Type = "Complaint", Message = message, LinkUrl = "/C01" });
+        db.Notifications.Add(new Notification { RecipientId = complaint.Project.ManagerId, Type = "Complaint", Message = message, LinkUrl = OperationsSupport.Links.ManagerComplaint(complaint.Project.ProjectCode, complaint.ComplaintCode) });
+        db.Notifications.Add(new Notification { RecipientId = complaint.Project.CustomerId, Type = "Complaint", Message = message, LinkUrl = OperationsSupport.Links.CustomerComplaint(complaint.ComplaintCode) });
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -221,7 +221,7 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         note = note?.Trim() ?? "";
         if (note.Length == 0) throw new InvalidOperationException("Trường Ghi chú quyết định là bắt buộc.");
         if (note.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự.");
-        var request = await db.ExceptionRequests.Include(x => x.Cr).Include(x => x.Allocation)
+        var request = await db.ExceptionRequests.Include(x => x.Cr).Include(x => x.Allocation).Include(x => x.Project)
             .FirstOrDefaultAsync(x => x.ExceptionRequestId == requestId, cancellationToken);
         if (request is null) return false;
         if (request.Status != "Pending") throw new InvalidOperationException("Yêu cầu ngoại lệ này đã được quyết định.");
@@ -237,10 +237,11 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             db.Crhistories.Add(new Crhistory { Crid = cr.Crid, ActorId = adminId, Action = approve ? "ExceptionApproved" : "ExceptionRejected", Note = note, CreatedAt = now });
             db.Notifications.Add(new Notification
             {
-                RecipientId = request.RequestedBy, Type = "CR update", LinkUrl = "/M04",
+                RecipientId = request.RequestedBy, Type = "CR update", LinkUrl = request.Cr is null ? OperationsSupport.Links.ResourceCalendar : OperationsSupport.Links.ManagerCr(request.Project.ProjectCode, request.Cr.Crcode),
                 Message = $"Yêu cầu ngoại lệ {request.RequestCode} cho {cr.Crcode} đã được {(approve ? "chấp thuận" : "từ chối")}."
             });
         }
+        if (!approve && request.Allocation is { } rejected) rejected.Status = "Released";
         if (approve && request.Allocation is { } allocation)
         {
             allocation.Status = "Exception Approved";

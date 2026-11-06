@@ -1,8 +1,6 @@
 import { Box, Tooltip, Typography } from "@mui/material";
 
-const BAR = "#8b2e4a"; // validated single-series hue (dataviz validator: all checks pass on light surface)
-
-// Single-series bar chart: one hue, 4px rounded tops on a shared baseline, 2px gaps, hover tooltip per bar.
+// Single-series bar chart: one hue (theme primary, ≥ 4.5:1 on white), 4px rounded tops on a shared baseline, 2px gaps, hover tooltip per bar.
 // The table beside each chart is the accessible data view, so values here are labels, not the only source.
 export default function BarChart({ bars, format, max, label }) {
   if (!bars.length) return <Typography color="text.secondary">Không có dữ liệu.</Typography>;
@@ -14,7 +12,7 @@ export default function BarChart({ bars, format, max, label }) {
           <Tooltip key={b.label} title={`${b.label}: ${format(b.value)}`} placement="top">
             <Box sx={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", cursor: "default" }}>
               <Typography variant="caption" color="text.secondary" noWrap sx={{ mb: 0.5 }}>{format(b.value)}</Typography>
-              <Box sx={{ width: "70%", maxWidth: 56, bgcolor: BAR, borderRadius: "4px 4px 0 0", height: `${(Math.max(0, b.value) / top) * 85}%` }} />
+              <Box sx={{ width: "70%", maxWidth: 56, bgcolor: "primary.main", borderRadius: "4px 4px 0 0", height: `${(Math.max(0, b.value) / top) * 85}%` }} />
             </Box>
           </Tooltip>
         ))}

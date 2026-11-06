@@ -6,25 +6,32 @@ import DataState from "../../../components/DataState";
 import ManagerKpis, { summarize } from "./components/ManagerKpis";
 import UpcomingEvents from "./components/UpcomingEvents";
 import AlertPanel from "./components/AlertPanel";
-import { useAsync } from "../../../hooks/useAsync";
+import MyTasks from "./components/MyTasks";
+import { useAsync, usePolling } from "../../../hooks/useAsync";
 import { projectService } from "../../../services/projectService";
+import { managerService } from "../../../services/operationsService";
 import { PATHS } from "../../../routes/paths";
 
-// M-01, built from the project list. "My tasks" needs a manager task API and is not shown yet.
+// M-01 (UC-21, UC-32): KPI strip from the project list, "My tasks" and the red alert panel from /manager/work.
 export default function ManagerDashboard() {
-  const { data, loading, error, reload } = useAsync(() => projectService.getProjects());
-  const summary = data ? summarize(data) : null;
+  const { data, loading, error, reload } = useAsync(() => Promise.all([projectService.getProjects(), managerService.getWork()]));
+  usePolling(() => reload({ silent: true }));
+  const [projects, work] = data ?? [];
+  const summary = projects ? summarize(projects) : null;
   return (
     <>
       <PageHeader code="M-01" title="Tổng quan vận hành"
         actions={<Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to={PATHS.manager.newProject}>Khởi tạo hợp đồng</Button>} />
       <DataState loading={loading} error={error} onRetry={reload}>
-        {summary && (
+        {summary && work && (
           <>
-            <ManagerKpis summary={summary} />
+            <ManagerKpis summary={{ ...summary, openCrs: work.openChangeRequests, tasksDueToday: work.tasksDueToday, staleCount: work.staleBeoCount }} />
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { lg: "3fr 2fr" } }}>
-              <UpcomingEvents projects={summary.active} />
-              <AlertPanel stale={summary.stale} />
+              <Box sx={{ display: "grid", gap: 2 }}>
+                <MyTasks tasks={work.myTasks} />
+                <UpcomingEvents projects={summary.active} />
+              </Box>
+              <AlertPanel overdue={work.overdue} stale={work.staleBeos} />
             </Box>
           </>
         )}

@@ -17,6 +17,8 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
         var category = WpsmCategoryNames.Normalize(command.Category);
         if (command.Name.Trim().Length is < 1 or > 100 || command.Unit.Trim().Length is < 1 or > 20 || command.BasePrice <= 0)
             throw new InvalidOperationException("Tên, đơn vị hoặc đơn giá Catalog không hợp lệ.");
+        if (await db.ServiceCatalogItems.AnyAsync(x => x.Category == category && x.Name == command.Name.Trim(), cancellationToken))
+            throw new InvalidOperationException("Tên dịch vụ đã tồn tại trong nhóm này.");
         var entity = new ServiceCatalogItem
         {
             Name = command.Name.Trim(), Category = category, Unit = command.Unit.Trim(),
@@ -81,7 +83,10 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
             throw new InvalidOperationException("Tỷ lệ hoặc ngưỡng phạt chính sách không hợp lệ.");
         await UpsertPolicyAsync("NRD_RATIO", null, null, command.NrdRatio, effective, updatedBy, cancellationToken);
         await UpsertPolicyAsync("T30_RATIO", null, null, command.T30Ratio, effective, updatedBy, cancellationToken);
-        await UpsertPolicyAsync("CR_PENALTY", 0, command.CrPenaltyDays, command.CrPenaltyPercent, effective, updatedBy, cancellationToken);
+        // A-08 owns the T-day ranges; this single-range form only writes when its values change, so it does not add a range that overlaps an A-08 rule set.
+        var current = await GetPoliciesAsync(cancellationToken);
+        if (current.CrPenaltyDays != command.CrPenaltyDays || current.CrPenaltyPercent != command.CrPenaltyPercent)
+            await UpsertPolicyAsync("CR_PENALTY", 0, command.CrPenaltyDays, command.CrPenaltyPercent, effective, updatedBy, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return await GetPoliciesAsync(cancellationToken);
     }

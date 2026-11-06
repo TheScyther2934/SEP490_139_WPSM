@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import {
-  Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Stack, Switch, TextField,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormLabel, IconButton, InputAdornment,
+  MenuItem, Radio, RadioGroup, TextField, Typography,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import { CATEGORIES } from "../../../../utils/catalog";
 import { moneyInput } from "../../../../utils/format";
 
 const EMPTY = { name: "", category: "", unit: "", basePrice: "", active: true };
 
-// A-03 (add). SRS 10.2: name ≤100 and unique per category (checked by the API), unit ≤20, price > 0.
+// A-03 (add or edit). SRS 10.2: name ≤100 and unique per category (checked by the API), unit ≤20, price > 0.
 export function validateCatalogItem(item) {
   const errors = {};
   if (!item.name.trim()) errors.name = "Trường Tên dịch vụ là bắt buộc.";
@@ -19,14 +21,19 @@ export function validateCatalogItem(item) {
   return errors;
 }
 
-export default function CatalogItemDialog({ open, onClose, onSave }) {
+export default function CatalogItemDialog({ open, initial, onClose, onSave }) {
   const [item, setItem] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (open) { setItem(EMPTY); setErrors({}); setServerError(""); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    setItem(initial ? { name: initial.name, category: initial.category, unit: initial.unit, basePrice: String(initial.basePrice), active: initial.active } : EMPTY);
+    setErrors({});
+    setServerError("");
+  }, [open, initial]);
 
-  const set = (key) => (e) => setItem((v) => ({ ...v, [key]: key === "active" ? e.target.checked : e.target.value }));
+  const set = (key) => (e) => setItem((v) => ({ ...v, [key]: key === "active" ? e.target.value === "active" : e.target.value }));
   const save = async () => {
     const next = validateCatalogItem(item);
     setErrors(next);
@@ -36,25 +43,42 @@ export default function CatalogItemDialog({ open, onClose, onSave }) {
     setSaving(false);
     setServerError(message ?? "");
   };
+  const price = moneyInput(item.basePrice);
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Thêm dịch vụ</DialogTitle>
+      <DialogTitle sx={{ pr: 6 }}>
+        {initial ? `Sửa dịch vụ #${initial.id}` : "Thêm dịch vụ"}
+        <IconButton aria-label="Đóng" onClick={onClose} disabled={saving} sx={{ position: "absolute", right: 8, top: 8 }}><CloseIcon /></IconButton>
+      </DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          {serverError && <Alert severity="error">{serverError}</Alert>}
-          <TextField id="catalogName" label="Tên dịch vụ" value={item.name} onChange={set("name")} error={!!errors.name} helperText={errors.name} />
-          <TextField id="catalogCategory" select label="Danh mục" value={item.category} onChange={set("category")} error={!!errors.category} helperText={errors.category}>
+        {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
+        <Box sx={{ display: "grid", gap: 2.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, pt: 1 }}>
+          <TextField id="catalogName" label="Tên dịch vụ" required value={item.name} onChange={set("name")} error={!!errors.name}
+            helperText={errors.name ?? `${item.name.trim().length}/100`} sx={{ gridColumn: "1 / -1" }} />
+          <TextField id="catalogCategory" select label="Danh mục" required value={item.category} onChange={set("category")} error={!!errors.category} helperText={errors.category ?? " "}>
             {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
           </TextField>
-          <TextField id="catalogUnit" label="Đơn vị tính" placeholder="bàn, bộ, giờ…" value={item.unit} onChange={set("unit")} error={!!errors.unit} helperText={errors.unit} />
-          <TextField id="catalogPrice" label="Giá mặc định (VND)" inputMode="numeric" value={item.basePrice} onChange={set("basePrice")} error={!!errors.basePrice} helperText={errors.basePrice} />
-          <FormControlLabel control={<Switch checked={item.active} onChange={set("active")} />} label="Đang hoạt động" />
-        </Stack>
+          <TextField id="catalogUnit" label="Đơn vị tính (tối đa 20 ký tự)" required placeholder="bàn, bộ, giờ…" value={item.unit} onChange={set("unit")}
+            error={!!errors.unit} helperText={errors.unit ?? " "} />
+          <TextField id="catalogPrice" label="Giá mặc định" required value={price ? price.toLocaleString("vi-VN") : item.basePrice} onChange={set("basePrice")}
+            error={!!errors.basePrice} helperText={errors.basePrice ?? " "}
+            slotProps={{ input: { endAdornment: <InputAdornment position="end">VND</InputAdornment> }, htmlInput: { inputMode: "numeric" } }} />
+          <FormControl>
+            <FormLabel id="catalogStatusLabel" sx={{ fontSize: 13 }}>Trạng thái</FormLabel>
+            <RadioGroup row aria-labelledby="catalogStatusLabel" value={item.active ? "active" : "inactive"} onChange={set("active")}>
+              <FormControlLabel value="active" control={<Radio size="small" />} label="Đang dùng" />
+              <FormControlLabel value="inactive" control={<Radio size="small" />} label="Ngừng dùng" />
+            </RadioGroup>
+          </FormControl>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Tên trùng trong cùng danh mục sẽ bị từ chối. Dịch vụ ngừng dùng vẫn được giữ trong các đặc tả đã lập.
+        </Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Hủy</Button>
-        <Button variant="contained" onClick={save} disabled={saving}>{saving ? "Đang lưu…" : "Lưu"}</Button>
+        <Button variant="outlined" color="inherit" onClick={onClose} disabled={saving} sx={{ minWidth: 100 }}>Hủy</Button>
+        <Button variant="contained" onClick={save} disabled={saving} sx={{ minWidth: 100 }}>{saving ? "Đang lưu…" : "Lưu"}</Button>
       </DialogActions>
     </Dialog>
   );

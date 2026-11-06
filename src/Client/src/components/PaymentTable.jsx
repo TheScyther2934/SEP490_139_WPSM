@@ -2,7 +2,7 @@ import { Card, Table, TableBody, TableCell, TableContainer, TableHead, TableRow 
 import StatusChip from "./StatusChip";
 import { dateVi, money } from "../utils/format";
 
-const TYPE = { NRD: "Đặt cọc NRD", T30: "Mốc T-30", Final: "Quyết toán" };
+const TYPE = { NRD: "Đặt cọc NRD", T30: "Mốc T-30", Final: "Quyết toán", FINAL: "Quyết toán" };
 
 // Payment milestones of one project (M-13 for the Manager, C-10 for the Customer). `action(payment)` adds a last column.
 export default function PaymentTable({ payments, action }) {

@@ -132,7 +132,7 @@ public sealed class SpecificationRoadmapRepository(WpsmDbContext db, ProjectRead
             RecipientId = project.CustomerId,
             Type = "Roadmap reminder",
             Message = $"Hợp đồng gốc {project.ProjectCode} đã được chốt. Vui lòng xem đặc tả và lộ trình.",
-            LinkUrl = "/C03",
+            LinkUrl = OperationsSupport.Links.CustomerRoadmap,
             CreatedAt = DateTime.UtcNow
         });
         emailOutbox.Enqueue(project.Customer.Email, $"Hợp đồng gốc {project.ProjectCode} đã được chốt",

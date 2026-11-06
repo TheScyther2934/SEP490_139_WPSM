@@ -150,7 +150,8 @@ const text = (page, selector) => page.$eval(selector, e => e.textContent.trim())
   await page.type("#a18Note", "Không đủ thiết bị, đổi sang dàn khác.");
   await page.click('[data-action="reject-exception"]');
   await page.waitForFunction(() => document.getElementById("a18Detail").classList.contains("hidden"), { timeout: 8000 }).catch(() => {});
-  check("A-18 reject keeps allocation", sql(`select r.Status + '|' + a.Status from ExceptionRequests r join ResourceAllocations a on a.AllocationId=r.AllocationId where r.RequestCode='EXC-R${tag}'`) === "Rejected|Reserved", `alloc ${alloc}`);
+  // UC-47 alternative flow: rejected → the allocation is not made, so the row is released.
+  check("A-18 reject releases the allocation", sql(`select r.Status + '|' + a.Status from ExceptionRequests r join ResourceAllocations a on a.AllocationId=r.AllocationId where r.RequestCode='EXC-R${tag}'`) === "Rejected|Released", `alloc ${alloc}`);
   const id = sql(`select ExceptionRequestId from ExceptionRequests where RequestCode='EXC-R${tag}'`);
   check("decided request cannot be decided again", (await admin.api(`admin/exception-requests/${id}/decision`, "POST", { approve: true, note: "x" })).status === 400);
   check("admin pages have no JS errors", admin.errors.length === 0, admin.errors.join(" | "));

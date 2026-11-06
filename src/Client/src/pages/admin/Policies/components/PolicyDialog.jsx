@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import { isoDate } from "../../../../utils/format";
 
-// A-07 (kind "deposit": NRD and T-30 ratios) and A-08 (kind "penalty": T-day window and rate). SRS 10.4:
+// A-07 (kind "deposit": NRD and T-30 ratios); A-08 ranges live in PenaltyRulesDialog. SRS 10.4:
 // ratios 0–100, days integer ≥ 0, effective from today or later.
 const FIELDS = {
   deposit: [

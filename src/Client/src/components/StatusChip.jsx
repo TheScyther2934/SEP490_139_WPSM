@@ -24,7 +24,29 @@ const PAYMENT = {
   Upcoming: { label: "Chưa đến hạn", color: "default" },
   Overdue: { label: "Quá hạn", color: "error" },
 };
-const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT };
+const CR = {
+  Draft: { label: "Nháp", color: "default" },
+  Negotiating: { label: "Đang thương lượng", color: "warning" },
+  Approved: { label: "Đã duyệt", color: "success" },
+  Rejected: { label: "Đã từ chối", color: "error" },
+};
+const BEO = {
+  None: { label: "Chưa tạo", color: "default" },
+  Draft: { label: "Bản nháp", color: "info" },
+  Frozen: { label: "Đã đóng băng", color: "success" },
+  Stale: { label: "Lỗi thời", color: "error" },
+};
+const COMPLAINT = {
+  Open: { label: "Đang mở", color: "warning" },
+  Escalated: { label: "Đã chuyển Admin", color: "error" },
+  Resolved: { label: "Đã giải quyết", color: "success" },
+};
+const ALLOCATION = {
+  Reserved: { label: "Đã giữ chỗ", color: "primary" },
+  "Exception Approved": { label: "Ngoại lệ được duyệt", color: "success" },
+  Released: { label: "Đã giải phóng", color: "default" },
+};
+const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT, cr: CR, beo: BEO, complaint: COMPLAINT, allocation: ALLOCATION };
 
 export const statusLabel = (kind, status) => KINDS[kind]?.[status]?.label ?? status;
 
