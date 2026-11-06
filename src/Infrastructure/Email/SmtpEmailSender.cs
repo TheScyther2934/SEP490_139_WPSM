@@ -15,7 +15,7 @@ public sealed class EmailOptions
     public string From { get; init; } = "no-reply@wpsm.local";
     public string? PickupDirectory { get; init; }
     public string? WebhookSecret { get; init; }
-    public string PublicBaseUrl { get; init; } = "http://localhost:5231";
+    public string PublicBaseUrl { get; init; } = "http://localhost:5173";
 }
 
 public sealed class SmtpEmailSender(EmailOptions options) : IEmailSender

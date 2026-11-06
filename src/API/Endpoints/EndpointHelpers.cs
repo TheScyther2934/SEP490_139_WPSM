@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using Application.Persistence;
 using Infrastructure.Email;
@@ -38,8 +37,6 @@ public static class EndpointHelpers
         };
         return Results.File(filePath, contentType, enableRangeProcessing: true);
     }
-
-    public static string PasswordVersion(string passwordHash) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(passwordHash)));
 
     public static int UserId(ClaimsPrincipal user) => int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
         ? id : throw new InvalidOperationException("Phiên đăng nhập không hợp lệ.");

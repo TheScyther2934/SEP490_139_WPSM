@@ -549,8 +549,6 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Active");
-            entity.Property(e => e.RefreshToken).HasMaxLength(255);
-            entity.Property(e => e.RefreshTokenExpiryTime).HasPrecision(0);
         });
 
         modelBuilder.Entity<WeddingProject>(entity =>

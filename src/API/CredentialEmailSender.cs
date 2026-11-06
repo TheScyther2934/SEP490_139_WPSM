@@ -18,7 +18,7 @@ public sealed class CredentialEmailSender(IConfiguration configuration, ILogger<
                 BodyEncoding = Encoding.UTF8,
                 SubjectEncoding = Encoding.UTF8,
                 Body = $"Xin chào {name},\n\nTài khoản WPSM của bạn đã được tạo.\n" +
-                    $"Đăng nhập: {configuration["Wpsm:PortalUrl"] ?? "http://localhost:5231/G01"}\n" +
+                    $"Đăng nhập: {configuration["Wpsm:PortalUrl"] ?? "http://localhost:5173/login"}\n" +
                     $"Email: {email}\nMật khẩu tạm: {password}\n\nVui lòng đổi mật khẩu ở lần đăng nhập đầu tiên."
             };
             using var client = new SmtpClient();
