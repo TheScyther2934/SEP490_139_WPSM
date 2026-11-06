@@ -243,6 +243,18 @@ public sealed class ManagerRoadmapRepository(WpsmDbContext db) : IManagerRoadmap
         // 6. Mark Done with server-side UTC timestamp (never client-provided)
         task.Status = "Done";
         task.CompletedAt = DateTime.UtcNow;
+
+        // G-04: Notify customer that manager completed this task
+        db.Notifications.Add(new Notification
+        {
+            RecipientId = project.CustomerId,
+            Type = "Roadmap reminder",
+            Message = $"Ban điều phối đã hoàn thành nhiệm vụ '{task.Title}' thuộc dự án {project.ProjectCode}.",
+            LinkUrl = "/customer/roadmap",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
         await db.SaveChangesAsync(cancellationToken);
 
         return new CompleteManagerTaskResult(true, "Đã đánh dấu hoàn thành nhiệm vụ thành công.", MapTask(task, today));

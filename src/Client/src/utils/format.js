@@ -22,6 +22,23 @@ export const weekdayVi = (value) => (value ? new Intl.DateTimeFormat("vi-VN", { 
 export const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const monthVi = (month) => `${month.slice(5)}/${month.slice(0, 4)}`;
 
+export const relativeTimeVi = (isoString) => {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+  if (diffMs < 0) return dateTimeVi(isoString);
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return "Vừa xong";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} phút trước`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} ngày trước`;
+  return dateTimeVi(isoString);
+};
+
 export const daysUntil = (value) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);

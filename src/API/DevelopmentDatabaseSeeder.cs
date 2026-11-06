@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
@@ -112,32 +112,29 @@ public sealed class DevelopmentDatabaseSeeder(
             var slot = await db.Slots.FirstAsync(x => x.HallId == hall.HallId && x.SlotName == p.Slot, cancellationToken);
 
             var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == p.Code, cancellationToken);
-            // A real project may already hold this hall slot (UQ_Projects_Hall_Slot_Date); skip the sample instead of
-            // failing start-up. The open transaction rolls back the sample customer on dispose.
             if (project is null && await db.WeddingProjects.AnyAsync(x => x.HallId == hall.HallId && x.SlotId == slot.SlotId && x.EventDate == p.EventDate, cancellationToken))
             {
-                logger.LogWarning("Seed: bỏ qua dự án mẫu {Code} vì {Hall} ca {Slot} ngày {Date} đã có dự án khác.", p.Code, p.Hall, p.Slot, p.EventDate);
+                logger.LogInformation("Bỏ qua seed dự án mẫu {Code} vì sảnh {Hall} ca {Slot} ngày {Date} đã được đặt.", p.Code, p.Hall, p.Slot, p.EventDate);
                 continue;
             }
+
             if (project is null)
             {
-            project = new WeddingProject
-            {
-                ProjectCode = p.Code,
-                CustomerId = customer.UserId,
-                ManagerId = manager.UserId,
-                HallId = hall.HallId,
-                SlotId = slot.SlotId,
-                EventDate = p.EventDate,
-                BaseContractValue = p.BaseValue,
-                Nrdamount = p.Nrd,
-                CurrentTotal = p.BaseValue,
-                Status = p.Status,
-                BaselineFrozenAt = p.Status == "Active Baseline" ? null : DateTime.UtcNow.AddDays(-30),
-                CreatedAt = DateTime.UtcNow.AddDays(-40)
-            };
-            db.WeddingProjects.Add(project);
-            await db.SaveChangesAsync(cancellationToken);
+                project = new WeddingProject
+                {
+                    ProjectCode = p.Code,
+                    CustomerId = customer.UserId,
+                    ManagerId = manager.UserId,
+                    HallId = hall.HallId,
+                    SlotId = slot.SlotId,
+                    EventDate = p.EventDate,
+                    BaseContractValue = p.BaseValue,
+                    Nrdamount = p.Nrd,
+                    Status = p.Status,
+                    CreatedAt = p.EventDate.ToDateTime(new TimeOnly(9, 0)).AddDays(-100)
+                };
+                db.WeddingProjects.Add(project);
+                await db.SaveChangesAsync(cancellationToken);
             }
 
             foreach (var item in catalogEntities)
@@ -193,6 +190,127 @@ public sealed class DevelopmentDatabaseSeeder(
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
+
+        await SeedNotificationsAsync(manager, cancellationToken);
+    }
+
+    private async Task SeedNotificationsAsync(User manager, CancellationToken cancellationToken)
+    {
+        if (await db.Notifications.AnyAsync(cancellationToken)) return;
+
+        var customer = await db.Users.FirstOrDefaultAsync(u => u.Role == "Customer", cancellationToken);
+        var now = DateTime.UtcNow;
+
+        // Sample notifications for Manager
+        db.Notifications.AddRange(
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Roadmap reminder",
+                Message = "Dự án WPSM-2026-014: Mốc T-30 sắp đến hạn, cần kiểm tra và chuẩn bị đóng băng baseline.",
+                LinkUrl = "/manager/projects/WPSM-2026-014/roadmap",
+                IsRead = false,
+                CreatedAt = now.AddMinutes(-35)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Payment",
+                Message = "Dự án WPSM-2025-008: Khách hàng đã gửi yêu cầu xác nhận thanh toán đợt NRD.",
+                LinkUrl = "/manager/projects/WPSM-2025-008/payments",
+                IsRead = false,
+                CreatedAt = now.AddHours(-2)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "CR update",
+                Message = "Dự án WPSM-2026-014: Yêu cầu thay đổi CR-001 cần quản lý thẩm định chi phí và phát sinh.",
+                LinkUrl = "/manager/projects/WPSM-2026-014/change-requests",
+                IsRead = false,
+                CreatedAt = now.AddHours(-4)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Overdue alert",
+                Message = "Dự án WPSM-2025-002: Nhiệm vụ ngày tiệc đang quá hạn, vui lòng cập nhật ảnh minh chứng.",
+                LinkUrl = "/manager/overdue-alerts",
+                IsRead = false,
+                CreatedAt = now.AddHours(-6)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "BEO",
+                Message = "Dự án WPSM-2025-019: Bản BEO phiên bản 1 đã được cập nhật, cần xác nhận các bộ phận.",
+                LinkUrl = "/manager/projects/WPSM-2025-019/beo",
+                IsRead = true,
+                CreatedAt = now.AddDays(-1)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Complaint",
+                Message = "Dự án WPSM-2025-001: Khiếu nại COM-001 đã được Admin giải quyết.",
+                LinkUrl = "/manager/projects/WPSM-2025-001/complaints",
+                IsRead = true,
+                CreatedAt = now.AddDays(-2)
+            }
+        );
+
+        if (customer is not null)
+        {
+            db.Notifications.AddRange(
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "Roadmap reminder",
+                    Message = "Chào bạn! Hợp đồng gốc đã được chốt, vui lòng xem đặc tả và danh sách nhiệm vụ cần làm.",
+                    LinkUrl = "/customer/roadmap",
+                    IsRead = false,
+                    CreatedAt = now.AddHours(-1)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "Payment",
+                    Message = "Biên nhận thanh toán đặt cọc NRD đã được xác nhận thành công.",
+                    LinkUrl = "/customer/payments",
+                    IsRead = false,
+                    CreatedAt = now.AddHours(-3)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "CR update",
+                    Message = "Yêu cầu thay đổi của bạn đã được tiếp nhận và đang trong quá trình thương thảo.",
+                    LinkUrl = "/customer/change-requests",
+                    IsRead = false,
+                    CreatedAt = now.AddHours(-5)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "BEO",
+                    Message = "Bảng tóm tắt thông số tổ chức cưới (BEO) đã được cập nhật.",
+                    LinkUrl = "/customer/contract",
+                    IsRead = true,
+                    CreatedAt = now.AddDays(-1)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "Roadmap reminder",
+                    Message = "Nhắc nhở: Nhiệm vụ 'Xác nhận số lượng khách cuối cùng' thuộc mốc T-30 cần sớm hoàn tất.",
+                    LinkUrl = "/customer/roadmap",
+                    IsRead = true,
+                    CreatedAt = now.AddDays(-2)
+                }
+            );
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<User> GetOrCreateAccountAsync(string role, string key, CancellationToken cancellationToken)

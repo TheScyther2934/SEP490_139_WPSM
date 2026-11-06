@@ -1,15 +1,17 @@
-import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  AppBar, Avatar, Box, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText,
-  ListSubheader, Menu, MenuItem, Toolbar, Typography,
+  AppBar, Avatar, Badge, Box, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText,
+  ListSubheader, Menu, MenuItem, Toolbar, Tooltip, Typography,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import DiamondIcon from "@mui/icons-material/Diamond";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import { logout, selectUser } from "../store/authSlice";
 import { PATHS } from "../routes/paths";
 import { initials, roleLabel } from "../utils/format";
+import { notificationService } from "../services/notificationService";
 
 const DRAWER_WIDTH = 264;
 
@@ -18,9 +20,20 @@ const DRAWER_WIDTH = 264;
 export default function PortalShell({ brand, sections, header }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const user = useSelector(selectUser);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (user?.role && user.role !== "Admin") {
+      notificationService
+        .getUnreadCount()
+        .then((count) => setUnreadCount(count))
+        .catch(() => {});
+    }
+  }, [user?.role, location.pathname]);
 
   const signOut = async () => {
     setMenuAnchor(null);
@@ -38,19 +51,30 @@ export default function PortalShell({ brand, sections, header }) {
       <Box component="nav" aria-label="Điều hướng chính" sx={{ flex: 1, overflowY: "auto" }}>
         {sections.map((section, index) => (
           <List key={section.title ?? index} subheader={section.title && <ListSubheader sx={{ bgcolor: "transparent" }}>{section.title}</ListSubheader>}>
-            {section.items.map(({ label, icon: Icon, to, end }) => (
-              <ListItemButton
-                key={to}
-                component={NavLink}
-                to={to}
-                end={end}
-                onClick={() => setMobileOpen(false)}
-                sx={{ mx: 1, borderRadius: 2, "&.active": { bgcolor: "primary.main", color: "primary.contrastText", "& .MuiListItemIcon-root": { color: "inherit" } } }}
-              >
-                <ListItemIcon sx={{ minWidth: 40 }}><Icon fontSize="small" /></ListItemIcon>
-                <ListItemText primary={label} />
-              </ListItemButton>
-            ))}
+            {section.items.map(({ label, icon: Icon, to, end }) => {
+              const isNotificationItem = to === PATHS.notifications;
+              return (
+                <ListItemButton
+                  key={to}
+                  component={NavLink}
+                  to={to}
+                  end={end}
+                  onClick={() => setMobileOpen(false)}
+                  sx={{ mx: 1, borderRadius: 2, "&.active": { bgcolor: "primary.main", color: "primary.contrastText", "& .MuiListItemIcon-root": { color: "inherit" } } }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    {isNotificationItem && unreadCount > 0 ? (
+                      <Badge badgeContent={unreadCount} color="error">
+                        <Icon fontSize="small" />
+                      </Badge>
+                    ) : (
+                      <Icon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText primary={label} />
+                </ListItemButton>
+              );
+            })}
           </List>
         ))}
       </Box>
@@ -65,6 +89,19 @@ export default function PortalShell({ brand, sections, header }) {
             <MenuIcon />
           </IconButton>
           <Box sx={{ flex: 1, minWidth: 0 }}>{header}</Box>
+          {user?.role && user.role !== "Admin" && (
+            <Tooltip title="Thông báo">
+              <IconButton
+                aria-label="Thông báo"
+                onClick={() => navigate(PATHS.notifications)}
+                sx={{ mr: 1 }}
+              >
+                <Badge badgeContent={unreadCount} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
           <IconButton aria-label="Tài khoản" onClick={(e) => setMenuAnchor(e.currentTarget)}>
             <Avatar sx={{ bgcolor: "primary.main", width: 36, height: 36, fontSize: 15 }}>{initials(user?.fullName)}</Avatar>
           </IconButton>

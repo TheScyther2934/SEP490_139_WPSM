@@ -38,8 +38,11 @@ builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 builder.Services.AddScoped<CredentialEmailSender>();
 builder.Services.AddHostedService<CredentialEmailDispatcher>();
 builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
+builder.Services.AddScoped<ICustomerPaymentRepository, CustomerPaymentRepository>();
+builder.Services.AddScoped<IManagerPaymentRepository, ManagerPaymentRepository>();
 builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
 builder.Services.AddScoped<IManagerRoadmapRepository, ManagerRoadmapRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -186,7 +189,7 @@ app.Use(async (context, next) =>
     }
 });
 app.UseHttpsRedirection();
-// Built React client (src/Client → wwwroot) is served from the same origin as the API.
+// Built React client (src/Client -> wwwroot) is served from the same origin as the API.
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
@@ -195,6 +198,5 @@ app.UseRateLimiter();
 
 app.MapWpsmApi();
 app.MapSpaFallback();
-
 
 app.Run();
