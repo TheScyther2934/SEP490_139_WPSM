@@ -36,5 +36,35 @@ export const ENDPOINTS = {
     roadmap: "/customer/roadmap",
     completeTask: (projectCode, taskId) => `/customer/projects/${encodeURIComponent(projectCode)}/roadmap/tasks/${taskId}/complete`,
   },
+  // FE-05. Customer routes resolve the caller's own project (GBR-12); Manager routes carry the code.
+  changeRequests: {
+    customer: {
+      list: "/customer/change-requests",
+      form: "/customer/change-requests/form",
+      create: "/customer/change-requests",
+      detail: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}`,
+      submit: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/submit`,
+      approve: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/approve`,
+      reject: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/reject`,
+    },
+    manager: (projectCode) => {
+      const project = `/projects/${encodeURIComponent(projectCode)}/change-requests`;
+      return {
+        list: project,
+        form: `${project}/form`,
+        create: project,
+        detail: (crCode) => `${project}/${encodeURIComponent(crCode)}`,
+        submit: (crCode) => `${project}/${encodeURIComponent(crCode)}/submit`,
+        counter: (crCode) => `${project}/${encodeURIComponent(crCode)}/counter`,
+        approve: (crCode) => `${project}/${encodeURIComponent(crCode)}/approve`,
+        reject: (crCode) => `${project}/${encodeURIComponent(crCode)}/reject`,
+        exception: (crCode) => `${project}/${encodeURIComponent(crCode)}/exception`,
+      };
+    },
+  },
   file: (id) => `/files/${encodeURIComponent(id)}`,
 };
+
+// One lookup for the C-05/C-06 and M-07/M-08 screens: the Manager paths need the project code.
+export const changeRequestRoutes = (role, projectCode) =>
+  role === "Manager" ? ENDPOINTS.changeRequests.manager(projectCode) : ENDPOINTS.changeRequests.customer;

@@ -176,6 +176,7 @@ Chi tiết truy cập dữ liệu/EF Core và implementation của contract Appl
 | Đặc tả và roadmap | `ISpecificationRoadmapRepository` | `SpecificationRoadmapRepository` | Sửa đặc tả, freeze baseline, tạo/đọc roadmap |
 | Cấu hình Admin | `IConfigurationRepository` | `ConfigurationRepository` | Catalog, PriceFrames, Policies |
 | Tài khoản/hồ sơ | `IAccountProfileRepository` | `AccountProfileRepository` | Tra cứu account, đăng nhập hỗ trợ, password, profile |
+| Yêu cầu thay đổi (FE-05) | `IChangeRequestRepository` | `ChangeRequestRepository` | Danh sách/form/chi tiết CR, thương lượng, phê duyệt hai bên, phụ lục, ngoại lệ phạt T-day |
 | Bootstrap màn hình | `IWpsmPortalSnapshotReader` | `WpsmPortalSnapshotReader` | Chỉ tổng hợp DTO cho UI; phụ thuộc các interface feature |
 
 Khi bắt đầu feature mới, thêm contract hẹp cho feature thay vì nối thêm mọi method vào một repository chung. Giữ query/write liên quan trong cùng feature; chỉ tách interface mới khi có trách nhiệm riêng rõ ràng. Register implementation tương ứng trong `src/API/Program.cs`.

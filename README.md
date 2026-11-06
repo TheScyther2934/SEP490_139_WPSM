@@ -1,4 +1,4 @@
-﻿# SEP490_139_WPSM
+# SEP490_139_WPSM
 Wedding Planning and Service Management
 
 Team onboarding and development workflow: [Dev guide/WPSM_Developer_Guide.md](Dev%20guide/WPSM_Developer_Guide.md).
@@ -68,7 +68,7 @@ Wpsm:PortalUrl            (public login URL)
 
 Preserve the API's Data Protection key store across restarts so queued credential messages can still be decrypted. For multiple deployed API instances, use a shared key store and a single email dispatcher instance.
 
-Validation: `pwsh -File tests/portal.integration.ps1` exercises API persistence, authentication, project isolation and receipt downloads using a disposable `WPSM_Test_<guid>` database on SQL Server `localhost` (Windows Authentication). `pwsh -File tools/e2e/run.ps1` builds and exercises the React client against a throwaway LocalDB database. Both scripts create and drop only their own test databases; neither changes the configured application database.
+Validation: `pwsh -File tests/portal.integration.ps1` exercises API persistence, authentication, project isolation and receipt downloads using a disposable `WPSM_Test_<guid>` database on SQL Server `localhost` (Windows Authentication). `pwsh -File tests/fe05.change-request.ps1` covers the FE-05 Change Request flow (C-05, C-06, M-07, M-08) on a disposable LocalDB database: PriceFrame validation, T-day penalty, counter-proposal, Admin penalty waiver, mutual approval and addendum generation. `pwsh -File tools/e2e/run.ps1` builds and exercises the React client against a throwaway LocalDB database. All three scripts create and drop only their own test databases; none changes the configured application database.
 
 ## Files, email and background jobs (API-01..04, JOB-07)
 
