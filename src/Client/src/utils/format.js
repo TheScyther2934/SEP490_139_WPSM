@@ -15,6 +15,8 @@ export const moneyInput = (text) => Number(String(text ?? "").replace(/[^0-9]/g,
 // API DateOnly values come as "YYYY-MM-DD"; parse them as local dates, not UTC.
 const localDate = (value) => new Date(`${String(value).slice(0, 10)}T00:00:00`);
 export const dateVi = (value) => (value ? new Intl.DateTimeFormat("vi-VN").format(localDate(value)) : "—");
+// For UTC instants (CreatedAt/ApprovedAt) the browser converts to the local (UTC+7) calendar day.
+export const dayVi = (value) => (value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "—");
 export const dateTimeVi = (value) =>
   value ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—";
 export const timeVi = (value) => new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));

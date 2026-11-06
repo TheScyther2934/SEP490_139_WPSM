@@ -17,3 +17,10 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
 public sealed record ResolveComplaintRequest(string Decision);
 public sealed record ExceptionDecisionRequest(bool Approve, string Note);
+
+// FE-05: C-06 ticket body and the M-08 negotiation bodies.
+public sealed record CrSaveRequest(string Type, string Description, IReadOnlyList<CrLineCommand>? Items, bool Submit = false);
+public sealed record CrCounterRequest(IReadOnlyList<CrLineCommand>? Items, string? Note = null);
+public sealed record CrApproveRequest(string? Note = null);
+public sealed record CrRejectRequest(string Reason);
+public sealed record CrExceptionRequest(string Note);

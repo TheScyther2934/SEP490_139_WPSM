@@ -38,6 +38,8 @@ export const PATHS = {
     specification: (code) => `${project(code)}/specification`, // M-05
     roadmap: (code) => `${project(code)}/roadmap`, // M-06
     changeRequests: (code) => `${project(code)}/change-requests`, // M-07
+    newChangeRequest: (code) => `${project(code)}/change-requests/new`, // M-07 (create on behalf of the Customer)
+    editChangeRequest: (code, crCode) => `${project(code)}/change-requests/new?crCode=${seg(crCode)}`, // C-06 for a draft
     changeRequest: (code, crCode) => `${project(code)}/change-requests/${seg(crCode)}`, // M-08
     costImpact: (code, crCode) => `${project(code)}/change-requests/${seg(crCode)}/cost-impact`, // M-09
     beo: (code) => `${project(code)}/beo`, // M-10, M-12
@@ -61,6 +63,7 @@ export const PATHS = {
     roadmap: "/customer/roadmap", // C-03, C-04
     changeRequests: "/customer/change-requests", // C-05
     newChangeRequest: "/customer/change-requests/new", // C-06
+    editChangeRequest: (crCode) => `/customer/change-requests/new?crCode=${seg(crCode)}`, // C-06 for a draft
     changeRequest: (crCode) => `/customer/change-requests/${seg(crCode)}`, // C-07, C-08
     payments: "/customer/payments", // C-10
     livePhotos: "/customer/live-photos", // C-11

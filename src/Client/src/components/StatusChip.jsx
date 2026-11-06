@@ -24,7 +24,14 @@ const PAYMENT = {
   Upcoming: { label: "Chưa đến hạn", color: "default" },
   Overdue: { label: "Quá hạn", color: "error" },
 };
-const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT };
+// FE-05: CR tickets (C-05, C-07, M-07, M-08).
+const CHANGE_REQUEST = {
+  Draft: { label: "Bản nháp", color: "default" },
+  Negotiating: { label: "Đang thương lượng", color: "warning" },
+  Approved: { label: "Đã duyệt", color: "success" },
+  Rejected: { label: "Đã từ chối", color: "error" },
+};
+const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT, cr: CHANGE_REQUEST };
 
 export const statusLabel = (kind, status) => KINDS[kind]?.[status]?.label ?? status;
 
