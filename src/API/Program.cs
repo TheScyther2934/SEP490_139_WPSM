@@ -21,6 +21,11 @@ using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
 using Infrastructure.Persistence.Repositories;
 using Domain.Enums;
+using Domain.Services;
+using Application.Roadmap;
+using Infrastructure.Roadmap;
+using Application.Payments;
+using Infrastructure.Payments;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("WpsmDb");
@@ -87,6 +92,12 @@ builder.Services.AddScoped<IEmailOutbox, EmailOutbox>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
 builder.Services.AddScoped<EmailDispatchJob>();
+builder.Services.AddScoped<IRoadmapReminderService, RoadmapReminderService>();
+builder.Services.AddScoped<SendRoadmapMilestoneRemindersJob>();
+builder.Services.AddScoped<IT30PaymentRequestService, T30PaymentRequestService>();
+builder.Services.AddScoped<IssueT30PaymentRequestJob>();
+builder.Services.AddScoped<IFinalSettlementService, FinalSettlementService>();
+builder.Services.AddScoped<FinalSettlementJob>();
 
 var backgroundJobsEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true) && !string.IsNullOrWhiteSpace(connectionString);
 if (backgroundJobsEnabled)
@@ -157,8 +168,23 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Wps
 }
 if (backgroundJobsEnabled)
 {
-    app.Services.GetRequiredService<IRecurringJobManager>()
-        .AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    recurringJobs.AddOrUpdate<SendRoadmapMilestoneRemindersJob>(
+        "job-01-roadmap-milestone-reminders",
+        job => job.RunAsync(CancellationToken.None),
+        "0 7 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<IssueT30PaymentRequestJob>(
+        "job-02-t30-payment-request",
+        job => job.RunAsync(CancellationToken.None),
+        "0 7 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<FinalSettlementJob>(
+        "job-06-final-settlement",
+        job => job.RunAsync(CancellationToken.None),
+        "0 1 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
 }
 
 app.UseCors();
