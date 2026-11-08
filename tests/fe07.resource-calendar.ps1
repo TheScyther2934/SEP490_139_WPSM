@@ -143,16 +143,43 @@ try {
     $freeAllocation = $free.Data.allocationId
 
     # ── A-18 receives and decides the resource exception ──
-    $queue = (Call "GET" "/admin/exception-requests" $admin).Data
+    $queueResult = (Call "GET" "/admin/exception-requests" $admin).Data
+    $queue = $queueResult.items
     $request = $queue | Where-Object { $_.code -eq $requestCode }
     Check "A-18 receives the resource conflict request" ([bool]$request) "code=$requestCode"
+    Check "A-18 queue reports the pending count" ($queueResult.summary.pending -ge 1) "pending=$($queueResult.summary.pending)"
     if ($request) {
+        Check "A-18 request carries the resource context" ($request.sourceType -eq "ResourceConflict" -and $request.resource.resourceName -eq $technicianLane.name -and $request.resource.shortage -eq 3) ($request.resource | ConvertTo-Json -Compress)
+        Check "A-18 lists the clashing events" (($request.resource.clashing | Where-Object { $_.projectCode -eq "WPSM-2026-014" } | Measure-Object).Count -ge 1)
+        Check "A-18 names the requesting manager" ([bool]$request.requestedByName) $request.requestedByName
+        $blankNote = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $true; note = " " }
+        Check "A-18 requires the decision note" ($blankNote.Status -eq 400) "status=$($blankNote.Status)"
         $decision = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $true; note = "Chấp thuận bổ sung kỹ thuật viên" }
         Check "A-18 approves the resource exception" ($decision.Status -eq 204) "status=$($decision.Status)"
+        $decidedRequest = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.code -eq $requestCode })
+        Check "A-18 records the decision audit" ($decidedRequest.status -eq "Approved" -and $decidedRequest.decisionNote -eq "Chấp thuận bổ sung kỹ thuật viên" -and [bool]$decidedRequest.decidedByName -and [bool]$decidedRequest.decidedAt) ($decidedRequest | ConvertTo-Json -Compress -Depth 3)
+        $again = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $false; note = "Đổi quyết định" }
+        Check "A-18 refuses a second decision" ($again.Status -eq 400) "status=$($again.Status)"
     }
     $approved = (Call "GET" "/resource-allocations/$($pending.Data.allocationId)" $manager).Data
     Check "approved exception marks the allocation" ($approved.status -eq "Exception Approved" -and $approved.isExceptionApproved) $approved.status
     Check "approved exception keeps the Admin note" ($approved.exceptionNote -eq "Chấp thuận bổ sung kỹ thuật viên") $approved.exceptionNote
+
+    # ── A-18 rejection releases the pending allocation ──
+    $rejectedPending = Call "POST" "/resource-allocations" $manager @{
+        resourceId = $resourceId; projectId = $projectId
+        startTime = "${day}T17:30:00+07:00"; endTime = "${day}T21:30:00+07:00"; quantity = 1
+        requestException = $true; exceptionNote = "Đề nghị giữ thêm 1 kỹ thuật viên dự phòng"
+    }
+    Check "M-21 opens a second pending request" ($rejectedPending.Status -eq 201) "status=$($rejectedPending.Status)"
+    $secondCode = $rejectedPending.Data.pendingRequestCode
+    $secondRequest = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.code -eq $secondCode })
+    if ($secondRequest) {
+        $rejected = Call "POST" "/admin/exception-requests/$($secondRequest.id)/decision" $admin @{ approve = $false; note = "Không đủ nhân sự, giữ nguyên quy tắc" }
+        Check "A-18 rejects the resource exception" ($rejected.Status -eq 204) "status=$($rejected.Status)"
+        $releasedAfterReject = (Call "GET" "/resource-allocations/$($rejectedPending.Data.allocationId)" $manager).Data
+        Check "a rejected exception releases the allocation" ($releasedAfterReject.status -eq "Released") $releasedAfterReject.status
+    }
 
     $afterApprove = (Call "GET" "/resource-calendar?from=$day&to=$day" $manager).Data
     Check "M-21 now reports the capacity conflict" ($afterApprove.summary.conflicts -ge 1) "conflicts=$($afterApprove.summary.conflicts)"

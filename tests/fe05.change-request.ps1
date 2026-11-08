@@ -171,11 +171,14 @@ try {
     Check "M-08 requests an Admin penalty waiver" ($exception.Status -eq 200) "status=$($exception.Status)"
     Check "CR reports the pending exception" ($exception.Data.pendingException -eq "Pending") $exception.Data.pendingException
     $queue = (Call "GET" "/admin/exception-requests" $admin).Data
-    $pending = $queue | Where-Object { $_.source -eq $crCode }
-    Check "A-18 receives the waiver request" ([bool]$pending) ($queue | ConvertTo-Json -Compress -Depth 3)
+    $pending = $queue.items | Where-Object { $_.cr.crCode -eq $crCode }
+    Check "A-18 receives the waiver request" ([bool]$pending) ($queue.items | ConvertTo-Json -Compress -Depth 3)
     if ($pending) {
+        Check "A-18 request carries the CR context" ($pending.sourceType -eq "CrPenaltyWaiver" -and $pending.cr.penaltyFee -gt 0) ($pending.cr | ConvertTo-Json -Compress)
         $decided = Call "POST" "/admin/exception-requests/$($pending.id)/decision" $admin @{ approve = $true; note = "Chấp thuận miễn phạt" }
         Check "A-18 approves the waiver" ($decided.Status -eq 204) "status=$($decided.Status)"
+        $decidedRequest = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.cr.crCode -eq $crCode })
+        Check "A-18 records the decision audit" ($decidedRequest.status -eq "Approved" -and $decidedRequest.decisionNote -eq "Chấp thuận miễn phạt" -and [bool]$decidedRequest.decidedByName) ($decidedRequest | ConvertTo-Json -Compress -Depth 3)
         $afterWaiver = (Call "GET" "/projects/$projectCode/change-requests/$crCode" $manager).Data
         Check "approved waiver clears the penalty fee" ($afterWaiver.cost.penaltyFee -eq 0) "penalty=$($afterWaiver.cost.penaltyFee)"
         Check "approved waiver is in CR History" (($afterWaiver.history | Where-Object { $_.action -eq "ExceptionApproved" } | Measure-Object).Count -eq 1)

@@ -263,7 +263,7 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
             note = (command.ExceptionNote ?? "").Trim();
             if (note.Length == 0) throw new InvalidOperationException("Trường Ghi chú gửi Admin là bắt buộc.");
             if (note.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự (MSG16).");
-            if (await db.ExceptionRequests.AnyAsync(e => e.AllocationId == allocationId && e.Status == "Pending", cancellationToken))
+            if (allocationId is { } existingAllocation && await db.ExceptionRequests.AnyAsync(e => e.AllocationId == existingAllocation && e.Status == "Pending", cancellationToken))
                 throw new InvalidOperationException("Đã có yêu cầu ngoại lệ đang chờ Admin quyết định cho phân bổ này.");
         }
 
