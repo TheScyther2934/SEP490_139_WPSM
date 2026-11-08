@@ -35,6 +35,7 @@ public static class WpsmApiEndpoints
         api.MapAuthEndpoints();
         api.MapCustomerEndpoints();
         api.MapChangeRequestEndpoints();
+        api.MapResourceCalendarEndpoints();
         return api;
     }
 

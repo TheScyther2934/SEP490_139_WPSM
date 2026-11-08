@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
@@ -193,6 +193,70 @@ public sealed class DevelopmentDatabaseSeeder(
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
+
+        await SeedResourcesAsync(cancellationToken);
+    }
+
+    // FE-07: shared resources for the Resource Calendar and one allocated demo event.
+    private async Task SeedResourcesAsync(CancellationToken cancellationToken)
+    {
+        var resources = new[]
+        {
+            new ResourceSeed("Dàn âm thanh sảnh chính", "Audio", 4),
+            new ResourceSeed("Dàn âm thanh sân vườn", "Audio", 2),
+            new ResourceSeed("Đèn Moving Head & Follow Spot", "Follow Light", 4),
+            new ResourceSeed("Đèn rọi sân khấu", "Follow Light", 6),
+            new ResourceSeed("Khung trống vòm hoa đôi VIP", "Decor Frame", 3),
+            new ResourceSeed("Cổng hoa chính", "Decor Frame", 2),
+            new ResourceSeed("Kỹ thuật viên AV & Stage Manager", "Technician", 6),
+            new ResourceSeed("Nhân sự ánh sáng", "Technician", 4),
+            new ResourceSeed("Đội bếp trưởng & bếp nòng VIP", "Kitchen", 3),
+            new ResourceSeed("Nhân sự sơ chế", "Kitchen", 5)
+        };
+        foreach (var resource in resources)
+        {
+            if (await db.Resources.AnyAsync(x => x.Type == resource.Type && x.Name == resource.Name, cancellationToken)) continue;
+            db.Resources.Add(new Resource { Name = resource.Name, Type = resource.Type, TotalQuantity = resource.Quantity });
+        }
+        await db.SaveChangesAsync(cancellationToken);
+
+        var project = await db.WeddingProjects.Include(x => x.Slot)
+            .FirstOrDefaultAsync(x => x.ProjectCode == "WPSM-2026-014", cancellationToken);
+        if (project is null) return;
+        if (await db.ResourceAllocations.AnyAsync(x => x.ProjectId == project.ProjectId, cancellationToken)) return;
+
+        var vnTz = FindVietnamTimeZone();
+        var start = TimeZoneInfo.ConvertTimeToUtc(project.EventDate.ToDateTime(project.Slot.StartTime), vnTz);
+        var end = TimeZoneInfo.ConvertTimeToUtc(project.EventDate.ToDateTime(project.Slot.EndTime), vnTz);
+        var picks = new[]
+        {
+            new ResourcePick("Audio", "Dàn âm thanh sảnh chính", 2),
+            new ResourcePick("Follow Light", "Đèn Moving Head & Follow Spot", 2),
+            new ResourcePick("Technician", "Kỹ thuật viên AV & Stage Manager", 3)
+        };
+        foreach (var pick in picks)
+        {
+            var resource = await db.Resources.FirstOrDefaultAsync(x => x.Type == pick.Type && x.Name == pick.Name, cancellationToken);
+            if (resource is null) continue;
+            db.ResourceAllocations.Add(new ResourceAllocation
+            {
+                ResourceId = resource.ResourceId,
+                HallId = project.HallId,
+                ProjectId = project.ProjectId,
+                StartTime = start,
+                EndTime = end,
+                AllocatedQuantity = pick.Quantity,
+                Status = "Reserved"
+            });
+        }
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static TimeZoneInfo FindVietnamTimeZone()
+    {
+        foreach (var id in new[] { "SE Asia Standard Time", "Asia/Ho_Chi_Minh" })
+            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz)) return tz;
+        return TimeZoneInfo.CreateCustomTimeZone("UTC+7", TimeSpan.FromHours(7), "UTC+7", "UTC+7");
     }
 
     private async Task<User> GetOrCreateAccountAsync(string role, string key, CancellationToken cancellationToken)
@@ -233,4 +297,6 @@ public sealed class DevelopmentDatabaseSeeder(
     private sealed record HallSeed(string Name, int Minimum, int Maximum, decimal BasePrice);
     private sealed record CatalogSeed(string Name, string Category, string Unit, decimal Price);
     private sealed record ProjectSeed(string Code, string Couple, string Email, string Phone, string Hall, string Slot, DateOnly EventDate, decimal BaseValue, decimal Nrd, string Status);
+    private sealed record ResourceSeed(string Name, string Type, int Quantity);
+    private sealed record ResourcePick(string Type, string Name, int Quantity);
 }

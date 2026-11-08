@@ -9,7 +9,6 @@ namespace Infrastructure.Persistence.Repositories;
 public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
 {
     private static readonly TimeZoneInfo VnTz = GetVietnamTimeZone();
-    private static readonly CultureInfo Vi = CultureInfo.GetCultureInfo("vi-VN");
     private static readonly string[] CrStatuses = ["Approved", "Rejected", "Negotiating", "Draft"];
 
     private static TimeZoneInfo GetVietnamTimeZone()
@@ -22,7 +21,6 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
     private static DateOnly TodayVn() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VnTz));
     private static DateTime StartUtc(DateOnly date) => TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue), VnTz);
     private static DateTime Utc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
-    private static string Money(decimal value) => value.ToString("N0", Vi);
 
     public async Task<AdminDashboardView> GetDashboardAsync(CancellationToken cancellationToken = default)
     {
@@ -194,34 +192,89 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         return true;
     }
 
-    public async Task<IReadOnlyList<ExceptionRequestView>> GetExceptionRequestsAsync(CancellationToken cancellationToken = default)
+    public async Task<ExceptionQueueView> GetExceptionRequestsAsync(CancellationToken cancellationToken = default)
     {
-        var rows = await db.ExceptionRequests.AsNoTracking().OrderBy(x => x.Status == "Pending" ? 0 : 1).ThenByDescending(x => x.CreatedAt)
-            .Select(x => new
+        var requests = await db.ExceptionRequests.AsNoTracking().AsSplitQuery()
+            .Include(x => x.Project).ThenInclude(p => p.Customer)
+            .Include(x => x.Project).ThenInclude(p => p.Hall)
+            .Include(x => x.Cr)
+            .Include(x => x.Allocation).ThenInclude(a => a!.Resource)
+            .Include(x => x.Allocation).ThenInclude(a => a!.Hall)
+            .Include(x => x.RequestedByNavigation)
+            .Include(x => x.DecisionByNavigation)
+            .OrderBy(x => x.Status == "Pending" ? 0 : 1)
+            .ThenBy(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        // Resource requests need the events that share the same resource in an overlapping window.
+        var resourceIds = requests.Where(x => x.Allocation is not null).Select(x => x.Allocation!.ResourceId).Distinct().ToList();
+        var related = resourceIds.Count == 0
+            ? new List<ResourceAllocation>()
+            : await db.ResourceAllocations.AsNoTracking()
+                .Include(a => a.Project).ThenInclude(p => p.Customer)
+                .Where(a => resourceIds.Contains(a.ResourceId) && a.Status != "Released")
+                .ToListAsync(cancellationToken);
+
+        var items = requests.Select(request =>
+        {
+            ExceptionCrContextView? cr = request.Cr is { } ticket
+                ? new ExceptionCrContextView(ticket.Crcode, ticket.CostImpact, ticket.PenaltyRate ?? 0m, ticket.PenaltyFee,
+                    ticket.TotalVariance ?? ticket.CostImpact + ticket.PenaltyFee)
+                : null;
+
+            ExceptionResourceContextView? resource = null;
+            if (request.Allocation is { } allocation)
             {
-                x.ExceptionRequestId, x.RequestCode, x.SourceType, x.Project.ProjectCode, x.Status, x.RequestNote, x.DecisionNote, x.CreatedAt,
-                CrCode = x.Cr == null ? null : x.Cr.Crcode, Variance = x.Cr == null ? null : x.Cr.TotalVariance,
-                PenaltyFee = x.Cr == null ? (decimal?)null : x.Cr.PenaltyFee, PenaltyRate = x.Cr == null ? null : x.Cr.PenaltyRate,
-                Resource = x.Allocation == null ? null : x.Allocation.Resource.Name, Quantity = x.Allocation == null ? (int?)null : x.Allocation.AllocatedQuantity,
-                Hall = x.Allocation == null ? null : x.Allocation.Hall.Name,
-                Start = x.Allocation == null ? (DateTime?)null : x.Allocation.StartTime, End = x.Allocation == null ? (DateTime?)null : x.Allocation.EndTime
-            }).ToListAsync(cancellationToken);
-        return rows.Select(x => x.SourceType == "CrPenaltyWaiver"
-            ? new ExceptionRequestView(x.ExceptionRequestId, x.RequestCode, x.SourceType, x.CrCode!, x.ProjectCode, "Miễn phí phạt", x.Status, x.RequestNote,
-                $"{x.CrCode} tổng chênh lệch {Money(x.Variance ?? 0)} · phí phạt {Money(x.PenaltyFee ?? 0)} (tỷ lệ {x.PenaltyRate?.ToString("0.##", Vi) ?? "0"}%)", x.DecisionNote, Utc(x.CreatedAt))
-            : new ExceptionRequestView(x.ExceptionRequestId, x.RequestCode, x.SourceType, "Xung đột tài nguyên", x.ProjectCode, x.Resource ?? "", x.Status, x.RequestNote,
-                $"{x.Resource} × {x.Quantity} · {x.Hall} · {Local(x.Start)} – {Local(x.End)}", x.DecisionNote, Utc(x.CreatedAt))).ToList();
+                var clashing = related
+                    .Where(other => other.AllocationId != allocation.AllocationId
+                        && other.ResourceId == allocation.ResourceId
+                        && other.StartTime < allocation.EndTime && allocation.StartTime < other.EndTime)
+                    .OrderBy(other => other.StartTime)
+                    .ToList();
+                var otherQuantity = clashing.Where(ConsumesCapacity).Sum(other => other.AllocatedQuantity);
+                var shortage = Math.Max(0, otherQuantity + allocation.AllocatedQuantity - allocation.Resource.TotalQuantity);
+                resource = new ExceptionResourceContextView(
+                    allocation.AllocationId, allocation.Resource.Name, ResourceCalendarRepository.TypeLabel(allocation.Resource.Type),
+                    allocation.AllocatedQuantity, allocation.Resource.TotalQuantity, allocation.Hall.Name,
+                    Utc(allocation.StartTime), Utc(allocation.EndTime), otherQuantity, shortage,
+                    clashing.Select(other => new ExceptionClashingView(other.Project.ProjectCode, other.Project.Customer.FullName,
+                        Utc(other.StartTime), Utc(other.EndTime), other.AllocatedQuantity, other.Status)).ToList());
+            }
+
+            return new ExceptionRequestView(
+                request.ExceptionRequestId, request.RequestCode, request.SourceType, request.Status,
+                request.Project.ProjectCode, request.Project.Customer.FullName, request.Project.Hall.Name,
+                request.RequestedByNavigation.FullName, Utc(request.CreatedAt), request.RequestNote,
+                request.DecisionNote, request.DecisionByNavigation?.FullName,
+                request.DecidedAt is { } decidedAt ? Utc(decidedAt) : null,
+                cr, resource);
+        })
+        .OrderBy(item => item.Status == "Pending" ? 0 : 1)
+        .ThenBy(item => item.Status == "Pending" ? item.CreatedAt : DateTime.MaxValue)
+        .ThenByDescending(item => item.DecidedAt ?? item.CreatedAt)
+        .ToList();
+
+        var pending = items.Where(item => item.Status == "Pending").ToList();
+        int? oldestPendingHours = pending.Count == 0
+            ? null
+            : (int)Math.Max(0, Math.Floor((DateTime.UtcNow - pending.Min(item => item.CreatedAt)).TotalHours));
+        var summary = new ExceptionQueueSummaryView(
+            pending.Count,
+            items.Count(item => item.Status == "Approved"),
+            items.Count(item => item.Status == "Rejected"),
+            oldestPendingHours);
+        return new ExceptionQueueView(items, summary);
     }
 
-    private static string Local(DateTime? utc) =>
-        utc is { } value ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc), VnTz).ToString("dd/MM HH:mm", Vi) : "";
+    private static bool ConsumesCapacity(ResourceAllocation allocation) =>
+        allocation.Status is "Reserved" or "Exception Approved";
 
     public async Task<bool> DecideExceptionAsync(int requestId, bool approve, string note, int adminId, CancellationToken cancellationToken = default)
     {
         note = note?.Trim() ?? "";
         if (note.Length == 0) throw new InvalidOperationException("Trường Ghi chú quyết định là bắt buộc.");
         if (note.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự.");
-        var request = await db.ExceptionRequests.Include(x => x.Cr).Include(x => x.Allocation)
+        var request = await db.ExceptionRequests.Include(x => x.Cr).Include(x => x.Project).Include(x => x.Allocation)
             .FirstOrDefaultAsync(x => x.ExceptionRequestId == requestId, cancellationToken);
         if (request is null) return false;
         if (request.Status != "Pending") throw new InvalidOperationException("Yêu cầu ngoại lệ này đã được quyết định.");
@@ -237,8 +290,9 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             db.Crhistories.Add(new Crhistory { Crid = cr.Crid, ActorId = adminId, Action = approve ? "ExceptionApproved" : "ExceptionRejected", Note = note, CreatedAt = now });
             db.Notifications.Add(new Notification
             {
-                RecipientId = request.RequestedBy, Type = "CR update", LinkUrl = "/M04",
-                Message = $"Yêu cầu ngoại lệ {request.RequestCode} cho {cr.Crcode} đã được {(approve ? "chấp thuận" : "từ chối")}."
+                RecipientId = request.RequestedBy, Type = "CR update",
+                LinkUrl = $"/manager/projects/{request.Project.ProjectCode}/change-requests/{cr.Crcode}",
+                Message = $"Yêu cầu ngoại lệ {request.RequestCode} cho {cr.Crcode} đã {(approve ? "được chấp thuận" : "bị từ chối")}."
             });
         }
         if (approve && request.Allocation is { } allocation)
@@ -248,6 +302,11 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             allocation.ExceptionApprovedBy = adminId;
             allocation.ExceptionApprovedAt = now;
             allocation.ExceptionNote = note;
+        }
+        else if (!approve && request.Allocation is { Status: "PendingException" } rejected)
+        {
+            // A rejected resource exception never becomes valid, so the pending allocation is released.
+            rejected.Status = "Released";
         }
         await db.SaveChangesAsync(cancellationToken);
         return true;

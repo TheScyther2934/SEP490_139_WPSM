@@ -22,8 +22,48 @@ public sealed record AdminReportView(DateOnly From, DateOnly To, decimal Utiliza
     IReadOnlyList<HallUtilizationRow> Halls, IReadOnlyList<NetRevenueRow> Revenue, IReadOnlyList<CrStatusCount> CrByStatus, IReadOnlyList<CrTypeRow> CrByType);
 
 public sealed record EscalatedComplaintView(int ComplaintId, string Code, string ProjectCode, string Description, string? ManagerNote, DateTime? EscalatedAt, int BeoVersion, int PhotoCount);
-public sealed record ExceptionRequestView(int Id, string Code, string SourceType, string Source, string ProjectCode, string Request, string Status,
-    string ManagerNote, string Context, string? DecisionNote, DateTime CreatedAt);
+
+// ── A-18 Special Exception Requests (UC-47) ──────────────────────────────────
+// One queue holds both kinds of escalation: a CR penalty waiver (FE-05/FE-06) and an
+// unresolvable resource conflict (FE-07). The Admin decides with a mandatory note.
+
+public sealed record ExceptionClashingView(string ProjectCode, string CoupleName, DateTime StartTime, DateTime EndTime, int Quantity, string Status);
+
+public sealed record ExceptionCrContextView(string CrCode, decimal PriceDelta, decimal PenaltyRate, decimal PenaltyFee, decimal TotalImpact);
+
+public sealed record ExceptionResourceContextView(
+    int AllocationId,
+    string ResourceName,
+    string ResourceTypeLabel,
+    int Quantity,
+    int TotalQuantity,
+    string HallName,
+    DateTime StartTime,
+    DateTime EndTime,
+    int OtherQuantity,
+    int Shortage,
+    IReadOnlyList<ExceptionClashingView> Clashing);
+
+public sealed record ExceptionRequestView(
+    int Id,
+    string Code,
+    string SourceType,          // "CrPenaltyWaiver" | "ResourceConflict"
+    string Status,              // "Pending" | "Approved" | "Rejected"
+    string ProjectCode,
+    string ProjectCouple,
+    string HallName,
+    string RequestedByName,
+    DateTime CreatedAt,
+    string Note,                // the Manager's justification
+    string? DecisionNote,
+    string? DecidedByName,
+    DateTime? DecidedAt,
+    ExceptionCrContextView? Cr,
+    ExceptionResourceContextView? Resource);
+
+public sealed record ExceptionQueueSummaryView(int Pending, int Approved, int Rejected, int? OldestPendingHours);
+
+public sealed record ExceptionQueueView(IReadOnlyList<ExceptionRequestView> Items, ExceptionQueueSummaryView Summary);
 
 /// <summary>Admin screens A-01, A-09..A-18. Admins see aggregates and escalations only (GBR-12).</summary>
 public interface IAdminRepository
@@ -37,7 +77,7 @@ public interface IAdminRepository
     Task<IReadOnlyList<EscalatedComplaintView>> GetEscalatedComplaintsAsync(CancellationToken cancellationToken = default);
     /// <summary>UC-46. Returns false when the complaint does not exist or is not Escalated.</summary>
     Task<bool> ResolveComplaintAsync(int complaintId, string decision, int adminId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ExceptionRequestView>> GetExceptionRequestsAsync(CancellationToken cancellationToken = default);
+    Task<ExceptionQueueView> GetExceptionRequestsAsync(CancellationToken cancellationToken = default);
     /// <summary>UC-47. Returns false when the request does not exist.</summary>
     Task<bool> DecideExceptionAsync(int requestId, bool approve, string note, int adminId, CancellationToken cancellationToken = default);
 }
