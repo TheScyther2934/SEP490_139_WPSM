@@ -36,6 +36,12 @@ export const ENDPOINTS = {
     roadmap: "/customer/roadmap",
     completeTask: (projectCode, taskId) => `/customer/projects/${encodeURIComponent(projectCode)}/roadmap/tasks/${taskId}/complete`,
   },
+  // FE-07. Manager calendar, allocation dialog (M-21) and conflict detail (M-22).
+  resourceCalendar: "/resource-calendar",
+  resources: "/resources",
+  resourceAllocations: "/resource-allocations",
+  resourceAllocation: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}`,
+  allocationException: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}/exception`,
   // FE-05. Customer routes resolve the caller's own project (GBR-12); Manager routes carry the code.
   changeRequests: {
     customer: {

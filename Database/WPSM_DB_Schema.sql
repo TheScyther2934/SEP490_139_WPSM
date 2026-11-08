@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- WPSM_DB (Wedding Planning and Service Management) - SEP490_G139
 -- Target: Microsoft SQL Server 2022
 -- Source of truth: Report 3 (SRS) - section I.3 (Conceptual Data Model, 23 entities),
@@ -230,7 +230,7 @@ CREATE TABLE dbo.ResourceAllocations (
     ExceptionNote       NVARCHAR(300) NULL,
     CONSTRAINT CK_Alloc_Time     CHECK (EndTime > StartTime),
     CONSTRAINT CK_Alloc_Quantity CHECK (AllocatedQuantity > 0),
-    CONSTRAINT CK_Alloc_Status   CHECK (Status IN ('Reserved','Exception Approved','Released')),
+    CONSTRAINT CK_Alloc_Status   CHECK (Status IN ('Reserved','PendingException','Exception Approved','Released')),
     CONSTRAINT CK_Alloc_Exception CHECK (
         (IsExceptionApproved = 0 AND Status <> 'Exception Approved')
      OR (IsExceptionApproved = 1 AND Status IN ('Exception Approved','Released')

@@ -24,3 +24,8 @@ public sealed record CrCounterRequest(IReadOnlyList<CrLineCommand>? Items, strin
 public sealed record CrApproveRequest(string? Note = null);
 public sealed record CrRejectRequest(string Reason);
 public sealed record CrExceptionRequest(string Note);
+
+// FE-07: M-21 allocation dialog and the M-22 exception request.
+public sealed record ResourceAllocationRequest(int ResourceId, int ProjectId, DateTime StartTime, DateTime EndTime, int Quantity,
+    bool RequestException = false, string? ExceptionNote = null);
+public sealed record ResourceExceptionRequest(string Note);

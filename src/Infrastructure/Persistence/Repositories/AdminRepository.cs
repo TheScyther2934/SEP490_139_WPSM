@@ -249,6 +249,11 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             allocation.ExceptionApprovedAt = now;
             allocation.ExceptionNote = note;
         }
+        else if (!approve && request.Allocation is { Status: "PendingException" } rejected)
+        {
+            // A rejected resource exception never becomes valid, so the pending allocation is released.
+            rejected.Status = "Released";
+        }
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }

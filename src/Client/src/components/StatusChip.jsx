@@ -31,7 +31,14 @@ const CHANGE_REQUEST = {
   Approved: { label: "Đã duyệt", color: "success" },
   Rejected: { label: "Đã từ chối", color: "error" },
 };
-const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT, cr: CHANGE_REQUEST };
+// FE-07: resource allocations (M-21, M-22).
+const ALLOCATION = {
+  Reserved: { label: "Đã giữ", color: "success" },
+  PendingException: { label: "Chờ Admin ngoại lệ", color: "warning" },
+  "Exception Approved": { label: "Ngoại lệ đã duyệt", color: "info" },
+  Released: { label: "Đã thu hồi", color: "default" },
+};
+const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT, cr: CHANGE_REQUEST, allocation: ALLOCATION };
 
 export const statusLabel = (kind, status) => KINDS[kind]?.[status]?.label ?? status;
 
