@@ -26,6 +26,12 @@ using Application.Roadmap;
 using Infrastructure.Roadmap;
 using Application.Payments;
 using Infrastructure.Payments;
+using Application.Dashboard;
+using Application.DayOfTasks;
+using Application.OverdueAlerts;
+using Infrastructure.Dashboard;
+using Infrastructure.DayOfTasks;
+using Infrastructure.OverdueAlerts;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("WpsmDb");
@@ -98,6 +104,11 @@ builder.Services.AddScoped<IT30PaymentRequestService, T30PaymentRequestService>(
 builder.Services.AddScoped<IssueT30PaymentRequestJob>();
 builder.Services.AddScoped<IFinalSettlementService, FinalSettlementService>();
 builder.Services.AddScoped<FinalSettlementJob>();
+builder.Services.AddScoped<IDetectOverdueTasksService, DetectOverdueTasksService>();
+builder.Services.AddScoped<DetectOverdueTasksJob>();
+builder.Services.AddScoped<IManagerOverdueAlertService, ManagerOverdueAlertService>();
+builder.Services.AddScoped<IManagerDashboardService, ManagerDashboardService>();
+builder.Services.AddScoped<IDayOfTaskService, DayOfTaskService>();
 
 var backgroundJobsEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true) && !string.IsNullOrWhiteSpace(connectionString);
 if (backgroundJobsEnabled)
@@ -184,6 +195,11 @@ if (backgroundJobsEnabled)
         "job-06-final-settlement",
         job => job.RunAsync(CancellationToken.None),
         "0 1 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<DetectOverdueTasksJob>(
+        "job-05-detect-overdue-tasks",
+        job => job.RunAsync(CancellationToken.None),
+        "*/1 * * * *",
         new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
 }
 

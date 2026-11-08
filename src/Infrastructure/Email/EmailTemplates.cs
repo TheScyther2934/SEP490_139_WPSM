@@ -106,4 +106,34 @@ internal static class EmailTemplates
         <p>Vui lòng truy cập <a href="{WebUtility.HtmlEncode(settlementUrl)}">Màn hình thanh toán &amp; quyết toán (M-13)</a> để đối soát các khoản thanh toán thực tế, ghi nhận thanh toán đợt cuối và hoàn tất quyết toán hợp đồng.</p>
         <p>Trân trọng,<br>Hệ thống Quản lý Tiệc cưới WPSM</p>
         """;
+
+    internal static string OverdueAlert(
+        string recipientName,
+        string role,
+        string projectCode,
+        string taskName,
+        DateTime deadline,
+        string hallName,
+        DateOnly eventDate,
+        string alertUrl)
+    {
+        var roleGreeting = string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "Quản lý";
+
+        return $"""
+        <p>Xin chào {roleGreeting} <strong>{WebUtility.HtmlEncode(recipientName)}</strong>,</p>
+        <p style="color: #d32f2f; font-weight: bold; font-size: 1.1em;">
+            ⚠️ CẢNH BÁO: Nhiệm vụ ngày sự kiện đã quá hạn (Overdue Alert)!
+        </p>
+        <p>Hệ thống WPSM phát hiện nhiệm vụ ngày sự kiện sau đây đã quá hạn thực hiện:</p>
+        <table style="border-collapse: collapse; margin: 15px 0;">
+            <tr><td style="padding: 6px 12px; font-weight: bold;">Mã dự án:</td><td style="padding: 6px 12px;">{WebUtility.HtmlEncode(projectCode)}</td></tr>
+            <tr><td style="padding: 6px 12px; font-weight: bold;">Nhiệm vụ:</td><td style="padding: 6px 12px; color: #d32f2f; font-weight: bold;">{WebUtility.HtmlEncode(taskName)}</td></tr>
+            <tr><td style="padding: 6px 12px; font-weight: bold;">Hạn chót:</td><td style="padding: 6px 12px;">{deadline:HH:mm dd/MM/yyyy}</td></tr>
+            <tr><td style="padding: 6px 12px; font-weight: bold;">Sảnh tiệc:</td><td style="padding: 6px 12px;">{WebUtility.HtmlEncode(hallName)}</td></tr>
+            <tr><td style="padding: 6px 12px; font-weight: bold;">Ngày tổ chức:</td><td style="padding: 6px 12px;">{eventDate:dd/MM/yyyy}</td></tr>
+        </table>
+        <p>Vui lòng <a href="{WebUtility.HtmlEncode(alertUrl)}">truy cập hệ thống</a> để kiểm tra tình trạng và điều phối xử lý ngay lập tức.</p>
+        <p>Trân trọng,<br>Hệ thống Quản lý Tiệc cưới WPSM</p>
+        """;
+    }
 }

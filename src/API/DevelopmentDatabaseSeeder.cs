@@ -187,6 +187,52 @@ public sealed class DevelopmentDatabaseSeeder(
                 });
             }
 
+            if (!await db.DayOfTasks.AnyAsync(x => x.ProjectId == project.ProjectId, cancellationToken))
+            {
+                var eventDate = p.EventDate;
+                var baseDateTime = eventDate.ToDateTime(new TimeOnly(11, 0));
+                var isCompleted = p.Status is "Event Completed" or "Settled" or "Closed";
+
+                db.DayOfTasks.AddRange(
+                    new DayOfTask
+                    {
+                        ProjectId = project.ProjectId,
+                        TaskName = "Kiểm tra set-up bàn tiệc & âm thanh ánh sáng",
+                        DeadlineTime = baseDateTime.AddHours(-1),
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseDateTime.AddHours(-1).AddMinutes(15) : null,
+                        PhotoRequired = true
+                    },
+                    new DayOfTask
+                    {
+                        ProjectId = project.ProjectId,
+                        TaskName = "Đón tiếp khách mời & điều phối khai tiệc",
+                        DeadlineTime = baseDateTime,
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseDateTime : null,
+                        PhotoRequired = false
+                    },
+                    new DayOfTask
+                    {
+                        ProjectId = project.ProjectId,
+                        TaskName = "Giám sát quy trình phục vụ tiệc theo BEO",
+                        DeadlineTime = baseDateTime.AddHours(1),
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseDateTime.AddHours(1) : null,
+                        PhotoRequired = true
+                    },
+                    new DayOfTask
+                    {
+                        ProjectId = project.ProjectId,
+                        TaskName = "Đối soát phát sinh và nghiệm thu tiệc",
+                        DeadlineTime = baseDateTime.AddHours(2),
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseDateTime.AddHours(2) : null,
+                        PhotoRequired = false
+                    }
+                );
+            }
+
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }

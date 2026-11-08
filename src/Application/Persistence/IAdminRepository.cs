@@ -1,6 +1,16 @@
 namespace Application.Persistence;
 
-public sealed record OverdueAlertView(int TaskId, string ProjectCode, string TaskName, DateTime Deadline, int OverdueMinutes);
+public sealed record OverdueAlertView(
+    int TaskId,
+    string ProjectCode,
+    string TaskName,
+    DateTime Deadline,
+    int OverdueMinutes,
+    string Status = "Overdue",
+    string? Hall = null,
+    DateOnly? EventDate = null,
+    string? CustomerName = null,
+    string? ManagerName = null);
 public sealed record ProofPhotoView(int PhotoId, string ProjectCode, string HallName, string TaskName, string TaskStatus, string UploaderName, DateTime UploadedAt)
 {
     /// <summary>Signed, short-lived URL filled in by the API layer (img tags cannot send a Bearer token).</summary>

@@ -38,9 +38,15 @@ export const ENDPOINTS = {
     exceptionRequests: "/admin/exception-requests",
     decideException: (id) => `/admin/exception-requests/${id}/decision`,
   },
+  overdueAlerts: "/overdue-alerts",
   manager: {
+    dashboard: "/manager/dashboard",
+    overdueAlerts: "/manager/overdue-alerts",
     roadmap: (code) => `/manager/projects/${encodeURIComponent(code)}/roadmap`,
     completeTask: (code, taskId) => `/manager/projects/${encodeURIComponent(code)}/roadmap/tasks/${taskId}/complete`,
+    dayOfTasks: (code) => `/projects/${encodeURIComponent(code)}/day-of-tasks`,
+    completeDayOfTask: (code, taskId) => `/projects/${encodeURIComponent(code)}/day-of-tasks/${taskId}/complete`,
+    completeDayOfTaskDirect: (taskId) => `/day-of-tasks/${taskId}/complete`,
   },
   managerPayments: {
     getPayments: (code) => `/projects/${encodeURIComponent(code)}/payments`,

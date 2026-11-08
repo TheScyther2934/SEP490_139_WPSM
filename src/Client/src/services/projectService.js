@@ -26,4 +26,9 @@ export const projectService = {
   generateReceipt: (code) => axiosClient.post(ENDPOINTS.managerPayments.generateReceipt(code)).then((r) => r.data),
   downloadSettlementReceipt: (code) => axiosClient.get(ENDPOINTS.managerPayments.getReceiptFile(code), { responseType: "blob" }).then((r) => r.data),
   downloadPaymentReceipt: (code, paymentType) => axiosClient.get(ENDPOINTS.managerPayments.downloadPaymentReceipt(code, paymentType), { responseType: "blob" }).then((r) => r.data),
+  getManagerDashboard: () => axiosClient.get(ENDPOINTS.manager.dashboard).then((r) => r.data),
+  getManagerOverdueAlerts: () => axiosClient.get(ENDPOINTS.manager.overdueAlerts).then((r) => r.data),
+  getDayOfTasks: (code) => axiosClient.get(ENDPOINTS.manager.dayOfTasks(code)).then((r) => r.data),
+  completeDayOfTask: (code, taskId, formData) => axiosClient.post(ENDPOINTS.manager.completeDayOfTask(code, taskId), formData).then((r) => r.data),
+  completeDayOfTaskDirect: (taskId, formData) => axiosClient.post(ENDPOINTS.manager.completeDayOfTaskDirect(taskId), formData).then((r) => r.data),
 };

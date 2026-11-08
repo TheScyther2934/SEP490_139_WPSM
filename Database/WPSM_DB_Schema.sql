@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- WPSM_DB (Wedding Planning and Service Management) - SEP490_G139
 -- Target: Microsoft SQL Server 2022
 -- Source of truth: Report 3 (SRS) - section I.3 (Conceptual Data Model, 23 entities),
@@ -450,6 +450,10 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_CRHistory_CR' AND object
     CREATE INDEX IX_CRHistory_CR ON dbo.CRHistories(CRId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOf_Project_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
     CREATE INDEX IX_DayOf_Project_Deadline ON dbo.DayOfTasks(ProjectId, DeadlineTime, Status);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOfTasks_Status_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
+    CREATE INDEX IX_DayOfTasks_Status_Deadline ON dbo.DayOfTasks(Status, DeadlineTime);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WeddingProjects_Manager_Status' AND object_id=OBJECT_ID('dbo.WeddingProjects'))
+    CREATE INDEX IX_WeddingProjects_Manager_Status ON dbo.WeddingProjects(ManagerId, Status);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Photo_Task' AND object_id=OBJECT_ID('dbo.ExecutionPhotos'))
     CREATE INDEX IX_Photo_Task ON dbo.ExecutionPhotos(DayOfTaskId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Notifications_Recipient' AND object_id=OBJECT_ID('dbo.Notifications'))
