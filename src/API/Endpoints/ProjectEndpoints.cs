@@ -138,6 +138,64 @@ public static class ProjectEndpoints
             await repo.GetAddendaAsync(projectCode, UserId(user), user.FindFirstValue(ClaimTypes.Role), ct) is { } addenda ? Results.Ok(addenda) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
 
+        // M-09 / C-07: List CRs & Cost Impact for a project
+        api.MapGet("/projects/{id}/change-requests", async (string id, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.GetProjectChangeRequestsAsync(id, UserId(user), user.FindFirstValue(ClaimTypes.Role), ct) is { } crs ? Results.Ok(crs) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager", "Admin"));
+
+        api.MapGet("/projects/{id}/change-requests/{crCode}/cost-impact", async (string id, string crCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.GetCostImpactAsync(id, crCode, UserId(user), user.FindFirstValue(ClaimTypes.Role), ct) is { } impact ? Results.Ok(impact) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager", "Admin"));
+
+        // M-09: Approve CR Cost Impact & Generate Contract Addendum in single transaction (UC-23, UC-24, GBR-03, GBR-05)
+        api.MapPost("/projects/{id}/change-requests/{crCode}/addendum", async (string id, string crCode, GenerateAddendumRequest? request, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.GenerateAddendumAsync(id, crCode, UserId(user), request?.SignedFileId, request?.Note, ct) is { } impact ? Results.Ok(impact) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        api.MapPut("/projects/{id}/change-requests/{crCode}/signed-addendum", async (string id, string crCode, AttachSignedAddendumRequest request, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.AttachSignedAddendumAsync(id, crCode, UserId(user), request.FileId, ct) is { } impact ? Results.Ok(impact) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        // M-10, M-11, M-12: BEO, Department Sheets, Freeze & Re-approve Stale BEO (UC-27, UC-28, UC-29, GBR-05)
+        api.MapGet("/projects/{id}/beo", async (string id, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.GetBeoAsync(id, UserId(user), ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
+
+        api.MapPut("/projects/{id}/beo/draft", async (string id, SaveBeoRequest request, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.SaveDraftBeoAsync(id, UserId(user), request.Notes, ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        api.MapPost("/projects/{id}/beo/freeze", async (string id, SaveBeoRequest? request, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.FreezeOrReapproveBeoAsync(id, UserId(user), request?.Notes, ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        api.MapPost("/projects/{id}/beo/department-sheets", async (string id, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.GenerateDepartmentSheetsAsync(id, UserId(user), ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        api.MapGet("/projects/{id}/beo/department-sheets/{department}/pdf", async (string id, string department, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.ExportDepartmentSheetAsync(id, department, UserId(user), ct) is { } pdf
+                ? Results.File(pdf.Content, pdf.ContentType, pdf.FileName)
+                : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
+
+        api.MapPost("/projects/beo/compile-t7", async (IBeoRepository repo, CancellationToken ct) =>
+            Results.Ok(new { compiled = await repo.CompileT7DraftsAsync(ct) }))
+            .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
+
+        // M-18, M-19, M-20: Manager Complaints List, Detail & Respond / Escalate (UC-35, UC-36, BF-08)
+        api.MapGet("/manager/complaints", async (string? projectCode, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            Results.Ok(await repo.GetManagerComplaintsAsync(UserId(user), projectCode, ct)))
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        api.MapGet("/manager/complaints/{complaintCode}", async (string complaintCode, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.GetManagerComplaintAsync(UserId(user), complaintCode, ct) is { } item ? Results.Ok(item) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
+        api.MapPost("/manager/complaints/{complaintCode}/action", async (string complaintCode, ManagerComplaintActionRequest request, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            await repo.RespondOrEscalateComplaintAsync(UserId(user), complaintCode, request.Action, request.Note, ct) is { } item ? Results.Ok(item) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+
         return api;
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Infrastructure.Persistence.Entities;
@@ -11,7 +11,11 @@ public partial class Complaint
 
     public int ProjectId { get; set; }
 
+    public int? CustomerId { get; set; }
+
     public int Beoid { get; set; }
+
+    public string? Title { get; set; }
 
     public string Description { get; set; } = null!;
 

@@ -42,6 +42,8 @@ builder.Services.AddHostedService<CredentialEmailDispatcher>();
 builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
 builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
+builder.Services.AddScoped<IBeoRepository, BeoRepository>();
+builder.Services.AddScoped<IComplaintRatingRepository, ComplaintRatingRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<PhotoLinks>();
@@ -85,6 +87,7 @@ builder.Services.AddScoped<IEmailOutbox, EmailOutbox>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
 builder.Services.AddScoped<EmailDispatchJob>();
+builder.Services.AddScoped<BeoCompilationJob>();
 
 var backgroundJobsEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true) && !string.IsNullOrWhiteSpace(connectionString);
 if (backgroundJobsEnabled)
@@ -182,8 +185,9 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Wps
 }
 if (backgroundJobsEnabled)
 {
-    app.Services.GetRequiredService<IRecurringJobManager>()
-        .AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    recurringJobs.AddOrUpdate<BeoCompilationJob>("job-03-compile-beo-draft", job => job.RunAsync(CancellationToken.None), "0 7 * * *");
 }
 
 app.UseCors();

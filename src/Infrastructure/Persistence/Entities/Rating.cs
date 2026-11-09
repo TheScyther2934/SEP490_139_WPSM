@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Infrastructure.Persistence.Entities;
@@ -11,7 +11,7 @@ public partial class Rating
 
     public string Module { get; set; } = null!;
 
-    public byte Stars { get; set; }
+    public int Stars { get; set; }
 
     public string? Comment { get; set; }
 

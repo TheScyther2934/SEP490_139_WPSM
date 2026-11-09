@@ -24,7 +24,37 @@ const PAYMENT = {
   Upcoming: { label: "Chưa đến hạn", color: "default" },
   Overdue: { label: "Quá hạn", color: "error" },
 };
-const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT };
+const CR = {
+  Draft: { label: "Bản nháp", color: "default" },
+  Negotiating: { label: "Đang thương lượng", color: "warning" },
+  Approved: { label: "Đã phê duyệt", color: "success" },
+  Rejected: { label: "Đã từ chối", color: "error" },
+};
+const BEO = {
+  "Not started": { label: "Chưa khởi tạo", color: "default" },
+  Draft: { label: "Bản thảo (Draft)", color: "info" },
+  Frozen: { label: "Đã đóng băng (Frozen)", color: "success" },
+  Stale: { label: "Cần duyệt lại (Stale)", color: "warning" },
+};
+const COMPLAINT = {
+  Open: { label: "Đang xử lý", color: "warning" },
+  Escalated: { label: "Đã chuyển Admin", color: "error" },
+  Resolved: { label: "Đã giải quyết", color: "success" },
+};
+const ADDENDUM = {
+  Generated: { label: "Đã phát hành", color: "info" },
+  Signed: { label: "Đã ký xác nhận", color: "success" },
+};
+const KINDS = {
+  project: PROJECT,
+  task: TASK,
+  exception: EXCEPTION,
+  payment: PAYMENT,
+  cr: CR,
+  beo: BEO,
+  complaint: COMPLAINT,
+  addendum: ADDENDUM,
+};
 
 export const statusLabel = (kind, status) => KINDS[kind]?.[status]?.label ?? status;
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
@@ -191,6 +191,217 @@ public sealed class DevelopmentDatabaseSeeder(
             }
 
             await db.SaveChangesAsync(cancellationToken);
+
+            // Seed ChangeRequests, BEOs, Addenda, Complaints & Ratings for frozen / completed projects
+            if (p.Status != "Active Baseline")
+            {
+                var specList = await db.SpecItems
+                    .Include(s => s.CatalogItem)
+                    .Where(s => s.ProjectId == project.ProjectId && s.IsBaseline && s.Version == 1)
+                    .ToListAsync(cancellationToken);
+
+                var cateringSpec = specList.FirstOrDefault(s => s.CatalogItem.Category == "Catering") ?? specList.FirstOrDefault();
+                var decorSpec = specList.FirstOrDefault(s => s.CatalogItem.Category == "Decor") ?? specList.LastOrDefault();
+
+                var suffix = p.Code.Split('-').LastOrDefault() ?? project.ProjectId.ToString();
+                var cr1Code = $"CR-{suffix}-01";
+                var cr1 = await db.ChangeRequests.FirstOrDefaultAsync(x => x.Crcode == cr1Code, cancellationToken);
+                if (cr1 is null && cateringSpec is not null)
+                {
+                    var delta = 5 * cateringSpec.UnitPrice;
+                    cr1 = new ChangeRequest
+                    {
+                        Crcode = cr1Code,
+                        ProjectId = project.ProjectId,
+                        CreatedBy = customer.UserId,
+                        Type = "Table count",
+                        Description = "Tăng thêm 5 bàn tiệc dự phòng cho khách gia đình hai bên.",
+                        CostImpact = delta,
+                        PenaltyRate = 0m,
+                        PenaltyFee = 0m,
+                        Status = "Approved",
+                        CustomerApprovedAt = DateTime.UtcNow.AddDays(-12),
+                        ManagerApprovedAt = DateTime.UtcNow.AddDays(-11),
+                        CreatedAt = DateTime.UtcNow.AddDays(-14)
+                    };
+                    db.ChangeRequests.Add(cr1);
+                    await db.SaveChangesAsync(cancellationToken);
+
+                    db.Critems.Add(new Critem
+                    {
+                        Crid = cr1.Crid,
+                        CatalogItemId = cateringSpec.CatalogItemId,
+                        TargetSpecItemId = cateringSpec.SpecItemId,
+                        OldQuantity = cateringSpec.Quantity,
+                        OldUnitPrice = cateringSpec.UnitPrice,
+                        NewQuantity = cateringSpec.Quantity + 5,
+                        NewUnitPrice = cateringSpec.UnitPrice
+                    });
+
+                    db.Crhistories.AddRange(
+                        new Crhistory
+                        {
+                            Crid = cr1.Crid,
+                            ActorId = customer.UserId,
+                            Action = "Khởi tạo yêu cầu thay đổi",
+                            Note = "Gia đình cần bổ sung 5 bàn tiệc.",
+                            CreatedAt = DateTime.UtcNow.AddDays(-14)
+                        },
+                        new Crhistory
+                        {
+                            Crid = cr1.Crid,
+                            ActorId = customer.UserId,
+                            Action = "Khách hàng phê duyệt tác động chi phí",
+                            Note = "Đồng ý chi phí phát sinh 5 bàn.",
+                            CreatedAt = DateTime.UtcNow.AddDays(-12)
+                        },
+                        new Crhistory
+                        {
+                            Crid = cr1.Crid,
+                            ActorId = manager.UserId,
+                            Action = "Phê duyệt tác động chi phí & phát hành phụ lục",
+                            Note = "Đã kiểm tra năng lực sảnh và phát hành phụ lục ADD-01.",
+                            CreatedAt = DateTime.UtcNow.AddDays(-11)
+                        });
+
+                    var addCode = $"ADD-{suffix}-01";
+                    if (!await db.ContractAddenda.AnyAsync(a => a.AddendumCode == addCode || a.Crid == cr1.Crid, cancellationToken))
+                    {
+                        db.ContractAddenda.Add(new ContractAddendum
+                        {
+                            AddendumCode = addCode,
+                            Crid = cr1.Crid,
+                            ProjectId = project.ProjectId,
+                            TotalVariance = delta,
+                            Status = p.Status is "Event Completed" or "Settled" or "Closed" ? "Signed" : "Generated",
+                            SignedAt = p.Status is "Event Completed" or "Settled" or "Closed" ? DateTime.UtcNow.AddDays(-10) : null,
+                            FilePath = $"addenda/{addCode}.pdf"
+                        });
+                        project.CurrentTotal = project.BaseContractValue + delta;
+                    }
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                // Second CR in Negotiating status so Customer (C-07/C-08) and Manager (M-09) can test approval & addendum generation
+                var cr2Code = $"CR-{suffix}-02";
+                if (!await db.ChangeRequests.AnyAsync(x => x.Crcode == cr2Code, cancellationToken) && decorSpec is not null)
+                {
+                    var newDecorPrice = decorSpec.UnitPrice + 4_500_000m;
+                    var delta2 = newDecorPrice - decorSpec.UnitPrice;
+                    var cr2 = new ChangeRequest
+                    {
+                        Crcode = cr2Code,
+                        ProjectId = project.ProjectId,
+                        CreatedBy = customer.UserId,
+                        Type = "Decor change",
+                        Description = "Nâng cấp gói hoa tươi nhập khẩu khu vực sân khấu và cổng đón khách.",
+                        CostImpact = delta2,
+                        PenaltyRate = 5m,
+                        PenaltyFee = decimal.Round(delta2 * 0.05m, 0),
+                        Status = "Negotiating",
+                        ManagerApprovedAt = DateTime.UtcNow.AddDays(-2),
+                        CreatedAt = DateTime.UtcNow.AddDays(-3)
+                    };
+                    db.ChangeRequests.Add(cr2);
+                    await db.SaveChangesAsync(cancellationToken);
+
+                    db.Critems.Add(new Critem
+                    {
+                        Crid = cr2.Crid,
+                        CatalogItemId = decorSpec.CatalogItemId,
+                        TargetSpecItemId = decorSpec.SpecItemId,
+                        OldQuantity = decorSpec.Quantity,
+                        OldUnitPrice = decorSpec.UnitPrice,
+                        NewQuantity = decorSpec.Quantity,
+                        NewUnitPrice = newDecorPrice
+                    });
+
+                    db.Crhistories.AddRange(
+                        new Crhistory
+                        {
+                            Crid = cr2.Crid,
+                            ActorId = customer.UserId,
+                            Action = "Khởi tạo yêu cầu thay đổi",
+                            Note = "Mong muốn nâng cấp hoa tươi khu vực lễ đài.",
+                            CreatedAt = DateTime.UtcNow.AddDays(-3)
+                        },
+                        new Crhistory
+                        {
+                            Crid = cr2.Crid,
+                            ActorId = manager.UserId,
+                            Action = "Cập nhật báo giá & tác động chi phí",
+                            Note = "Đã tính toán chênh lệch hoa tươi và phí điều chỉnh cận ngày.",
+                            CreatedAt = DateTime.UtcNow.AddDays(-2)
+                        });
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                // Seed BEO & 4 Department Sheets
+                var beo = await db.Beos.FirstOrDefaultAsync(b => b.ProjectId == project.ProjectId && b.Version == 1, cancellationToken);
+                if (beo is null)
+                {
+                    var beoStatus = p.Code == "WPSM-2026-014" ? "Stale" : "Frozen";
+                    beo = new Beo
+                    {
+                        ProjectId = project.ProjectId,
+                        Version = 1,
+                        Status = beoStatus,
+                        FrozenAt = DateTime.UtcNow.AddDays(-12),
+                        ApprovedBy = manager.UserId,
+                        Notes = beoStatus == "Stale"
+                            ? "BEO v1 chuyển sang Stale do phát sinh phụ lục ADD-014-01. Cần Manager rà soát và duyệt lại (M-12)."
+                            : "BEO chuẩn đã được đóng băng và phân phối tới 4 bộ phận vận hành."
+                    };
+                    db.Beos.Add(beo);
+                    await db.SaveChangesAsync(cancellationToken);
+
+                    foreach (var dept in new[] { "Kitchen", "Service", "Decor", "Tech-MC" })
+                    {
+                        db.BeodepartmentSheets.Add(new BeodepartmentSheet
+                        {
+                            Beoid = beo.Beoid,
+                            Department = dept,
+                            PdfFilePath = $"beo/{p.Code}_v1_{dept}.pdf",
+                            GeneratedAt = DateTime.UtcNow.AddDays(-12)
+                        });
+                    }
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                // Seed Complaints for C-14..C-16, M-18..M-20, A-16..A-17
+                var cmp1Code = $"CMP-{suffix}-01";
+                if (!await db.Complaints.AnyAsync(c => c.ComplaintCode == cmp1Code, cancellationToken) && beo is not null)
+                {
+                    var isEscalated = p.Code == "WPSM-2025-001";
+                    db.Complaints.Add(new Complaint
+                    {
+                        ComplaintCode = cmp1Code,
+                        ProjectId = project.ProjectId,
+                        CustomerId = customer.UserId,
+                        Title = "Thiếu bình hoa pha lê bàn tiệc VIP so với cam kết BEO",
+                        Beoid = beo.Beoid,
+                        Description = "Số lượng bình hoa pha lê trên bàn tiệc VIP thực tế ít hơn 2 bộ so với cam kết trong BEO v1.",
+                        Status = isEscalated ? "Escalated" : "Open",
+                        EscalationNote = isEscalated ? "Khách hàng yêu cầu hoàn phí 15% gói Decor, vượt thẩm quyền phê duyệt của Manager." : null,
+                        EscalatedAt = isEscalated ? DateTime.UtcNow.AddDays(-1) : null,
+                        CreatedAt = DateTime.UtcNow.AddDays(-2)
+                    });
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                // Seed Ratings only for Settled/Closed projects so Event Completed (WPSM-2025-001) & Baseline Frozen (WPSM-2026-014) can still test submitting ratings on C-13
+                if (p.Status is "Settled" or "Closed" && !await db.Ratings.AnyAsync(r => r.ProjectId == project.ProjectId, cancellationToken))
+                {
+                    db.Ratings.AddRange(
+                        new Rating { ProjectId = project.ProjectId, Module = "Hall", Stars = 5, Comment = "Không gian sảnh sang trọng, ánh sáng tuyệt vời.", CreatedAt = DateTime.UtcNow.AddDays(-5) },
+                        new Rating { ProjectId = project.ProjectId, Module = "Menu", Stars = 5, Comment = "Món ăn nóng sốt, lên món đúng giờ.", CreatedAt = DateTime.UtcNow.AddDays(-5) },
+                        new Rating { ProjectId = project.ProjectId, Module = "Decor", Stars = 4, Comment = "Hoa tươi đẹp, đúng tông màu chủ đạo.", CreatedAt = DateTime.UtcNow.AddDays(-5) },
+                        new Rating { ProjectId = project.ProjectId, Module = "MC", Stars = 5, Comment = "MC dẫn dắt ấm áp, chuyên nghiệp.", CreatedAt = DateTime.UtcNow.AddDays(-5) }
+                    );
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+            }
+
             await transaction.CommitAsync(cancellationToken);
         }
     }

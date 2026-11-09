@@ -17,3 +17,17 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
 public sealed record ResolveComplaintRequest(string Decision);
 public sealed record ExceptionDecisionRequest(bool Approve, string Note);
+
+// Iteration 2 (FE-06): Change Requests, Cost Impact & Addendum (C-06, C-07, C-08, M-09)
+public sealed record CreateCustomerCrRequest(string? ProjectCode, string Type, string Description, IReadOnlyList<CreateCrItemInput> Items);
+public sealed record CustomerCrDecisionRequest(string Action, string? Note = null);
+public sealed record GenerateAddendumRequest(Guid? SignedFileId = null, string? Note = null);
+public sealed record AttachSignedAddendumRequest(Guid FileId);
+
+// Iteration 3 (FE-04): BEO & Department Sheets (M-10, M-11, M-12)
+public sealed record SaveBeoRequest(string? Notes = null);
+
+// Iteration 4 (FE-11): Post-event Ratings & Complaints (C-12..C-16, M-18..M-20)
+public sealed record SubmitRatingsRequest(string? ProjectCode, IReadOnlyList<ModuleRatingInput> Ratings);
+public sealed record CreateComplaintRequest(string? ProjectCode, int? BeoId, string Description);
+public sealed record ManagerComplaintActionRequest(string Action, string Note);
