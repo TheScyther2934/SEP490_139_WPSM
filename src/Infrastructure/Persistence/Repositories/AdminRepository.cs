@@ -155,10 +155,10 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
     public async Task<IReadOnlyList<OverdueAlertView>> GetOverdueAlertsAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var tasks = await db.DayOfTasks.AsNoTracking().Where(x => x.Status == "Overdue").OrderBy(x => x.DeadlineTime)
-            .Select(x => new { x.DayOfTaskId, x.Project.ProjectCode, x.TaskName, x.DeadlineTime }).ToListAsync(cancellationToken);
+        var tasks = await db.DayOfTasks.AsNoTracking().Where(x => x.Status == "Overdue" && x.CompletedAt == null).OrderBy(x => x.DeadlineTime)
+            .Select(x => new { x.DayOfTaskId, x.Project.ProjectCode, x.TaskName, x.DeadlineTime, Hall = x.Project.Hall.Name, x.Project.EventDate, CustomerName = x.Project.Customer.FullName, ManagerName = x.Project.Manager.FullName }).ToListAsync(cancellationToken);
         return tasks.Select(x => new OverdueAlertView(x.DayOfTaskId, x.ProjectCode, x.TaskName, Utc(x.DeadlineTime),
-            Math.Max(0, (int)(now - x.DeadlineTime).TotalMinutes))).ToList();
+            Math.Max(0, (int)(now - x.DeadlineTime).TotalMinutes), "Overdue", x.Hall, x.EventDate, x.CustomerName, x.ManagerName)).ToList();
     }
 
     public async Task<IReadOnlyList<EscalatedComplaintView>> GetEscalatedComplaintsAsync(CancellationToken cancellationToken = default)

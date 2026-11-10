@@ -263,8 +263,11 @@ public partial class WpsmDbContext : DbContext
         modelBuilder.Entity<DayOfTask>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.DeadlineTime, e.Status }, "IX_DayOf_Project_Deadline");
+            entity.HasIndex(e => new { e.Status, e.DeadlineTime }, "IX_DayOfTasks_Status_Deadline");
 
             entity.Property(e => e.CompletedAt).HasPrecision(0);
+            entity.Property(e => e.OverdueFlaggedAt).HasPrecision(0);
+            entity.Property(e => e.RowVersion).IsRowVersion();
             entity.Property(e => e.DeadlineTime).HasPrecision(0);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
@@ -275,6 +278,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.ProjectId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_DayOf_Project");
+
+            entity.HasOne(d => d.CompletedByUser).WithMany()
+                .HasForeignKey(d => d.CompletedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DayOf_CompletedBy");
         });
 
         modelBuilder.Entity<ExecutionPhoto>(entity =>
@@ -561,6 +569,7 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => e.CustomerId, "IX_Projects_Customer");
 
             entity.HasIndex(e => e.ManagerId, "IX_Projects_Manager");
+            entity.HasIndex(e => new { e.ManagerId, e.Status }, "IX_WeddingProjects_Manager_Status");
 
             entity.HasIndex(e => new { e.Status, e.EventDate }, "IX_Projects_Status_Date");
 

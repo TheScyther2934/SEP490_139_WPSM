@@ -112,32 +112,29 @@ public sealed class DevelopmentDatabaseSeeder(
             var slot = await db.Slots.FirstAsync(x => x.HallId == hall.HallId && x.SlotName == p.Slot, cancellationToken);
 
             var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == p.Code, cancellationToken);
-            // A real project may already hold this hall slot (UQ_Projects_Hall_Slot_Date); skip the sample instead of
-            // failing start-up. The open transaction rolls back the sample customer on dispose.
             if (project is null && await db.WeddingProjects.AnyAsync(x => x.HallId == hall.HallId && x.SlotId == slot.SlotId && x.EventDate == p.EventDate, cancellationToken))
             {
-                logger.LogWarning("Seed: bỏ qua dự án mẫu {Code} vì {Hall} ca {Slot} ngày {Date} đã có dự án khác.", p.Code, p.Hall, p.Slot, p.EventDate);
+                logger.LogInformation("Bỏ qua seed dự án mẫu {Code} vì sảnh {Hall} ca {Slot} ngày {Date} đã được đặt.", p.Code, p.Hall, p.Slot, p.EventDate);
                 continue;
             }
+
             if (project is null)
             {
-            project = new WeddingProject
-            {
-                ProjectCode = p.Code,
-                CustomerId = customer.UserId,
-                ManagerId = manager.UserId,
-                HallId = hall.HallId,
-                SlotId = slot.SlotId,
-                EventDate = p.EventDate,
-                BaseContractValue = p.BaseValue,
-                Nrdamount = p.Nrd,
-                CurrentTotal = p.BaseValue,
-                Status = p.Status,
-                BaselineFrozenAt = p.Status == "Active Baseline" ? null : DateTime.UtcNow.AddDays(-30),
-                CreatedAt = DateTime.UtcNow.AddDays(-40)
-            };
-            db.WeddingProjects.Add(project);
-            await db.SaveChangesAsync(cancellationToken);
+                project = new WeddingProject
+                {
+                    ProjectCode = p.Code,
+                    CustomerId = customer.UserId,
+                    ManagerId = manager.UserId,
+                    HallId = hall.HallId,
+                    SlotId = slot.SlotId,
+                    EventDate = p.EventDate,
+                    BaseContractValue = p.BaseValue,
+                    Nrdamount = p.Nrd,
+                    Status = p.Status,
+                    CreatedAt = p.EventDate.ToDateTime(new TimeOnly(9, 0)).AddDays(-100)
+                };
+                db.WeddingProjects.Add(project);
+                await db.SaveChangesAsync(cancellationToken);
             }
 
             foreach (var item in catalogEntities)
@@ -190,284 +187,180 @@ public sealed class DevelopmentDatabaseSeeder(
                 });
             }
 
-            await db.SaveChangesAsync(cancellationToken);
-
-            // Seed ChangeRequests, BEOs, Addenda, Complaints & Ratings for frozen / completed projects
-            if (p.Status != "Active Baseline")
+            if (!await db.DayOfTasks.AnyAsync(x => x.ProjectId == project.ProjectId, cancellationToken))
             {
-                var specList = await db.SpecItems
-                    .Include(s => s.CatalogItem)
-                    .Where(s => s.ProjectId == project.ProjectId && s.IsBaseline && s.Version == 1)
-                    .ToListAsync(cancellationToken);
+                var eventDate = p.EventDate;
+                var baseUtc = Domain.Services.RoadmapRules.ConvertVietnamToUtc(eventDate, new TimeOnly(11, 0));
+                var isCompleted = p.Status is "Event Completed" or "Settled" or "Closed";
 
-                var cateringSpec = specList.FirstOrDefault(s => s.CatalogItem.Category == "Catering") ?? specList.FirstOrDefault();
-                var decorSpec = specList.FirstOrDefault(s => s.CatalogItem.Category == "Decor") ?? specList.LastOrDefault();
-
-                var suffix = p.Code.Split('-').LastOrDefault() ?? project.ProjectId.ToString();
-                var cr1Code = $"CR-{suffix}-01";
-                var cr1 = await db.ChangeRequests.FirstOrDefaultAsync(x => x.Crcode == cr1Code, cancellationToken);
-                if (cr1 is null && cateringSpec is not null)
-                {
-                    var delta = 5 * cateringSpec.UnitPrice;
-                    cr1 = new ChangeRequest
+                db.DayOfTasks.AddRange(
+                    new DayOfTask
                     {
-                        Crcode = cr1Code,
                         ProjectId = project.ProjectId,
-                        CreatedBy = customer.UserId,
-                        Type = "Table count",
-                        Description = "Tăng thêm 5 bàn tiệc dự phòng cho khách gia đình hai bên.",
-                        CostImpact = delta,
-                        PenaltyRate = 0m,
-                        PenaltyFee = 0m,
-                        Status = "Approved",
-                        CustomerApprovedAt = DateTime.UtcNow.AddDays(-12),
-                        ManagerApprovedAt = DateTime.UtcNow.AddDays(-11),
-                        CreatedAt = DateTime.UtcNow.AddDays(-14)
-                    };
-                    db.ChangeRequests.Add(cr1);
-                    await db.SaveChangesAsync(cancellationToken);
-
-                    db.Critems.Add(new Critem
+                        TaskName = "Kiểm tra set-up bàn tiệc & âm thanh ánh sáng",
+                        DeadlineTime = baseUtc.AddHours(-1),
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseUtc.AddHours(-1).AddMinutes(15) : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
+                        PhotoRequired = true
+                    },
+                    new DayOfTask
                     {
-                        Crid = cr1.Crid,
-                        CatalogItemId = cateringSpec.CatalogItemId,
-                        TargetSpecItemId = cateringSpec.SpecItemId,
-                        OldQuantity = cateringSpec.Quantity,
-                        OldUnitPrice = cateringSpec.UnitPrice,
-                        NewQuantity = cateringSpec.Quantity + 5,
-                        NewUnitPrice = cateringSpec.UnitPrice
-                    });
-
-                    db.Crhistories.AddRange(
-                        new Crhistory
-                        {
-                            Crid = cr1.Crid,
-                            ActorId = customer.UserId,
-                            Action = "Khởi tạo yêu cầu thay đổi",
-                            Note = "Gia đình cần bổ sung 5 bàn tiệc.",
-                            CreatedAt = DateTime.UtcNow.AddDays(-14)
-                        },
-                        new Crhistory
-                        {
-                            Crid = cr1.Crid,
-                            ActorId = customer.UserId,
-                            Action = "Khách hàng phê duyệt tác động chi phí",
-                            Note = "Đồng ý chi phí phát sinh 5 bàn.",
-                            CreatedAt = DateTime.UtcNow.AddDays(-12)
-                        },
-                        new Crhistory
-                        {
-                            Crid = cr1.Crid,
-                            ActorId = manager.UserId,
-                            Action = "Phê duyệt tác động chi phí & phát hành phụ lục",
-                            Note = "Đã kiểm tra năng lực sảnh và phát hành phụ lục ADD-01.",
-                            CreatedAt = DateTime.UtcNow.AddDays(-11)
-                        });
-
-                    var addCode = $"ADD-{suffix}-01";
-                    if (!await db.ContractAddenda.AnyAsync(a => a.AddendumCode == addCode || a.Crid == cr1.Crid, cancellationToken))
+                        ProjectId = project.ProjectId,
+                        TaskName = "Đón tiếp khách mời & điều phối khai tiệc",
+                        DeadlineTime = baseUtc,
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseUtc : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
+                        PhotoRequired = false
+                    },
+                    new DayOfTask
                     {
-                        db.ContractAddenda.Add(new ContractAddendum
-                        {
-                            AddendumCode = addCode,
-                            Crid = cr1.Crid,
-                            ProjectId = project.ProjectId,
-                            TotalVariance = delta,
-                            Status = p.Status is "Event Completed" or "Settled" or "Closed" ? "Signed" : "Generated",
-                            SignedAt = p.Status is "Event Completed" or "Settled" or "Closed" ? DateTime.UtcNow.AddDays(-10) : null,
-                            FilePath = $"addenda/{addCode}.pdf"
-                        });
-                        project.CurrentTotal = project.BaseContractValue + delta;
+                        ProjectId = project.ProjectId,
+                        TaskName = "Giám sát quy trình phục vụ tiệc theo BEO",
+                        DeadlineTime = baseUtc.AddHours(1),
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseUtc.AddHours(1) : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
+                        PhotoRequired = true
+                    },
+                    new DayOfTask
+                    {
+                        ProjectId = project.ProjectId,
+                        TaskName = "Đối soát phát sinh và nghiệm thu tiệc",
+                        DeadlineTime = baseUtc.AddHours(2),
+                        Status = isCompleted ? "Done" : "Pending",
+                        CompletedAt = isCompleted ? baseUtc.AddHours(2) : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
+                        PhotoRequired = false
                     }
-                    await db.SaveChangesAsync(cancellationToken);
-                }
-
-                // Second CR in Negotiating status so Customer (C-07/C-08) and Manager (M-09) can test approval & addendum generation
-                var cr2Code = $"CR-{suffix}-02";
-                if (!await db.ChangeRequests.AnyAsync(x => x.Crcode == cr2Code, cancellationToken) && decorSpec is not null)
-                {
-                    var newDecorPrice = decorSpec.UnitPrice + 4_500_000m;
-                    var delta2 = newDecorPrice - decorSpec.UnitPrice;
-                    var cr2 = new ChangeRequest
-                    {
-                        Crcode = cr2Code,
-                        ProjectId = project.ProjectId,
-                        CreatedBy = customer.UserId,
-                        Type = "Decor change",
-                        Description = "Nâng cấp gói hoa tươi nhập khẩu khu vực sân khấu và cổng đón khách.",
-                        CostImpact = delta2,
-                        PenaltyRate = 5m,
-                        PenaltyFee = decimal.Round(delta2 * 0.05m, 0),
-                        Status = "Negotiating",
-                        ManagerApprovedAt = DateTime.UtcNow.AddDays(-2),
-                        CreatedAt = DateTime.UtcNow.AddDays(-3)
-                    };
-                    db.ChangeRequests.Add(cr2);
-                    await db.SaveChangesAsync(cancellationToken);
-
-                    db.Critems.Add(new Critem
-                    {
-                        Crid = cr2.Crid,
-                        CatalogItemId = decorSpec.CatalogItemId,
-                        TargetSpecItemId = decorSpec.SpecItemId,
-                        OldQuantity = decorSpec.Quantity,
-                        OldUnitPrice = decorSpec.UnitPrice,
-                        NewQuantity = decorSpec.Quantity,
-                        NewUnitPrice = newDecorPrice
-                    });
-
-                    db.Crhistories.AddRange(
-                        new Crhistory
-                        {
-                            Crid = cr2.Crid,
-                            ActorId = customer.UserId,
-                            Action = "Khởi tạo yêu cầu thay đổi",
-                            Note = "Mong muốn nâng cấp hoa tươi khu vực lễ đài.",
-                            CreatedAt = DateTime.UtcNow.AddDays(-3)
-                        },
-                        new Crhistory
-                        {
-                            Crid = cr2.Crid,
-                            ActorId = manager.UserId,
-                            Action = "Cập nhật báo giá & tác động chi phí",
-                            Note = "Đã tính toán chênh lệch hoa tươi và phí điều chỉnh cận ngày.",
-                            CreatedAt = DateTime.UtcNow.AddDays(-2)
-                        });
-                    await db.SaveChangesAsync(cancellationToken);
-                }
-
-                // Seed BEO & 4 Department Sheets
-                var beo = await db.Beos.FirstOrDefaultAsync(b => b.ProjectId == project.ProjectId && b.Version == 1, cancellationToken);
-                if (beo is null)
-                {
-                    var beoStatus = p.Code == "WPSM-2026-014" ? "Stale" : "Frozen";
-                    beo = new Beo
-                    {
-                        ProjectId = project.ProjectId,
-                        Version = 1,
-                        Status = beoStatus,
-                        FrozenAt = DateTime.UtcNow.AddDays(-12),
-                        ApprovedBy = manager.UserId,
-                        Notes = beoStatus == "Stale"
-                            ? "BEO v1 chuyển sang Stale do phát sinh phụ lục ADD-014-01. Cần Manager rà soát và duyệt lại (M-12)."
-                            : "BEO chuẩn đã được đóng băng và phân phối tới 4 bộ phận vận hành."
-                    };
-                    db.Beos.Add(beo);
-                    await db.SaveChangesAsync(cancellationToken);
-
-                    foreach (var dept in new[] { "Kitchen", "Service", "Decor", "Tech-MC" })
-                    {
-                        db.BeodepartmentSheets.Add(new BeodepartmentSheet
-                        {
-                            Beoid = beo.Beoid,
-                            Department = dept,
-                            PdfFilePath = $"beo/{p.Code}_v1_{dept}.pdf",
-                            GeneratedAt = DateTime.UtcNow.AddDays(-12)
-                        });
-                    }
-                    await db.SaveChangesAsync(cancellationToken);
-                }
-
-                // Seed Complaints for C-14..C-16, M-18..M-20, A-16..A-17
-                var cmp1Code = $"CMP-{suffix}-01";
-                if (!await db.Complaints.AnyAsync(c => c.ComplaintCode == cmp1Code, cancellationToken) && beo is not null)
-                {
-                    var isEscalated = p.Code == "WPSM-2025-001";
-                    db.Complaints.Add(new Complaint
-                    {
-                        ComplaintCode = cmp1Code,
-                        ProjectId = project.ProjectId,
-                        CustomerId = customer.UserId,
-                        Title = "Thiếu bình hoa pha lê bàn tiệc VIP so với cam kết BEO",
-                        Beoid = beo.Beoid,
-                        Description = "Số lượng bình hoa pha lê trên bàn tiệc VIP thực tế ít hơn 2 bộ so với cam kết trong BEO v1.",
-                        Status = isEscalated ? "Escalated" : "Open",
-                        EscalationNote = isEscalated ? "Khách hàng yêu cầu hoàn phí 15% gói Decor, vượt thẩm quyền phê duyệt của Manager." : null,
-                        EscalatedAt = isEscalated ? DateTime.UtcNow.AddDays(-1) : null,
-                        CreatedAt = DateTime.UtcNow.AddDays(-2)
-                    });
-                    await db.SaveChangesAsync(cancellationToken);
-                }
-
-                // Seed Ratings only for Settled/Closed projects so Event Completed (WPSM-2025-001) & Baseline Frozen (WPSM-2026-014) can still test submitting ratings on C-13
-                if (p.Status is "Settled" or "Closed" && !await db.Ratings.AnyAsync(r => r.ProjectId == project.ProjectId, cancellationToken))
-                {
-                    db.Ratings.AddRange(
-                        new Rating { ProjectId = project.ProjectId, Module = "Hall", Stars = 5, Comment = "Không gian sảnh sang trọng, ánh sáng tuyệt vời.", CreatedAt = DateTime.UtcNow.AddDays(-5) },
-                        new Rating { ProjectId = project.ProjectId, Module = "Menu", Stars = 5, Comment = "Món ăn nóng sốt, lên món đúng giờ.", CreatedAt = DateTime.UtcNow.AddDays(-5) },
-                        new Rating { ProjectId = project.ProjectId, Module = "Decor", Stars = 4, Comment = "Hoa tươi đẹp, đúng tông màu chủ đạo.", CreatedAt = DateTime.UtcNow.AddDays(-5) },
-                        new Rating { ProjectId = project.ProjectId, Module = "MC", Stars = 5, Comment = "MC dẫn dắt ấm áp, chuyên nghiệp.", CreatedAt = DateTime.UtcNow.AddDays(-5) }
-                    );
-                    await db.SaveChangesAsync(cancellationToken);
-                }
+                );
             }
 
+            await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
 
-        await SeedResourcesAsync(cancellationToken);
+        await SeedNotificationsAsync(manager, cancellationToken);
     }
 
-    // FE-07: shared resources for the Resource Calendar and one allocated demo event.
-    private async Task SeedResourcesAsync(CancellationToken cancellationToken)
+    private async Task SeedNotificationsAsync(User manager, CancellationToken cancellationToken)
     {
-        var resources = new[]
-        {
-            new ResourceSeed("Dàn âm thanh sảnh chính", "Audio", 4),
-            new ResourceSeed("Dàn âm thanh sân vườn", "Audio", 2),
-            new ResourceSeed("Đèn Moving Head & Follow Spot", "Follow Light", 4),
-            new ResourceSeed("Đèn rọi sân khấu", "Follow Light", 6),
-            new ResourceSeed("Khung trống vòm hoa đôi VIP", "Decor Frame", 3),
-            new ResourceSeed("Cổng hoa chính", "Decor Frame", 2),
-            new ResourceSeed("Kỹ thuật viên AV & Stage Manager", "Technician", 6),
-            new ResourceSeed("Nhân sự ánh sáng", "Technician", 4),
-            new ResourceSeed("Đội bếp trưởng & bếp nòng VIP", "Kitchen", 3),
-            new ResourceSeed("Nhân sự sơ chế", "Kitchen", 5)
-        };
-        foreach (var resource in resources)
-        {
-            if (await db.Resources.AnyAsync(x => x.Type == resource.Type && x.Name == resource.Name, cancellationToken)) continue;
-            db.Resources.Add(new Resource { Name = resource.Name, Type = resource.Type, TotalQuantity = resource.Quantity });
-        }
-        await db.SaveChangesAsync(cancellationToken);
+        if (await db.Notifications.AnyAsync(cancellationToken)) return;
 
-        var project = await db.WeddingProjects.Include(x => x.Slot)
-            .FirstOrDefaultAsync(x => x.ProjectCode == "WPSM-2026-014", cancellationToken);
-        if (project is null) return;
-        if (await db.ResourceAllocations.AnyAsync(x => x.ProjectId == project.ProjectId, cancellationToken)) return;
+        var customer = await db.Users.FirstOrDefaultAsync(u => u.Role == "Customer", cancellationToken);
+        var now = DateTime.UtcNow;
 
-        var vnTz = FindVietnamTimeZone();
-        var start = TimeZoneInfo.ConvertTimeToUtc(project.EventDate.ToDateTime(project.Slot.StartTime), vnTz);
-        var end = TimeZoneInfo.ConvertTimeToUtc(project.EventDate.ToDateTime(project.Slot.EndTime), vnTz);
-        var picks = new[]
-        {
-            new ResourcePick("Audio", "Dàn âm thanh sảnh chính", 2),
-            new ResourcePick("Follow Light", "Đèn Moving Head & Follow Spot", 2),
-            new ResourcePick("Technician", "Kỹ thuật viên AV & Stage Manager", 3)
-        };
-        foreach (var pick in picks)
-        {
-            var resource = await db.Resources.FirstOrDefaultAsync(x => x.Type == pick.Type && x.Name == pick.Name, cancellationToken);
-            if (resource is null) continue;
-            db.ResourceAllocations.Add(new ResourceAllocation
+        // Sample notifications for Manager
+        db.Notifications.AddRange(
+            new Notification
             {
-                ResourceId = resource.ResourceId,
-                HallId = project.HallId,
-                ProjectId = project.ProjectId,
-                StartTime = start,
-                EndTime = end,
-                AllocatedQuantity = pick.Quantity,
-                Status = "Reserved"
-            });
-        }
-        await db.SaveChangesAsync(cancellationToken);
-    }
+                RecipientId = manager.UserId,
+                Type = "Roadmap reminder",
+                Message = "Dự án WPSM-2026-014: Mốc T-30 sắp đến hạn, cần kiểm tra và chuẩn bị đóng băng baseline.",
+                LinkUrl = "/manager/projects/WPSM-2026-014/roadmap",
+                IsRead = false,
+                CreatedAt = now.AddMinutes(-35)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Payment",
+                Message = "Dự án WPSM-2025-008: Khách hàng đã gửi yêu cầu xác nhận thanh toán đợt NRD.",
+                LinkUrl = "/manager/projects/WPSM-2025-008/payments",
+                IsRead = false,
+                CreatedAt = now.AddHours(-2)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "CR update",
+                Message = "Dự án WPSM-2026-014: Yêu cầu thay đổi CR-001 cần quản lý thẩm định chi phí và phát sinh.",
+                LinkUrl = "/manager/projects/WPSM-2026-014/change-requests",
+                IsRead = false,
+                CreatedAt = now.AddHours(-4)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Overdue alert",
+                Message = "Dự án WPSM-2025-002: Nhiệm vụ ngày tiệc đang quá hạn, vui lòng cập nhật ảnh minh chứng.",
+                LinkUrl = "/manager/overdue-alerts",
+                IsRead = false,
+                CreatedAt = now.AddHours(-6)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "BEO",
+                Message = "Dự án WPSM-2025-019: Bản BEO phiên bản 1 đã được cập nhật, cần xác nhận các bộ phận.",
+                LinkUrl = "/manager/projects/WPSM-2025-019/beo",
+                IsRead = true,
+                CreatedAt = now.AddDays(-1)
+            },
+            new Notification
+            {
+                RecipientId = manager.UserId,
+                Type = "Complaint",
+                Message = "Dự án WPSM-2025-001: Khiếu nại COM-001 đã được Admin giải quyết.",
+                LinkUrl = "/manager/projects/WPSM-2025-001/complaints",
+                IsRead = true,
+                CreatedAt = now.AddDays(-2)
+            }
+        );
 
-    private static TimeZoneInfo FindVietnamTimeZone()
-    {
-        foreach (var id in new[] { "SE Asia Standard Time", "Asia/Ho_Chi_Minh" })
-            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz)) return tz;
-        return TimeZoneInfo.CreateCustomTimeZone("UTC+7", TimeSpan.FromHours(7), "UTC+7", "UTC+7");
+        if (customer is not null)
+        {
+            db.Notifications.AddRange(
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "Roadmap reminder",
+                    Message = "Chào bạn! Hợp đồng gốc đã được chốt, vui lòng xem đặc tả và danh sách nhiệm vụ cần làm.",
+                    LinkUrl = "/customer/roadmap",
+                    IsRead = false,
+                    CreatedAt = now.AddHours(-1)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "Payment",
+                    Message = "Biên nhận thanh toán đặt cọc NRD đã được xác nhận thành công.",
+                    LinkUrl = "/customer/payments",
+                    IsRead = false,
+                    CreatedAt = now.AddHours(-3)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "CR update",
+                    Message = "Yêu cầu thay đổi của bạn đã được tiếp nhận và đang trong quá trình thương thảo.",
+                    LinkUrl = "/customer/change-requests",
+                    IsRead = false,
+                    CreatedAt = now.AddHours(-5)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "BEO",
+                    Message = "Bảng tóm tắt thông số tổ chức cưới (BEO) đã được cập nhật.",
+                    LinkUrl = "/customer/contract",
+                    IsRead = true,
+                    CreatedAt = now.AddDays(-1)
+                },
+                new Notification
+                {
+                    RecipientId = customer.UserId,
+                    Type = "Roadmap reminder",
+                    Message = "Nhắc nhở: Nhiệm vụ 'Xác nhận số lượng khách cuối cùng' thuộc mốc T-30 cần sớm hoàn tất.",
+                    LinkUrl = "/customer/roadmap",
+                    IsRead = true,
+                    CreatedAt = now.AddDays(-2)
+                }
+            );
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<User> GetOrCreateAccountAsync(string role, string key, CancellationToken cancellationToken)
@@ -508,6 +401,4 @@ public sealed class DevelopmentDatabaseSeeder(
     private sealed record HallSeed(string Name, int Minimum, int Maximum, decimal BasePrice);
     private sealed record CatalogSeed(string Name, string Category, string Unit, decimal Price);
     private sealed record ProjectSeed(string Code, string Couple, string Email, string Phone, string Hall, string Slot, DateOnly EventDate, decimal BaseValue, decimal Nrd, string Status);
-    private sealed record ResourceSeed(string Name, string Type, int Quantity);
-    private sealed record ResourcePick(string Type, string Name, int Quantity);
 }

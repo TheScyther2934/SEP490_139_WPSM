@@ -1,37 +1,71 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, Button } from "@mui/material";
+import { Box, Button, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
-import ManagerKpis, { summarize } from "./components/ManagerKpis";
+import ManagerKpis from "./components/ManagerKpis";
 import UpcomingEvents from "./components/UpcomingEvents";
 import AlertPanel from "./components/AlertPanel";
 import MyTasks from "./components/MyTasks";
 import { useAsync, usePolling } from "../../../hooks/useAsync";
-import { projectService } from "../../../services/projectService";
-import { managerService } from "../../../services/operationsService";
+import { managerService } from "../../../services/managerService";
 import { PATHS } from "../../../routes/paths";
 
-// M-01 (UC-21, UC-32): KPI strip from the project list, "My tasks" and the red alert panel from /manager/work.
+// M-01 Manager Dashboard (FE-03, FE-09)
 export default function ManagerDashboard() {
-  const { data, loading, error, reload } = useAsync(() => Promise.all([projectService.getProjects(), managerService.getWork()]));
-  usePolling(() => reload({ silent: true }));
-  const [projects, work] = data ?? [];
-  const summary = projects ? summarize(projects) : null;
+  const { data, loading, error, reload } = useAsync(() => managerService.getDashboard());
+  usePolling(() => reload({ silent: true }), 30000);
+
   return (
     <>
-      <PageHeader code="M-01" title="Tổng quan vận hành"
-        actions={<Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to={PATHS.manager.newProject}>Khởi tạo hợp đồng</Button>} />
+      <PageHeader
+        code="M-01"
+        title="Tổng quan vận hành"
+        subtitle="Theo dõi tiến độ các dự án tiệc cưới được phân công, công việc trong ngày và cảnh báo vận hành."
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => reload()}
+              disabled={loading}
+            >
+              Làm mới
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              component={RouterLink}
+              to={PATHS.manager.newProject}
+            >
+              Khởi tạo hợp đồng
+            </Button>
+          </Stack>
+        }
+      />
       <DataState loading={loading} error={error} onRetry={reload}>
-        {summary && work && (
+        {data && (
           <>
-            <ManagerKpis summary={{ ...summary, openCrs: work.openChangeRequests, tasksDueToday: work.tasksDueToday, staleCount: work.staleBeoCount }} />
-            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { lg: "3fr 2fr" } }}>
-              <Box sx={{ display: "grid", gap: 2 }}>
-                <MyTasks tasks={work.myTasks} />
-                <UpcomingEvents projects={summary.active} />
-              </Box>
-              <AlertPanel overdue={work.overdue} stale={work.staleBeos} />
+            <ManagerKpis kpis={data.kpis} />
+
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2.5,
+                gridTemplateColumns: { xs: "1fr", lg: "7fr 5fr" },
+                mb: 2.5,
+              }}
+            >
+              <AlertPanel
+                overdueTasks={data.overdueTasks}
+                staleBeos={data.staleBeos}
+              />
+              <MyTasks tasks={data.myTasks} />
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <UpcomingEvents milestones={data.upcomingMilestones} />
             </Box>
           </>
         )}

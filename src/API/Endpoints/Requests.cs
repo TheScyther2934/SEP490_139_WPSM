@@ -43,3 +43,6 @@ public sealed record SaveBeoRequest(string? Notes = null);
 public sealed record SubmitRatingsRequest(string? ProjectCode, IReadOnlyList<ModuleRatingInput> Ratings);
 public sealed record CreateComplaintRequest(string? ProjectCode, int? BeoId, string Description);
 public sealed record ManagerComplaintActionRequest(string Action, string Note);
+
+// longtb: Manager task completion with proof photos.
+public sealed record CompleteManagerTaskRequest(IReadOnlyList<string>? ProofPhotoPaths = null);

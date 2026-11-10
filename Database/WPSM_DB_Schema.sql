@@ -344,13 +344,16 @@ GO
 -- 19. Day-of Task (late completion stays recorded: CompletedAt > DeadlineTime)
 IF OBJECT_ID(N'dbo.DayOfTasks', N'U') IS NULL
 CREATE TABLE dbo.DayOfTasks (
-    DayOfTaskId   INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
-    ProjectId     INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
-    TaskName      NVARCHAR(200) NOT NULL,
-    DeadlineTime  DATETIME2(0)  NOT NULL,
-    CompletedAt   DATETIME2(0)  NULL,
-    Status        NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
-    PhotoRequired BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    DayOfTaskId      INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
+    ProjectId        INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    TaskName         NVARCHAR(200) NOT NULL,
+    DeadlineTime     DATETIME2(0)  NOT NULL,
+    CompletedAt      DATETIME2(0)  NULL,
+    CompletedBy      INT           NULL CONSTRAINT FK_DayOf_CompletedBy REFERENCES dbo.Users(UserId),
+    OverdueFlaggedAt DATETIME2(0)  NULL,
+    Status           NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
+    PhotoRequired    BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    RowVersion       ROWVERSION    NOT NULL,
     CONSTRAINT CK_DayOf_Status    CHECK (Status IN ('Pending','Done','Overdue')),
     CONSTRAINT CK_DayOf_Completed CHECK (Status <> 'Done' OR CompletedAt IS NOT NULL)
 );
@@ -450,6 +453,10 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_CRHistory_CR' AND object
     CREATE INDEX IX_CRHistory_CR ON dbo.CRHistories(CRId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOf_Project_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
     CREATE INDEX IX_DayOf_Project_Deadline ON dbo.DayOfTasks(ProjectId, DeadlineTime, Status);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOfTasks_Status_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
+    CREATE INDEX IX_DayOfTasks_Status_Deadline ON dbo.DayOfTasks(Status, DeadlineTime);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WeddingProjects_Manager_Status' AND object_id=OBJECT_ID('dbo.WeddingProjects'))
+    CREATE INDEX IX_WeddingProjects_Manager_Status ON dbo.WeddingProjects(ManagerId, Status);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Photo_Task' AND object_id=OBJECT_ID('dbo.ExecutionPhotos'))
     CREATE INDEX IX_Photo_Task ON dbo.ExecutionPhotos(DayOfTaskId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Notifications_Recipient' AND object_id=OBJECT_ID('dbo.Notifications'))

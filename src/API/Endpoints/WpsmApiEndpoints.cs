@@ -37,6 +37,13 @@ public static class WpsmApiEndpoints
         api.MapChangeRequestEndpoints();
         api.MapResourceCalendarEndpoints();
         api.MapOperationsEndpoints();
+        api.MapCustomerPaymentEndpoints();
+        api.MapManagerPaymentEndpoints();
+        api.MapManagerRoadmapEndpoints();
+        api.MapNotificationEndpoints();
+        api.MapOverdueAlertEndpoints();
+        api.MapManagerDashboardEndpoints();
+        api.MapDayOfTaskEndpoints();
         return api;
     }
 

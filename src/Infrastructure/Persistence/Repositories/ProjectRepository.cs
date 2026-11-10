@@ -58,54 +58,56 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
 
         var depositRatio = await db.PolicyConfigs.AsNoTracking()
             .Where(x => x.PolicyType == "NRD_RATIO" && x.EffectiveFrom <= DateOnly.FromDateTime(DateTime.Today))
-            .OrderByDescending(x => x.EffectiveFrom).Select(x => (decimal?)x.RatePercent).FirstOrDefaultAsync(cancellationToken) ?? 30m;
-        if (command.NrdAmount < decimal.Round(command.BaseValue * depositRatio / 100m, 2))
-            throw new InvalidOperationException($"Tiền NRD thấp hơn mức tối thiểu {depositRatio:0.##}% theo chính sách hiện hành.");
+            .OrderByDescending(x => x.EffectiveFrom).Select(x => x.RatePercent).FirstOrDefaultAsync(cancellationToken);
+        if (depositRatio == 0) depositRatio = 30m;
+        var requiredNrd = decimal.Round(command.BaseValue * (depositRatio / 100m), 2);
+        if (command.NrdAmount < requiredNrd)
+            throw new InvalidOperationException($"Số tiền đặt cọc NRD tối thiểu là {requiredNrd:N0} đ ({depositRatio:G29}% giá trị hợp đồng).");
 
-        var email = command.CustomerEmail.Trim();
-        var customer = await db.Users.SingleOrDefaultAsync(x => x.Email == email, cancellationToken);
+        var customer = await db.Users.SingleOrDefaultAsync(x => x.Email == command.CustomerEmail.Trim(), cancellationToken);
         var newCustomer = customer is null;
-        if (customer is null)
+        if (newCustomer)
         {
             customer = new User
             {
-                Email = email,
+                Email = command.CustomerEmail.Trim(),
                 FullName = command.CoupleName.Trim(),
-                Phone = WpsmValueNormalizer.NormalizePhone(command.CustomerPhone),
+                Phone = command.CustomerPhone.Trim(),
                 Role = "Customer",
                 Status = "Active",
-                PasswordHash = customerPasswordHash,
                 MustChangePassword = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                PasswordHash = customerPasswordHash
             };
             db.Users.Add(customer);
             await db.SaveChangesAsync(cancellationToken);
         }
-        else if (customer.Role != "Customer" || customer.Status != "Active")
-        {
-            throw new InvalidOperationException("Email đã tồn tại và không thuộc tài khoản khách hàng đang hoạt động.");
-        }
+
+        var today = DateTime.UtcNow;
+        var prefix = $"WPSM-{today:yyyy}-";
+        var lastNumber = await db.WeddingProjects.Where(x => x.ProjectCode.StartsWith(prefix))
+            .Select(x => x.ProjectCode).ToListAsync(cancellationToken);
+        var seq = lastNumber.Select(x => int.TryParse(x[prefix.Length..], out var n) ? n : 0).DefaultIfEmpty(0).Max() + 1;
+        var code = $"{prefix}{seq:D3}";
 
         var project = new WeddingProject
         {
-            ProjectCode = $"WPSM-{command.EventDate.Year}-{Guid.NewGuid():N}"[..18].ToUpperInvariant(),
-            CustomerId = customer.UserId,
+            ProjectCode = code,
+            CustomerId = customer!.UserId,
             ManagerId = manager.UserId,
             HallId = hall.HallId,
             SlotId = slot.SlotId,
             EventDate = command.EventDate,
             BaseContractValue = command.BaseValue,
             Nrdamount = command.NrdAmount,
-            CurrentTotal = command.BaseValue,
-            Status = "Active Baseline",
-            CreatedAt = DateTime.UtcNow
+            Status = "Draft",
+            CreatedAt = today
         };
         db.WeddingProjects.Add(project);
         await db.SaveChangesAsync(cancellationToken);
-        var baselineCatalog = await db.ServiceCatalogItems.Where(x => x.Status == "Active" &&
-            new[] { "Hall", "Catering", "Decor", "MC", "AV" }.Contains(x.Category))
-            .GroupBy(x => x.Category).Select(g => g.OrderBy(x => x.Name).First()).ToListAsync(cancellationToken);
-        foreach (var item in baselineCatalog)
+
+        var defaultItems = await db.ServiceCatalogItems.Where(x => x.Status == "Active").ToListAsync(cancellationToken);
+        foreach (var item in defaultItems)
         {
             db.SpecItems.Add(new SpecItem
             {
@@ -125,6 +127,20 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
             PaidDate = payByCash ? DateOnly.FromDateTime(DateTime.Today) : null,
             RecordedBy = payByCash ? manager.UserId : null
         });
+
+        // G-04: Notify customer about project creation
+        db.Notifications.Add(new Notification
+        {
+            RecipientId = customer.UserId,
+            Type = "Payment",
+            Message = payByCash 
+                ? $"Dự án {project.ProjectCode} đã được khởi tạo. Đặt cọc NRD đã được xác nhận."
+                : $"Dự án {project.ProjectCode} đã được khởi tạo. Vui lòng thanh toán đặt cọc NRD.",
+            LinkUrl = "/customer/payments",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
         if (newCustomer)
             emailOutbox.Enqueue(customer.Email, $"Tài khoản WPSM cho dự án {project.ProjectCode}",
                 EmailTemplates.Credentials(customer.FullName, customer.Email, temporaryPassword, project.ProjectCode, emailOptions.PublicBaseUrl),
@@ -173,6 +189,18 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         payment.ReceiptContentType = contentType;
         payment.PaidDate = DateOnly.FromDateTime(DateTime.Today);
         payment.RecordedBy = managerId;
+
+        // G-04: Notify customer that NRD payment is recorded
+        db.Notifications.Add(new Notification
+        {
+            RecipientId = payment.Project.CustomerId,
+            Type = "Payment",
+            Message = $"Biên nhận đặt cọc NRD cho dự án {projectCode} đã được ghi nhận thành công.",
+            LinkUrl = "/customer/payments",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -188,6 +216,18 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         payment.ReceiptFilePath = receiptPath;
         payment.PaidDate = DateOnly.FromDateTime(DateTime.Today);
         payment.RecordedBy = managerId;
+
+        // G-04: Notify customer that NRD payment is recorded
+        db.Notifications.Add(new Notification
+        {
+            RecipientId = payment.Project.CustomerId,
+            Type = "Payment",
+            Message = $"Biên nhận đặt cọc NRD cho dự án {projectCode} đã được ghi nhận thành công.",
+            LinkUrl = "/customer/payments",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }

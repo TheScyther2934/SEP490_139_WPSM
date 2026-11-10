@@ -47,4 +47,19 @@ export const projectService = {
   getComplaint: (complaintCode) => axiosClient.get(ENDPOINTS.managerComplaint(complaintCode)).then((r) => r.data),
   actOnComplaint: (complaintCode, action, note) =>
     axiosClient.post(ENDPOINTS.managerComplaintAction(complaintCode), { action, note }).then((r) => r.data),
+
+  // longtb: Roadmap, Payments, Dashboard, DayOf
+  getRoadmap: (code, owner) => axiosClient.get(ENDPOINTS.manager.roadmap(code), { params: owner ? { owner } : {} }).then((r) => r.data),
+  completeRoadmapTask: (code, taskId, body) => axiosClient.post(ENDPOINTS.manager.completeTask(code, taskId), body).then((r) => r.data),
+  getManagerPayments: (code) => axiosClient.get(ENDPOINTS.managerPayments.getPayments(code)).then((r) => r.data),
+  recordPayment: (code, formData) => axiosClient.post(ENDPOINTS.managerPayments.recordPayment(code), formData).then((r) => r.data),
+  getSettlement: (code) => axiosClient.get(ENDPOINTS.managerPayments.getSettlement(code)).then((r) => r.data),
+  generateReceipt: (code) => axiosClient.post(ENDPOINTS.managerPayments.generateReceipt(code)).then((r) => r.data),
+  downloadSettlementReceipt: (code) => axiosClient.get(ENDPOINTS.managerPayments.getReceiptFile(code), { responseType: "blob" }).then((r) => r.data),
+  downloadPaymentReceipt: (code, paymentType) => axiosClient.get(ENDPOINTS.managerPayments.downloadPaymentReceipt(code, paymentType), { responseType: "blob" }).then((r) => r.data),
+  getManagerDashboard: () => axiosClient.get(ENDPOINTS.manager.dashboard).then((r) => r.data),
+  getManagerOverdueAlerts: () => axiosClient.get(ENDPOINTS.manager.overdueAlerts).then((r) => r.data),
+  getDayOfTasks: (code) => axiosClient.get(ENDPOINTS.manager.dayOfTasks(code)).then((r) => r.data),
+  completeDayOfTask: (code, taskId, formData) => axiosClient.post(ENDPOINTS.manager.completeDayOfTask(code, taskId), formData).then((r) => r.data),
+  completeDayOfTaskDirect: (taskId, formData) => axiosClient.post(ENDPOINTS.manager.completeDayOfTaskDirect(taskId), formData).then((r) => r.data),
 };
