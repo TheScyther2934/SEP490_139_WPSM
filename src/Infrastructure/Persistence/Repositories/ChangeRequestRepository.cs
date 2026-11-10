@@ -1,662 +1,414 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Application.Persistence;
-using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
+using static Infrastructure.Persistence.Repositories.OperationsSupport;
 
 namespace Infrastructure.Persistence.Repositories;
 
-/// <summary>
-/// FE-05 Change Request (C-05, C-06, M-07, M-08).
-/// Owns the whole CR lifecycle: ticket creation, negotiation, mutual approval, addendum generation and
-/// Admin penalty waivers. Business rules implemented here:
-///   GBR-02 every new unit price must sit inside the PriceFrame in force today;
-///   GBR-03 CR Price Delta = Σ item deltas, Penalty = |delta| × T-day rate, Total = delta + penalty;
-///   GBR-04 a CR is Approved only after both the Customer and the Manager approve;
-///   GBR-05 an approved CR that changes a Frozen BEO flags it Stale;
-///   GBR-13 CR History is append-only — this class only ever adds rows.
-/// </summary>
-public sealed class ChangeRequestRepository(WpsmDbContext db) : IChangeRequestRepository
+/// <summary>UC-07..UC-11, UC-22..UC-24 (SDS II.2). The /projects/{id} filter has already checked GBR-12.</summary>
+public sealed class ChangeRequestRepository(WpsmDbContext db, IFileService files, IPdfGenerator pdf, ILogger<ChangeRequestRepository> logger) : IChangeRequestRepository
 {
-    private static readonly string[] CrTypes = ["Menu change", "Decor change", "Table count", "Script edit", "Other"];
-    private static readonly string[] ClosedStatuses = ["Approved", "Rejected"];
+    private static readonly string[] Types = ["Menu change", "Decor change", "Table count", "Script edit", "Other"];
+    private static readonly string[] OpenStatuses = ["Draft", "Negotiating"];
 
-    private static readonly TimeZoneInfo VnTz = GetVietnamTimeZone();
-
-    private static TimeZoneInfo GetVietnamTimeZone()
+    public async Task<IReadOnlyList<CrSummaryView>> ListAsync(string projectCode, string? status, CancellationToken cancellationToken = default)
     {
-        foreach (var id in new[] { "SE Asia Standard Time", "Asia/Ho_Chi_Minh" })
-            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz)) return tz;
-        return TimeZoneInfo.CreateCustomTimeZone("UTC+7", TimeSpan.FromHours(7), "UTC+7", "UTC+7");
-    }
-
-    // DATETIME2 holds UTC; the T-day arithmetic uses the Vietnamese calendar day.
-    private static DateOnly TodayVn() => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VnTz));
-
-    // ── Queries ───────────────────────────────────────────────────────────────
-
-    public async Task<CrListView?> GetListAsync(string? projectCode, int userId, string role, CancellationToken cancellationToken = default)
-    {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-
-        var tickets = await db.ChangeRequests.AsNoTracking()
-            .Include(c => c.CreatedByNavigation)
-            .Include(c => c.Critems)
-            .Where(c => c.ProjectId == project.ProjectId)
-            .OrderByDescending(c => c.CreatedAt)
+        var query = db.ChangeRequests.AsNoTracking().Where(x => x.Project.ProjectCode == projectCode);
+        if (!string.IsNullOrWhiteSpace(status) && status != "All") query = query.Where(x => x.Status == status);
+        return await query.OrderByDescending(x => x.CreatedAt)
+            .Select(x => new CrSummaryView(x.Crcode, x.Type, x.Description, x.CreatedByNavigation.Role, x.Status,
+                x.Status == "Approved" ? x.CostImpact + x.PenaltyFee : x.Critems.Sum(i => i.NewQuantity * i.NewUnitPrice - i.OldQuantity * i.OldUnitPrice),
+                x.CreatedAt))
             .ToListAsync(cancellationToken);
-
-        var pending = await db.ExceptionRequests.AsNoTracking()
-            .Where(e => e.ProjectId == project.ProjectId && e.Crid != null && e.Status == "Pending")
-            .Select(e => e.Crid!.Value)
-            .ToListAsync(cancellationToken);
-        var pendingSet = pending.ToHashSet();
-
-        var items = tickets.Select(c => new CrListItemView(
-            c.Crcode, c.Type, c.Status, c.Description,
-            c.CostImpact, c.PenaltyFee, c.TotalVariance ?? c.CostImpact + c.PenaltyFee,
-            c.CreatedByNavigation.Role, c.CreatedByNavigation.FullName, AsUtc(c.CreatedAt),
-            c.Critems.Count,
-            c.CustomerApprovedAt is not null,
-            c.ManagerApprovedAt is not null,
-            pendingSet.Contains(c.Crid) ? "Pending" : null)).ToList();
-
-        var summary = new CrSummaryView(
-            items.Count,
-            items.Count(i => i.Status == "Draft"),
-            items.Count(i => i.Status == "Negotiating"),
-            items.Count(i => i.Status == "Approved"),
-            items.Count(i => i.Status == "Rejected"),
-            items.Where(i => i.Status == "Approved").Sum(i => i.TotalImpact),
-            items.Where(i => i.Status is "Draft" or "Negotiating").Sum(i => i.TotalImpact),
-            items.Where(i => i.Status is "Draft" or "Negotiating").Sum(i => i.PenaltyFee));
-
-        return new CrListView(project.ProjectCode, project.Customer.FullName, project.Hall.Name, project.Slot.SlotName,
-            project.EventDate, project.BaseContractValue, project.CurrentTotal, summary, items);
     }
 
-    public async Task<CrFormView?> GetFormAsync(string? projectCode, int userId, string role, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CrSpecItemView>> GetSpecItemsAsync(string projectCode, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken, withSpecItems: true);
-        if (project is null) return null;
+        var project = await db.WeddingProjects.AsNoTracking().FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
+        if (project is null) return [];
+        var current = await CurrentSpecItemsAsync(project.ProjectId, cancellationToken);
+        var frames = await FramesAsync(current.Select(x => x.CatalogItemId), TodayVn(), cancellationToken);
+        return current.Select(x => new CrSpecItemView(x.SpecItemId, x.CatalogItem.Name, WpsmCategoryNames.ToDisplay(x.CatalogItem.Category), x.CatalogItem.Unit,
+                x.Description, x.Quantity, x.UnitPrice, frames.GetValueOrDefault(x.CatalogItemId)?.MinPrice, frames.GetValueOrDefault(x.CatalogItemId)?.MaxPrice))
+            .ToList();
+    }
 
-        var spec = BaselineSpecItems(project);
-        var frames = await CurrentFramesAsync(spec.Select(s => s.CatalogItemId), cancellationToken);
+    public async Task<CrCostView> PreviewAsync(string projectCode, IReadOnlyList<CrItemCommand> items, CancellationToken cancellationToken = default)
+    {
+        var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken)
+            ?? throw new InvalidOperationException("Không tìm thấy dự án.");
+        var lines = await ValidateItemsAsync(project, items, cancellationToken);
         var today = TodayVn();
-        var days = DaysToEvent(project.EventDate, today);
-        var rules = await PenaltyRulesAsync(today, cancellationToken);
-        var rate = rules.FirstOrDefault(r => days >= r.TDayMin && days <= r.TDayMax)?.RatePercent ?? 0m;
-
-        var items = spec.OrderBy(s => s.CatalogItem?.Category).ThenBy(s => s.CatalogItem?.Name)
-            .Select(s => new CrSpecOptionView(
-                s.SpecItemId,
-                s.CatalogItem?.Name ?? s.Description,
-                WpsmCategoryNames.ToDisplay(s.CatalogItem?.Category ?? ""),
-                s.CatalogItem?.Unit ?? "",
-                s.Description,
-                s.Quantity,
-                s.UnitPrice,
-                MinPrice(frames, s.CatalogItemId),
-                MaxPrice(frames, s.CatalogItemId),
-                frames.ContainsKey(s.CatalogItemId)))
-            .ToList();
-
-        return new CrFormView(project.ProjectCode, project.Customer.FullName, project.Hall.Name, project.Slot.SlotName,
-            project.EventDate, days, project.BaseContractValue, project.CurrentTotal, items, rules, rate,
-            PenaltyWindowLabel(rules), BlockedReason(project, today));
+        return Cost(lines.Select(x => (x.Spec.Quantity, x.Spec.UnitPrice, x.Command.NewQuantity, x.Command.NewUnitPrice)), project.EventDate, today,
+            await PenaltyRulesAsync(db, today, cancellationToken), false, project.CurrentTotal);
     }
 
-    public async Task<CrDetailView?> GetDetailAsync(string? projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default)
+    public async Task<CrDetailView> CreateAsync(string projectCode, int userId, string role, CreateCrCommand command, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
+        var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken)
+            ?? throw new InvalidOperationException("Không tìm thấy dự án.");
+        EnsureCanChange(project);
+        if (!Types.Contains(command.Type)) throw new InvalidOperationException("Trường Loại thay đổi là bắt buộc.");
+        var reason = command.Reason?.Trim() ?? "";
+        if (reason.Length == 0) throw new InvalidOperationException("Trường Lý do là bắt buộc.");
+        if (reason.Length > 500) throw new InvalidOperationException("Vượt quá độ dài tối đa 500 ký tự.");
+        var lines = await ValidateItemsAsync(project, command.Items, cancellationToken);
 
-        var cr = await db.ChangeRequests.AsNoTracking()
-            .Include(c => c.CreatedByNavigation)
-            .Include(c => c.Critems).ThenInclude(i => i.TargetSpecItem).ThenInclude(s => s.CatalogItem)
-            .Include(c => c.Crhistories).ThenInclude(h => h.Actor)
-            .Include(c => c.ContractAddendum)
-            .FirstOrDefaultAsync(c => c.ProjectId == project.ProjectId && c.Crcode == crCode, cancellationToken);
-        if (cr is null) return null;
-
-        var frames = await CurrentFramesAsync(cr.Critems.Select(i => i.TargetSpecItem.CatalogItemId), cancellationToken);
-        var rules = await PenaltyRulesAsync(TodayVn(), cancellationToken);
-        var exception = await db.ExceptionRequests.AsNoTracking()
-            .Where(e => e.Crid == cr.Crid)
-            .OrderByDescending(e => e.ExceptionRequestId)
-            .Select(e => e.Status)
-            .FirstOrDefaultAsync(cancellationToken);
-        var beoStatus = await db.Beos.AsNoTracking()
-            .Where(b => b.ProjectId == project.ProjectId)
-            .OrderByDescending(b => b.Version)
-            .Select(b => b.Status)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var items = cr.Critems
-            .OrderBy(i => i.TargetSpecItem.CatalogItem?.Category).ThenBy(i => i.TargetSpecItem.CatalogItem?.Name)
-            .Select(i => new CrItemView(
-                i.TargetSpecItemId,
-                i.TargetSpecItem.CatalogItem?.Name ?? i.TargetSpecItem.Description,
-                WpsmCategoryNames.ToDisplay(i.TargetSpecItem.CatalogItem?.Category ?? ""),
-                i.TargetSpecItem.CatalogItem?.Unit ?? "",
-                i.TargetSpecItem.Description,
-                i.OldQuantity, i.OldUnitPrice, i.NewQuantity, i.NewUnitPrice,
-                i.DeltaAmount ?? i.NewUnitPrice * i.NewQuantity - i.OldUnitPrice * i.OldQuantity,
-                MinPrice(frames, i.TargetSpecItem.CatalogItemId),
-                MaxPrice(frames, i.TargetSpecItem.CatalogItemId),
-                frames.ContainsKey(i.TargetSpecItem.CatalogItemId)))
-            .ToList();
-
-        var history = cr.Crhistories.OrderBy(h => h.CreatedAt)
-            .Select(h => new CrHistoryView(AsUtc(h.CreatedAt), h.Action, h.Actor.FullName, h.Actor.Role, h.Note))
-            .ToList();
-
-        var priceDelta = cr.CostImpact;
-        var penaltyRate = cr.PenaltyRate ?? 0m;
-        var penaltyFee = cr.PenaltyFee;
-        var today = TodayVn();
-        var days = DaysToEvent(project.EventDate, today);
-        // An approved CR is already part of CurrentTotal (UC-22 step 5), so its projection is the current total.
-        var projectedTotal = cr.Status == "Approved" ? project.CurrentTotal : project.CurrentTotal + priceDelta + penaltyFee;
-        var cost = new CrCostView(priceDelta, penaltyRate, penaltyFee, priceDelta + penaltyFee,
-            project.CurrentTotal, projectedTotal, days, penaltyRate > 0, PenaltyWindowLabel(rules));
-
-        var negotiating = cr.Status == "Negotiating";
-        var isDraft = cr.Status == "Draft";
-        var mine = cr.CreatedBy == userId;
-        var canEdit = isDraft && mine || negotiating && role == "Manager";
-        var canApprove = negotiating && (role == "Manager" ? cr.ManagerApprovedAt is null : cr.CustomerApprovedAt is null);
-        var canRequestException = negotiating && role == "Manager" && penaltyFee > 0 && exception != "Pending";
-
-        return new CrDetailView(
-            cr.Crcode, project.ProjectCode, project.Customer.FullName, project.Hall.Name, project.Slot.SlotName, project.EventDate,
-            cr.Type, cr.Description, cr.Status, cr.CreatedByNavigation.Role, cr.CreatedByNavigation.FullName, AsUtc(cr.CreatedAt),
-            AsUtc(cr.CustomerApprovedAt), AsUtc(cr.ManagerApprovedAt), cost, items, history, rules,
-            cr.ContractAddendum?.AddendumCode, beoStatus, exception,
-            canEdit, canApprove, negotiating, canRequestException);
-    }
-
-    // ── C-06: create / save draft ─────────────────────────────────────────────
-
-    public async Task<CrDetailView?> CreateAsync(string? projectCode, int userId, string role, CrSaveCommand command, CancellationToken cancellationToken = default)
-    {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken, withSpecItems: true);
-        if (project is null) return null;
-        var blocked = BlockedReason(project, TodayVn());
-        if (blocked is not null) throw new InvalidOperationException(blocked);
-
-        var (type, description) = ValidateTicket(command.Type, command.Description);
-        var lines = ValidateLines(command.Items);
-
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var now = DateTime.UtcNow;
         var cr = new ChangeRequest
         {
-            Crcode = await NextCodeAsync("CR", cancellationToken),
-            ProjectId = project.ProjectId,
-            CreatedBy = userId,
-            Type = type,
-            Description = description,
-            Status = "Draft",
-            CreatedAt = DateTime.UtcNow
+            Crcode = await NextCodeAsync(db.ChangeRequests.Select(x => x.Crcode), "CR", cancellationToken),
+            ProjectId = project.ProjectId, CreatedBy = userId, Type = command.Type, Description = reason,
+            Status = command.Submit ? "Negotiating" : "Draft", CreatedAt = now,
+            CostImpact = lines.Sum(x => x.Command.NewQuantity * x.Command.NewUnitPrice - x.Spec.Quantity * x.Spec.UnitPrice)
         };
-        db.ChangeRequests.Add(cr);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var items = await ApplyLinesAsync(cr, project, lines, cancellationToken);
-        await RecalculateAsync(cr, items, project.EventDate, TodayVn(), cancellationToken);
-
-        if (command.Submit) cr.Status = "Negotiating";
-        AddHistory(cr, userId, command.Submit ? "Submitted" : "Created", null);
-        if (command.Submit) NotifyCounterparty(project, userId, cr, "vừa được gửi tới bạn để thương lượng");
-
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, role, cancellationToken);
-    }
-
-    public async Task<CrDetailView?> UpdateDraftAsync(string? projectCode, string crCode, int userId, string role, CrSaveCommand command, CancellationToken cancellationToken = default)
-    {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken, withSpecItems: true);
-        if (project is null) return null;
-        var cr = await LoadTicketAsync(project.ProjectId, crCode, cancellationToken);
-        if (cr is null) return null;
-        if (cr.Status != "Draft")
-            throw new InvalidOperationException("Chỉ bản nháp mới có thể chỉnh sửa. Yêu cầu đã gửi được đàm phán bằng đề xuất đối ứng.");
-        if (cr.CreatedBy != userId)
-            throw new InvalidOperationException("Chỉ người tạo mới có thể chỉnh sửa bản nháp này.");
-
-        var (type, description) = ValidateTicket(command.Type, command.Description);
-        var lines = ValidateLines(command.Items);
-
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        cr.Type = type;
-        cr.Description = description;
-        var items = await ApplyLinesAsync(cr, project, lines, cancellationToken);
-        await RecalculateAsync(cr, items, project.EventDate, TodayVn(), cancellationToken);
-        AddHistory(cr, userId, "Updated", null);
+        foreach (var (spec, item) in lines)
+            cr.Critems.Add(new Critem { TargetSpecItemId = spec.SpecItemId, OldQuantity = spec.Quantity, OldUnitPrice = spec.UnitPrice, NewQuantity = item.NewQuantity, NewUnitPrice = item.NewUnitPrice });
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "Created", Note = reason, CreatedAt = now });
         if (command.Submit)
         {
-            cr.Status = "Negotiating";
-            AddHistory(cr, userId, "Submitted", null);
-            NotifyCounterparty(project, userId, cr, "vừa được gửi tới bạn để thương lượng");
+            cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "Submitted", CreatedAt = now });
+            NotifyCounterparty(project, cr.Crcode, role, $"{cr.Crcode} mới được gửi để thương lượng.");
         }
+        db.ChangeRequests.Add(cr);
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, role, cancellationToken);
+        return (await GetAsync(projectCode, cr.Crcode, cancellationToken))!;
     }
 
-    public async Task<CrDetailView?> SubmitAsync(string? projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default)
+    public async Task<CrDetailView?> GetAsync(string projectCode, string crCode, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-        var cr = await LoadTicketAsync(project.ProjectId, crCode, cancellationToken);
-        if (cr is null) return null;
-        if (cr.Status != "Draft") throw new InvalidOperationException("Chỉ bản nháp mới có thể gửi để thương lượng.");
-        if (cr.CreatedBy != userId) throw new InvalidOperationException("Chỉ người tạo mới có thể gửi bản nháp này.");
-        if (cr.Critems.Count == 0) throw new InvalidOperationException("Yêu cầu thay đổi cần ít nhất một hạng mục.");
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken, tracking: false);
+        return cr is null ? null : await MapAsync(cr, cancellationToken);
+    }
 
+    public async Task<CrDetailView?> SubmitAsync(string projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default)
+    {
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
+        if (cr is null) return null;
+        if (cr.Status != "Draft") throw new InvalidOperationException("Chỉ gửi được CR đang ở trạng thái Nháp.");
+        if (cr.CreatedBy != userId) throw new InvalidOperationException("Chỉ người tạo CR mới gửi được bản nháp.");
+        EnsureCanChange(cr.Project);
         cr.Status = "Negotiating";
-        AddHistory(cr, userId, "Submitted", null);
-        NotifyCounterparty(project, userId, cr, "vừa được gửi tới bạn để thương lượng");
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "Submitted", CreatedAt = DateTime.UtcNow });
+        NotifyCounterparty(cr.Project, cr.Crcode, role, $"{cr.Crcode} mới được gửi để thương lượng.");
         await db.SaveChangesAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, role, cancellationToken);
+        return await GetAsync(projectCode, crCode, cancellationToken);
     }
 
-    // ── M-08: counter-proposal, decisions and exceptions ──────────────────────
-
-    public async Task<CrDetailView?> CounterAsync(string? projectCode, string crCode, int userId, CrCounterCommand command, CancellationToken cancellationToken = default)
+    public async Task<CrDetailView?> CounterProposeAsync(string projectCode, string crCode, int userId, string role, IReadOnlyList<CrItemCommand> items, string? note, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, "Manager", cancellationToken, withSpecItems: true);
-        if (project is null) return null;
-        var cr = await LoadTicketAsync(project.ProjectId, crCode, cancellationToken);
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
         if (cr is null) return null;
-        if (cr.Status != "Negotiating")
-            throw new InvalidOperationException("Chỉ yêu cầu đang thương lượng mới có thể nhận đề xuất đối ứng.");
+        var editingDraft = cr.Status == "Draft" && cr.CreatedBy == userId;
+        if (!editingDraft && !(cr.Status == "Negotiating" && role == "Manager"))
+            throw new InvalidOperationException("Chỉ Manager được đề xuất lại khi CR đang thương lượng.");
+        if (note?.Trim().Length > 500) throw new InvalidOperationException("Vượt quá độ dài tối đa 500 ký tự.");
+        EnsureCanChange(cr.Project);
+        var lines = await ValidateItemsAsync(cr.Project, items, cancellationToken);
 
-        var lines = ValidateLines(command.Items);
-        var note = Trim(command.Note, 500);
-
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        // New terms void any earlier consent: both parties must approve the counter-proposal (GBR-04).
+        db.Critems.RemoveRange(cr.Critems);
+        cr.Critems.Clear();
+        foreach (var (spec, item) in lines)
+            cr.Critems.Add(new Critem { TargetSpecItemId = spec.SpecItemId, OldQuantity = spec.Quantity, OldUnitPrice = spec.UnitPrice, NewQuantity = item.NewQuantity, NewUnitPrice = item.NewUnitPrice });
+        cr.CostImpact = lines.Sum(x => x.Command.NewQuantity * x.Command.NewUnitPrice - x.Spec.Quantity * x.Spec.UnitPrice);
+        // A counter-proposal changes the terms, so earlier approvals no longer apply (SDS II.2 CounterProposeCommand).
         cr.CustomerApprovedAt = null;
         cr.ManagerApprovedAt = null;
-        var items = await ApplyLinesAsync(cr, project, lines, cancellationToken);
-        await RecalculateAsync(cr, items, project.EventDate, TodayVn(), cancellationToken);
-        AddHistory(cr, userId, "CounterProposal", note);
-        Notify(project.CustomerId, "CR update", $"Quản lý đã gửi đề xuất đối ứng cho yêu cầu {cr.Crcode}. Vui lòng xem chi tiết.", CustomerLink());
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = editingDraft ? "DraftEdited" : "CounterProposed", Note = note?.Trim(), CreatedAt = DateTime.UtcNow });
+        if (!editingDraft) NotifyCounterparty(cr.Project, cr.Crcode, role, $"Manager đã đề xuất lại {cr.Crcode}. Vui lòng xem chi phí mới.");
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, "Manager", cancellationToken);
+        return await GetAsync(projectCode, crCode, cancellationToken);
     }
 
-    public async Task<CrDetailView?> ApproveAsync(string? projectCode, string crCode, int userId, string role, string? note, CancellationToken cancellationToken = default)
+    public async Task<CrDetailView?> ApproveAsync(string projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-        var cr = await LoadTicketAsync(project.ProjectId, crCode, cancellationToken);
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
         if (cr is null) return null;
-        if (cr.Status != "Negotiating")
-            throw new InvalidOperationException("Chỉ yêu cầu đang thương lượng mới có thể được phê duyệt.");
-        var cleanNote = Trim(note, 500);
-        var now = DateTime.UtcNow;
+        if (cr.Status != "Negotiating") throw new InvalidOperationException("CR không ở trạng thái đang thương lượng.");
+        EnsureCanChange(cr.Project);
+        if (await db.ExceptionRequests.AnyAsync(x => x.Crid == cr.Crid && x.Status == "Pending", cancellationToken))
+            throw new InvalidOperationException("CR đang chờ Admin quyết định yêu cầu ngoại lệ, chưa thể duyệt.");
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        if (role == "Manager")
+        var now = DateTime.UtcNow;
+        if (role == "Customer")
         {
-            if (cr.ManagerApprovedAt is not null) throw new InvalidOperationException("Bạn đã phê duyệt yêu cầu này.");
-            cr.ManagerApprovedAt = now;
-            AddHistory(cr, userId, "ManagerApproved", cleanNote);
+            if (cr.CustomerApprovedAt is not null) throw new InvalidOperationException("Bạn đã duyệt CR này.");
+            cr.CustomerApprovedAt = now;
         }
         else
         {
-            if (cr.CustomerApprovedAt is not null) throw new InvalidOperationException("Bạn đã phê duyệt yêu cầu này.");
-            cr.CustomerApprovedAt = now;
-            AddHistory(cr, userId, "CustomerApproved", cleanNote);
+            if (cr.ManagerApprovedAt is not null) throw new InvalidOperationException("Bạn đã duyệt CR này.");
+            cr.ManagerApprovedAt = now;
         }
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = role == "Customer" ? "CustomerApproved" : "ManagerApproved", CreatedAt = now });
 
-        if (cr.CustomerApprovedAt is not null && cr.ManagerApprovedAt is not null)
-            await ApproveAndGenerateAddendumAsync(cr, project, userId, cancellationToken);
-
+        ContractAddendum? addendum = null;
+        if (cr.CustomerApprovedAt is not null && cr.ManagerApprovedAt is not null) addendum = await FinalizeAsync(cr, userId, now, cancellationToken);
+        else NotifyCounterparty(cr.Project, cr.Crcode, role, $"{cr.Crcode} đã được {(role == "Customer" ? "khách hàng" : "Manager")} duyệt, đang chờ bạn.");
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, role, cancellationToken);
+        if (addendum is not null) await RenderAddendumAsync(addendum, cr, cancellationToken);
+        return await GetAsync(projectCode, crCode, cancellationToken);
     }
 
-    public async Task<CrDetailView?> RejectAsync(string? projectCode, string crCode, int userId, string role, string note, CancellationToken cancellationToken = default)
+    public async Task<CrDetailView?> RejectAsync(string projectCode, string crCode, int userId, string role, string? reason, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-        var cr = await LoadTicketAsync(project.ProjectId, crCode, cancellationToken);
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
         if (cr is null) return null;
-        if (ClosedStatuses.Contains(cr.Status))
-            throw new InvalidOperationException("Yêu cầu này đã đóng nên không thể từ chối.");
-        var cleanNote = (note ?? "").Trim();
-        if (cleanNote.Length == 0) throw new InvalidOperationException("Trường Lý do từ chối là bắt buộc.");
-        if (cleanNote.Length > 500) throw new InvalidOperationException("Vượt quá độ dài tối đa 500 ký tự (MSG16).");
-        if (cr.Status == "Draft" && cr.CreatedBy != userId)
-            throw new InvalidOperationException("Chỉ người tạo mới có thể hủy bản nháp này.");
-
+        if (!OpenStatuses.Contains(cr.Status)) throw new InvalidOperationException("CR đã đóng.");
+        reason = reason?.Trim();
+        if (role == "Manager" && string.IsNullOrEmpty(reason)) throw new InvalidOperationException("Trường Lý do từ chối là bắt buộc.");
+        if (reason?.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự.");
         cr.Status = "Rejected";
-        AddHistory(cr, userId, "Rejected", cleanNote);
-        NotifyCounterparty(project, userId, cr, $"đã bị từ chối: {cleanNote}");
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "Rejected", Note = reason, CreatedAt = DateTime.UtcNow });
+        NotifyCounterparty(cr.Project, cr.Crcode, role, $"{cr.Crcode} đã bị từ chối và đóng lại.");
         await db.SaveChangesAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, role, cancellationToken);
+        return await GetAsync(projectCode, crCode, cancellationToken);
     }
 
-    public async Task<CrDetailView?> RequestExceptionAsync(string? projectCode, string crCode, int userId, string note, CancellationToken cancellationToken = default)
+    public async Task<CrDetailView?> CommentAsync(string projectCode, string crCode, int userId, string role, string note, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, "Manager", cancellationToken);
-        if (project is null) return null;
-        var cr = await LoadTicketAsync(project.ProjectId, crCode, cancellationToken);
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
         if (cr is null) return null;
-        if (cr.Status != "Negotiating")
-            throw new InvalidOperationException("Chỉ có thể đề nghị ngoại lệ cho yêu cầu đang thương lượng.");
-        if (cr.PenaltyFee <= 0)
-            throw new InvalidOperationException("Yêu cầu này không có phí phạt nên không cần ngoại lệ.");
-        var cleanNote = (note ?? "").Trim();
-        if (cleanNote.Length == 0) throw new InvalidOperationException("Trường Ghi chú gửi Admin là bắt buộc.");
-        if (cleanNote.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự (MSG16).");
-        if (await db.ExceptionRequests.AnyAsync(e => e.Crid == cr.Crid && e.Status == "Pending", cancellationToken))
-            throw new InvalidOperationException("Đã có yêu cầu ngoại lệ đang chờ Admin quyết định cho yêu cầu này.");
+        if (cr.Status != "Negotiating") throw new InvalidOperationException("Chỉ góp ý được khi CR đang thương lượng.");
+        note = note?.Trim() ?? "";
+        if (note.Length == 0) throw new InvalidOperationException("Trường Nội dung góp ý là bắt buộc.");
+        if (note.Length > 500) throw new InvalidOperationException("Vượt quá độ dài tối đa 500 ký tự.");
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "Commented", Note = note, CreatedAt = DateTime.UtcNow });
+        NotifyCounterparty(cr.Project, cr.Crcode, role, $"Có góp ý mới trên {cr.Crcode}.");
+        await db.SaveChangesAsync(cancellationToken);
+        return await GetAsync(projectCode, crCode, cancellationToken);
+    }
 
+    public async Task<CrDetailView?> RequestExceptionAsync(string projectCode, string crCode, int managerId, string note, CancellationToken cancellationToken = default)
+    {
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
+        if (cr is null) return null;
+        if (cr.Status != "Negotiating") throw new InvalidOperationException("Chỉ yêu cầu ngoại lệ khi CR đang thương lượng.");
+        note = note?.Trim() ?? "";
+        if (note.Length == 0) throw new InvalidOperationException("Trường Ghi chú là bắt buộc.");
+        if (note.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự.");
+        if (await db.ExceptionRequests.AnyAsync(x => x.Crid == cr.Crid && x.Status == "Pending", cancellationToken))
+            throw new InvalidOperationException("CR này đã có yêu cầu ngoại lệ đang chờ Admin.");
+        var now = DateTime.UtcNow;
+        var code = await NextCodeAsync(db.ExceptionRequests.Select(x => x.RequestCode), "EXC", cancellationToken);
         db.ExceptionRequests.Add(new ExceptionRequest
         {
-            RequestCode = await NextCodeAsync("EXC", cancellationToken),
-            SourceType = "CrPenaltyWaiver",
-            ProjectId = project.ProjectId,
-            Crid = cr.Crid,
-            RequestedBy = userId,
-            RequestNote = cleanNote,
-            Status = "Pending",
-            CreatedAt = DateTime.UtcNow
+            RequestCode = code, SourceType = "CrPenaltyWaiver", ProjectId = cr.ProjectId, Crid = cr.Crid,
+            RequestedBy = managerId, RequestNote = note, Status = "Pending", CreatedAt = now
         });
-        AddHistory(cr, userId, "ExceptionRequested", cleanNote);
-        var adminIds = await db.Users.AsNoTracking()
-            .Where(u => u.Role == "Admin" && u.Status == "Active")
-            .Select(u => u.UserId)
-            .ToListAsync(cancellationToken);
-        foreach (var adminId in adminIds)
-            Notify(adminId, "CR update", $"Quản lý đề nghị miễn phí phạt cho yêu cầu {cr.Crcode}.", "/admin/exception-requests");
-
+        cr.Crhistories.Add(new Crhistory { ActorId = managerId, Action = "ExceptionRequested", Note = $"{code}: {note}", CreatedAt = now });
         await db.SaveChangesAsync(cancellationToken);
-        return await GetDetailAsync(project.ProjectCode, cr.Crcode, userId, "Manager", cancellationToken);
+        return await GetAsync(projectCode, crCode, cancellationToken);
     }
 
-    // ── Approval side effects (UC-22 steps 5-6) ───────────────────────────────
-
-    private async Task ApproveAndGenerateAddendumAsync(ChangeRequest cr, WeddingProject project, int actorId, CancellationToken cancellationToken)
+    public async Task<CrAddendumView?> GetAddendumAsync(string projectCode, string crCode, CancellationToken cancellationToken = default)
     {
-        // GBR-03: the T-day rate follows the approval date, so the penalty is finalised here — unless the
-        // Admin already granted a waiver (UC-47), in which case the waiver must survive the approval.
-        var waived = await db.ExceptionRequests.AsNoTracking()
-            .AnyAsync(e => e.Crid == cr.Crid && e.SourceType == "CrPenaltyWaiver" && e.Status == "Approved", cancellationToken);
-        if (waived) cr.PenaltyFee = 0;
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
+        if (cr?.ContractAddendum is not { } addendum) return null;
+        // PDF rendering runs after the approval commit; a failed render is retried on the next read (SDS II.2 GenerateAddendumPdfJob).
+        if (!Guid.TryParse(addendum.FilePath, out _)) await RenderAddendumAsync(addendum, cr, cancellationToken);
+        return await MapAddendumAsync(cr, cancellationToken);
+    }
+
+    public async Task<CrAddendumView?> AttachSignedAsync(string projectCode, string crCode, int managerId, byte[] content, string fileName, CancellationToken cancellationToken = default)
+    {
+        var cr = await LoadAsync(projectCode, crCode, cancellationToken);
+        if (cr?.ContractAddendum is not { } addendum) return null;
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        await files.StoreAsync(cr.ProjectId, "SignedAddendum", $"{addendum.AddendumCode}_signed{extension}", content, managerId, cancellationToken);
+        addendum.Status = "Signed";
+        addendum.SignedAt = DateTime.UtcNow;
+        Notify(db, cr.Project.CustomerId, "CR update", $"Bản ký phụ lục {addendum.AddendumCode} đã được lưu.", Links.CustomerContract + "/addenda");
+        await db.SaveChangesAsync(cancellationToken);
+        return await MapAddendumAsync(cr, cancellationToken);
+    }
+
+    private async Task<ContractAddendum> FinalizeAsync(ChangeRequest cr, int userId, DateTime now, CancellationToken cancellationToken)
+    {
+        var project = cr.Project;
+        var current = (await CurrentSpecItemsAsync(project.ProjectId, cancellationToken)).Select(x => x.SpecItemId).ToHashSet();
+        if (cr.Critems.Any(x => !current.Contains(x.TargetSpecItemId)))
+            throw new InvalidOperationException("Hạng mục đã được CR khác thay đổi. Manager cần đề xuất lại giá trị mới.");
+
+        var today = TodayVn();
+        var waived = await db.ExceptionRequests.AnyAsync(x => x.Crid == cr.Crid && x.Status == "Approved", cancellationToken);
+        var cost = Cost(cr.Critems.Select(x => (x.OldQuantity, x.OldUnitPrice, x.NewQuantity, x.NewUnitPrice)), project.EventDate, today,
+            await PenaltyRulesAsync(db, today, cancellationToken), waived, project.CurrentTotal);
+        cr.Status = "Approved";
+        cr.CostImpact = cost.PriceDelta;
+        cr.PenaltyRate = cost.PenaltyRate;
+        cr.PenaltyFee = cost.PenaltyFee;
+        project.CurrentTotal += cost.TotalImpact;
+        cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "Approved", Note = $"Tổng ảnh hưởng {Money(cost.TotalImpact)} (phạt {cost.PenaltyRate:0.##}%)", CreatedAt = now });
+
+        // Approved items become a revised Spec Item version; the frozen baseline (version 1) stays untouched (GBR-01).
+        var versions = await db.SpecItems.Where(x => x.ProjectId == project.ProjectId).GroupBy(x => x.CatalogItemId)
+            .Select(g => new { g.Key, Max = g.Max(x => x.Version) }).ToDictionaryAsync(x => x.Key, x => x.Max, cancellationToken);
+        foreach (var item in cr.Critems)
+        {
+            db.SpecItems.Add(new SpecItem
+            {
+                ProjectId = project.ProjectId, CatalogItemId = item.TargetSpecItem.CatalogItemId, Description = item.TargetSpecItem.Description,
+                Quantity = item.NewQuantity, UnitPrice = item.NewUnitPrice, IsBaseline = false,
+                Version = versions.GetValueOrDefault(item.TargetSpecItem.CatalogItemId) + 1
+            });
+        }
+
+        var addendum = new ContractAddendum
+        {
+            AddendumCode = await NextCodeAsync(db.ContractAddenda.Select(x => x.AddendumCode), "ADD", cancellationToken),
+            Crid = cr.Crid, ProjectId = project.ProjectId, TotalVariance = cost.TotalImpact, Status = "Generated"
+        };
+        db.ContractAddenda.Add(addendum);
+        cr.ContractAddendum = addendum;
+
+        // GBR-05: a Draft BEO is recompiled from the new Spec Items; a Frozen BEO becomes Stale.
+        var beo = await db.Beos.Where(x => x.ProjectId == project.ProjectId).OrderByDescending(x => x.Version).FirstOrDefaultAsync(cancellationToken);
+        if (beo?.Status == "Frozen")
+        {
+            beo.Status = "Stale";
+            cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "BeoMarkedStale", Note = $"BEO v{beo.Version}", CreatedAt = now });
+            Notify(db, project.ManagerId, "BEO", $"BEO của {project.ProjectCode} đã lỗi thời do {addendum.AddendumCode}. Vui lòng duyệt lại.", Links.ManagerBeo(project.ProjectCode));
+        }
+        else if (beo?.Status == "Draft")
+            cr.Crhistories.Add(new Crhistory { ActorId = userId, Action = "BeoDraftUpdated", Note = $"BEO v{beo.Version}", CreatedAt = now });
+
+        Notify(db, project.CustomerId, "CR update", $"{cr.Crcode} đã được duyệt. Phụ lục {addendum.AddendumCode} đã được tạo.", Links.CustomerCr(cr.Crcode));
+        Notify(db, project.ManagerId, "CR update", $"{cr.Crcode} đã được duyệt. Phụ lục {addendum.AddendumCode} đã được tạo.", Links.ManagerCr(project.ProjectCode, cr.Crcode));
+        return addendum;
+    }
+
+    private async Task RenderAddendumAsync(ContractAddendum addendum, ChangeRequest cr, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var project = cr.Project;
+            var bytes = pdf.Render(new PdfDocumentModel($"Phụ lục hợp đồng {addendum.AddendumCode}", $"Theo Change Request {cr.Crcode}",
+                [
+                    ("Dự án", project.ProjectCode), ("Khách hàng", project.Customer.FullName), ("Ngày tiệc", project.EventDate.ToString("dd/MM/yyyy")),
+                    ("Loại thay đổi", cr.Type), ("Lý do", cr.Description), ("Chênh lệch giá", Money(cr.CostImpact)),
+                    ("Phí phạt", $"{Money(cr.PenaltyFee)} ({cr.PenaltyRate ?? 0:0.##}%)"), ("Tổng phát sinh", Money(cr.CostImpact + cr.PenaltyFee)),
+                    ("Tổng hợp đồng mới", Money(project.CurrentTotal))
+                ],
+                [new PdfTable("Hạng mục thay đổi", ["Hạng mục", "Cũ", "Mới", "Chênh lệch"],
+                    cr.Critems.Select(i => (IReadOnlyList<string>)[i.TargetSpecItem.CatalogItem.Name,
+                        $"{i.OldQuantity} × {Money(i.OldUnitPrice)}", $"{i.NewQuantity} × {Money(i.NewUnitPrice)}",
+                        Money(i.NewQuantity * i.NewUnitPrice - i.OldQuantity * i.OldUnitPrice)]).ToList())],
+                ["Phụ lục được ký trực tiếp giữa hai bên; bản scan có chữ ký được Manager lưu vào hệ thống (LI-05)."]));
+            var stored = await files.StoreAsync(cr.ProjectId, "AddendumPdf", $"{addendum.AddendumCode}.pdf", bytes, null, cancellationToken);
+            addendum.FilePath = stored.Id.ToString();
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Addendum PDF {Code} failed; it is retried on the next read.", addendum.AddendumCode);
+        }
+    }
+
+    private async Task<CrAddendumView> MapAddendumAsync(ChangeRequest cr, CancellationToken cancellationToken)
+    {
+        var addendum = cr.ContractAddendum!;
+        var project = cr.Project;
+        var paid = await db.Payments.Where(x => x.ProjectId == project.ProjectId && x.Status == "Paid").SumAsync(x => x.Amount ?? 0, cancellationToken);
+        var signed = await db.StoredFiles.AsNoTracking()
+            .Where(x => x.ProjectId == project.ProjectId && x.Purpose == "SignedAddendum" && x.OriginalName.StartsWith(addendum.AddendumCode + "_"))
+            .OrderByDescending(x => x.UploadedAt).Select(x => (Guid?)x.FileId).FirstOrDefaultAsync(cancellationToken);
+        var detail = await MapAsync(cr, cancellationToken);
+        return new CrAddendumView(addendum.AddendumCode, cr.Crcode, addendum.Status, addendum.TotalVariance, addendum.SignedAt,
+            Guid.TryParse(addendum.FilePath, out var pdfId) ? pdfId : null, signed, project.BaseContractValue, project.CurrentTotal, paid,
+            project.CurrentTotal - paid, detail.BeoEffect, detail.Items, detail.Cost);
+    }
+
+    private async Task<CrDetailView> MapAsync(ChangeRequest cr, CancellationToken cancellationToken)
+    {
+        var history = await db.Crhistories.AsNoTracking().Where(x => x.Crid == cr.Crid).OrderBy(x => x.CreatedAt).ThenBy(x => x.HistoryId)
+            .Select(x => new CrHistoryView(x.Actor.FullName, x.Actor.Role, x.Action, x.Note, x.CreatedAt)).ToListAsync(cancellationToken);
+        var exceptions = await db.ExceptionRequests.AsNoTracking().Where(x => x.Crid == cr.Crid).OrderByDescending(x => x.CreatedAt)
+            .Select(x => new CrExceptionView(x.RequestCode, x.Status, x.RequestNote, x.DecisionNote)).ToListAsync(cancellationToken);
+        var creator = await db.Users.AsNoTracking().Where(x => x.UserId == cr.CreatedBy).Select(x => new { x.FullName, x.Role }).FirstAsync(cancellationToken);
+        var items = cr.Critems.Select(i => new CrItemView(i.TargetSpecItemId, i.TargetSpecItem.CatalogItem.Name, i.TargetSpecItem.CatalogItem.Unit,
+            i.OldQuantity, i.OldUnitPrice, i.NewQuantity, i.NewUnitPrice, i.NewQuantity * i.NewUnitPrice - i.OldQuantity * i.OldUnitPrice)).ToList();
+
+        CrCostView cost;
+        if (cr.Status == "Approved")
+        {
+            var approvedOn = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(Utc(Max(cr.CustomerApprovedAt, cr.ManagerApprovedAt)), VnTz));
+            var total = cr.CostImpact + cr.PenaltyFee;
+            cost = new CrCostView(cr.CostImpact, cr.Project.EventDate.DayNumber - approvedOn.DayNumber, cr.PenaltyRate ?? 0, cr.PenaltyFee,
+                exceptions.Any(x => x.Status == "Approved"), total, cr.Project.CurrentTotal - total, cr.Project.CurrentTotal);
+        }
         else
         {
-            var items = await db.Critems.Where(i => i.Crid == cr.Crid).ToListAsync(cancellationToken);
-            await RecalculateAsync(cr, items, project.EventDate, TodayVn(), cancellationToken);
+            var today = TodayVn();
+            cost = Cost(cr.Critems.Select(x => (x.OldQuantity, x.OldUnitPrice, x.NewQuantity, x.NewUnitPrice)), cr.Project.EventDate, today,
+                await PenaltyRulesAsync(db, today, cancellationToken), exceptions.Any(x => x.Status == "Approved"), cr.Project.CurrentTotal);
         }
-        cr.Status = "Approved";
-
-        if (!await db.ContractAddenda.AnyAsync(a => a.Crid == cr.Crid, cancellationToken))
-        {
-            var addendum = new ContractAddendum
-            {
-                AddendumCode = await NextCodeAsync("PL", cancellationToken),
-                Crid = cr.Crid,
-                ProjectId = project.ProjectId,
-                TotalVariance = cr.CostImpact + cr.PenaltyFee,
-                Status = "Generated"
-            };
-            db.ContractAddenda.Add(addendum);
-            AddHistory(cr, actorId, "AddendumGenerated", addendum.AddendumCode);
-        }
-
-        // CurrentTotal = Base + Σ approved CR impact (M-09). The current CR is not committed yet.
-        var otherImpact = await db.ChangeRequests.AsNoTracking()
-            .Where(c => c.ProjectId == project.ProjectId && c.Status == "Approved" && c.Crid != cr.Crid)
-            .SumAsync(c => (decimal?)c.TotalVariance, cancellationToken) ?? 0m;
-        project.CurrentTotal = project.BaseContractValue + otherImpact + cr.CostImpact + cr.PenaltyFee;
-
-        // GBR-05: an approved scope change makes a Frozen BEO Stale; a Draft BEO is recompiled by JOB-03.
-        var beo = await db.Beos.Where(b => b.ProjectId == project.ProjectId)
-            .OrderByDescending(b => b.Version).FirstOrDefaultAsync(cancellationToken);
-        if (beo is { Status: "Frozen" }) beo.Status = "Stale";
-
-        AddHistory(cr, actorId, "Approved", null);
-        Notify(project.CustomerId, "CR update",
-            $"Yêu cầu thay đổi {cr.Crcode} đã được cả hai bên phê duyệt. Phụ lục hợp đồng đã được tạo.", CustomerLink());
-        Notify(project.ManagerId, "CR update",
-            $"Yêu cầu thay đổi {cr.Crcode} đã được phê duyệt. Tổng hợp đồng đã được cập nhật.", ManagerLink(project));
+        var beoEffect = history.LastOrDefault(x => x.Action is "BeoMarkedStale" or "BeoDraftUpdated") is { } effect
+            ? effect.Action == "BeoMarkedStale" ? "BEO bị đánh dấu lỗi thời (Stale), cần duyệt lại (MSG22)." : "Bản nháp BEO đã được cập nhật."
+            : cr.Status == "Approved" ? "Chưa có BEO, nội dung mới sẽ vào bản nháp khi BEO được tạo." : null;
+        return new CrDetailView(cr.Crcode, cr.Project.ProjectCode, cr.Type, cr.Description, creator.Role, creator.FullName, cr.Status, Utc(cr.CreatedAt),
+            cr.CustomerApprovedAt is { } c ? Utc(c) : null, cr.ManagerApprovedAt is { } m ? Utc(m) : null, items, cost,
+            history.Select(x => x with { CreatedAt = Utc(x.CreatedAt) }).ToList(), exceptions, cr.ContractAddendum?.AddendumCode, beoEffect);
     }
 
-    // ── Ticket persistence helpers ────────────────────────────────────────────
+    private static DateTime Max(DateTime? a, DateTime? b) => (a ?? DateTime.MinValue) > (b ?? DateTime.MinValue) ? a!.Value : b ?? DateTime.UtcNow;
 
-    private async Task<List<Critem>> ApplyLinesAsync(ChangeRequest cr, WeddingProject project, IReadOnlyList<(int SpecItemId, int NewQuantity, decimal NewUnitPrice)> lines, CancellationToken cancellationToken)
+    private async Task<ChangeRequest?> LoadAsync(string projectCode, string crCode, CancellationToken cancellationToken, bool tracking = true)
     {
-        var spec = BaselineSpecItems(project);
-        var frames = await CurrentFramesAsync(spec.Select(s => s.CatalogItemId), cancellationToken);
-        var existing = await db.Critems.Where(i => i.Crid == cr.Crid).ToListAsync(cancellationToken);
-        var result = new List<Critem>(lines.Count);
+        var query = db.ChangeRequests.Include(x => x.Project).ThenInclude(x => x.Customer)
+            .Include(x => x.Critems).ThenInclude(x => x.TargetSpecItem).ThenInclude(x => x.CatalogItem)
+            .Include(x => x.ContractAddendum).AsSplitQuery();
+        if (!tracking) query = query.AsNoTracking();
+        return await query.FirstOrDefaultAsync(x => x.Crcode == crCode && x.Project.ProjectCode == projectCode, cancellationToken);
+    }
 
-        foreach (var line in lines)
+    // Latest version of each Spec Item: the baseline, or the newest revision from approved CRs.
+    private async Task<List<SpecItem>> CurrentSpecItemsAsync(int projectId, CancellationToken cancellationToken)
+    {
+        var items = await db.SpecItems.AsNoTracking().Include(x => x.CatalogItem).Where(x => x.ProjectId == projectId).ToListAsync(cancellationToken);
+        return items.GroupBy(x => x.CatalogItemId).Select(g => g.OrderByDescending(x => x.Version).First())
+            .OrderBy(x => x.CatalogItem.Category).ThenBy(x => x.CatalogItem.Name).ToList();
+    }
+
+    private async Task<Dictionary<int, PriceFrame>> FramesAsync(IEnumerable<int> itemIds, DateOnly onDate, CancellationToken cancellationToken)
+    {
+        var ids = itemIds.Distinct().ToArray();
+        var frames = await db.PriceFrames.AsNoTracking().Where(x => ids.Contains(x.ItemId) && x.EffectiveFrom <= onDate).ToListAsync(cancellationToken);
+        return frames.GroupBy(x => x.ItemId).ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.EffectiveFrom).First());
+    }
+
+    private async Task<List<(SpecItem Spec, CrItemCommand Command)>> ValidateItemsAsync(WeddingProject project, IReadOnlyList<CrItemCommand>? items, CancellationToken cancellationToken)
+    {
+        if (items is null || items.Count == 0) throw new InvalidOperationException("Trường Hạng mục là bắt buộc.");
+        if (items.GroupBy(x => x.SpecItemId).Any(g => g.Count() > 1)) throw new InvalidOperationException("Mỗi hạng mục chỉ được chọn một lần trong CR.");
+        var current = (await CurrentSpecItemsAsync(project.ProjectId, cancellationToken)).ToDictionary(x => x.SpecItemId);
+        var frames = await FramesAsync(current.Values.Select(x => x.CatalogItemId), TodayVn(), cancellationToken);
+        var result = new List<(SpecItem, CrItemCommand)>();
+        foreach (var item in items)
         {
-            var specItem = spec.FirstOrDefault(s => s.SpecItemId == line.SpecItemId)
-                ?? throw new InvalidOperationException("Hạng mục đặc tả không thuộc baseline hiện tại của dự án.");
-            var name = specItem.CatalogItem?.Name ?? specItem.Description;
-            if (!frames.TryGetValue(specItem.CatalogItemId, out var frame))
-                throw new InvalidOperationException($"'{name}' chưa có PriceFrame hiện hành nên chưa thể đổi giá (GBR-02).");
-            if (line.NewUnitPrice < frame.Min || line.NewUnitPrice > frame.Max)
-                throw new InvalidOperationException($"Đơn giá của '{name}' phải nằm trong khoảng {frame.Min:N0} - {frame.Max:N0} VND (MSG06).");
-
-            var item = existing.FirstOrDefault(i => i.TargetSpecItemId == specItem.SpecItemId);
-            if (item is null)
-            {
-                item = new Critem
-                {
-                    Crid = cr.Crid,
-                    TargetSpecItemId = specItem.SpecItemId,
-                    OldQuantity = specItem.Quantity,
-                    OldUnitPrice = specItem.UnitPrice,
-                    NewQuantity = line.NewQuantity,
-                    NewUnitPrice = line.NewUnitPrice
-                };
-                db.Critems.Add(item);
-            }
-            else
-            {
-                item.OldQuantity = specItem.Quantity;
-                item.OldUnitPrice = specItem.UnitPrice;
-                item.NewQuantity = line.NewQuantity;
-                item.NewUnitPrice = line.NewUnitPrice;
-            }
-            result.Add(item);
+            if (!current.TryGetValue(item.SpecItemId, out var spec)) throw new InvalidOperationException("Hạng mục không thuộc đặc tả hiện hành của dự án.");
+            if (item.NewQuantity <= 0) throw new InvalidOperationException($"Số lượng mới của '{spec.CatalogItem.Name}' phải lớn hơn 0.");
+            if (frames.TryGetValue(spec.CatalogItemId, out var frame) && (item.NewUnitPrice < frame.MinPrice || item.NewUnitPrice > frame.MaxPrice))
+                throw new InvalidOperationException($"Đơn giá của '{spec.CatalogItem.Name}' phải nằm trong khoảng {frame.MinPrice:N0} - {frame.MaxPrice:N0} VND (MSG06).");
+            if (item.NewUnitPrice < 0) throw new InvalidOperationException("Đơn giá không được âm.");
+            if (item.NewQuantity == spec.Quantity && item.NewUnitPrice == spec.UnitPrice)
+                throw new InvalidOperationException($"'{spec.CatalogItem.Name}' chưa có thay đổi so với giá trị hiện tại.");
+            result.Add((spec, item));
         }
-
-        // A counter-proposal replaces the whole set: lines the Manager removed are deleted (GBR-13 keeps history).
-        var kept = result.Select(i => i.TargetSpecItemId).ToHashSet();
-        db.Critems.RemoveRange(existing.Where(i => !kept.Contains(i.TargetSpecItemId)));
         return result;
     }
 
-    private async Task RecalculateAsync(ChangeRequest cr, IReadOnlyList<Critem> items, DateOnly eventDate, DateOnly on, CancellationToken cancellationToken)
+    private static void EnsureCanChange(WeddingProject project)
     {
-        var delta = items.Sum(i => i.NewUnitPrice * i.NewQuantity - i.OldUnitPrice * i.OldQuantity);
-        var rules = await PenaltyRulesAsync(on, cancellationToken);
-        var days = DaysToEvent(eventDate, on);
-        var rate = rules.FirstOrDefault(r => days >= r.TDayMin && days <= r.TDayMax)?.RatePercent ?? 0m;
-        cr.CostImpact = delta;
-        cr.PenaltyRate = rate;
-        cr.PenaltyFee = rate <= 0 ? 0m : decimal.Round(Math.Abs(delta) * rate / 100m, 2);
+        if (project.Status == "Active Baseline") throw new InvalidOperationException("Baseline chưa được chốt nên chưa thể tạo Change Request.");
+        if (project.Status != "Baseline Frozen" || project.EventDate < TodayVn())
+            throw new InvalidOperationException("Dự án đã diễn ra hoặc đã quyết toán nên không thể thay đổi.");
     }
 
-    private async Task<ChangeRequest?> LoadTicketAsync(int projectId, string crCode, CancellationToken cancellationToken) =>
-        await db.ChangeRequests
-            .Include(c => c.Critems)
-            .FirstOrDefaultAsync(c => c.ProjectId == projectId && c.Crcode == crCode, cancellationToken);
-
-    private async Task<WeddingProject?> ResolveProjectAsync(string? projectCode, int userId, string role, CancellationToken cancellationToken, bool withSpecItems = false)
+    private void NotifyCounterparty(WeddingProject project, string crCode, string actorRole, string message)
     {
-        var query = db.WeddingProjects.Include(x => x.Customer).Include(x => x.Hall).Include(x => x.Slot).AsQueryable();
-        if (withSpecItems) query = query.Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem);
-        query = role switch
-        {
-            "Customer" => query.Where(x => x.CustomerId == userId),
-            "Manager" => query.Where(x => x.ManagerId == userId),
-            _ => throw new InvalidOperationException("Vai trò không được hỗ trợ cho yêu cầu thay đổi.")
-        };
-        if (!string.IsNullOrWhiteSpace(projectCode)) query = query.Where(x => x.ProjectCode == projectCode.Trim());
-        return await query.OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        if (actorRole == "Customer") Notify(db, project.ManagerId, "CR update", message, Links.ManagerCr(project.ProjectCode, crCode));
+        else Notify(db, project.CustomerId, "CR update", message, Links.CustomerCr(crCode));
     }
-
-    // ── Reads of reference data ───────────────────────────────────────────────
-
-    private async Task<Dictionary<int, (decimal Min, decimal Max)>> CurrentFramesAsync(IEnumerable<int> catalogItemIds, CancellationToken cancellationToken)
-    {
-        var ids = catalogItemIds.Distinct().ToArray();
-        var frames = new Dictionary<int, (decimal Min, decimal Max)>();
-        if (ids.Length == 0) return frames;
-        var today = TodayVn();
-        var rows = await db.PriceFrames.AsNoTracking()
-            .Where(x => ids.Contains(x.ItemId) && x.EffectiveFrom <= today)
-            .Select(x => new { x.ItemId, x.MinPrice, x.MaxPrice, x.EffectiveFrom })
-            .ToListAsync(cancellationToken);
-        foreach (var group in rows.GroupBy(x => x.ItemId))
-        {
-            var latest = group.OrderByDescending(x => x.EffectiveFrom).First();
-            frames[group.Key] = (latest.MinPrice, latest.MaxPrice);
-        }
-        return frames;
-    }
-
-    private static decimal MinPrice(Dictionary<int, (decimal Min, decimal Max)> frames, int itemId) =>
-        frames.TryGetValue(itemId, out var frame) ? frame.Min : 0m;
-
-    private static decimal MaxPrice(Dictionary<int, (decimal Min, decimal Max)> frames, int itemId) =>
-        frames.TryGetValue(itemId, out var frame) ? frame.Max : 0m;
-
-    private async Task<IReadOnlyList<PenaltyRuleView>> PenaltyRulesAsync(DateOnly on, CancellationToken cancellationToken)
-    {
-        var rows = await db.PolicyConfigs.AsNoTracking()
-            .Where(x => x.PolicyType == "CR_PENALTY" && x.EffectiveFrom <= on && x.TdayMin != null && x.TdayMax != null)
-            .Select(x => new { TDayMin = x.TdayMin!.Value, TDayMax = x.TdayMax!.Value, x.RatePercent, x.EffectiveFrom })
-            .ToListAsync(cancellationToken);
-        return rows.GroupBy(x => (x.TDayMin, x.TDayMax))
-            .Select(g => g.OrderByDescending(x => x.EffectiveFrom).First())
-            .OrderBy(x => x.TDayMin)
-            .Select(x => new PenaltyRuleView(x.TDayMin, x.TDayMax, x.RatePercent))
-            .ToList();
-    }
-
-    private static List<SpecItem> BaselineSpecItems(WeddingProject project)
-    {
-        var baseline = project.SpecItems.Where(s => s.IsBaseline && s.Version == 1).ToList();
-        return baseline.Count > 0 ? baseline : project.SpecItems.ToList();
-    }
-
-    // ── Codes ─────────────────────────────────────────────────────────────────
-
-    /// <summary>Codes read CR-2026-001 / PL-2026-001 / EXC-2026-001 (max suffix + 1 for the current year).</summary>
-    private async Task<string> NextCodeAsync(string prefix, CancellationToken cancellationToken)
-    {
-        var year = TodayVn().Year;
-        var head = $"{prefix}-{year}-";
-        var codes = prefix switch
-        {
-            "CR" => await db.ChangeRequests.AsNoTracking().Where(c => c.Crcode.StartsWith(head)).Select(c => c.Crcode).ToListAsync(cancellationToken),
-            "PL" => await db.ContractAddenda.AsNoTracking().Where(a => a.AddendumCode.StartsWith(head)).Select(a => a.AddendumCode).ToListAsync(cancellationToken),
-            _ => await db.ExceptionRequests.AsNoTracking().Where(e => e.RequestCode.StartsWith(head)).Select(e => e.RequestCode).ToListAsync(cancellationToken)
-        };
-        var next = codes
-            .Select(code => int.TryParse(code[(code.LastIndexOf('-') + 1)..], out var value) ? value : 0)
-            .DefaultIfEmpty(0)
-            .Max() + 1;
-        return $"{head}{next:000}";
-    }
-
-    // ── Validation ────────────────────────────────────────────────────────────
-
-    private static (string Type, string Description) ValidateTicket(string? type, string? description)
-    {
-        var cleanType = (type ?? "").Trim();
-        if (!CrTypes.Contains(cleanType)) throw new InvalidOperationException("Loại yêu cầu thay đổi không hợp lệ.");
-        var cleanDescription = (description ?? "").Trim();
-        if (cleanDescription.Length == 0) throw new InvalidOperationException("Trường Lý do thay đổi là bắt buộc.");
-        if (cleanDescription.Length > 500) throw new InvalidOperationException("Vượt quá độ dài tối đa 500 ký tự (MSG16).");
-        return (cleanType, cleanDescription);
-    }
-
-    private static List<(int SpecItemId, int NewQuantity, decimal NewUnitPrice)> ValidateLines(IReadOnlyList<CrLineCommand>? items)
-    {
-        var lines = items?.ToList() ?? [];
-        if (lines.Count == 0) throw new InvalidOperationException("Yêu cầu thay đổi cần ít nhất một hạng mục.");
-        if (lines.Count > 20) throw new InvalidOperationException("Mỗi yêu cầu thay đổi tối đa 20 hạng mục.");
-        if (lines.Any(l => l.NewQuantity < 0)) throw new InvalidOperationException("Số lượng mới không được âm.");
-        if (lines.Any(l => l.NewUnitPrice < 0)) throw new InvalidOperationException("Đơn giá mới không được âm.");
-        if (lines.GroupBy(l => l.SpecItemId).Any(g => g.Count() > 1))
-            throw new InvalidOperationException("Mỗi hạng mục đặc tả chỉ được xuất hiện một lần trong yêu cầu thay đổi.");
-        return lines.Select(l => (l.SpecItemId, l.NewQuantity, l.NewUnitPrice)).ToList();
-    }
-
-    private static string? BlockedReason(WeddingProject project, DateOnly today)
-    {
-        if (project.Status is "Settled" or "Closed")
-            return "Dự án đã quyết toán hoặc đã đóng nên không thể tạo yêu cầu thay đổi.";
-        if (project.BaselineFrozenAt is null)
-            return "Baseline chưa được đóng băng nên chưa thể tạo yêu cầu thay đổi.";
-        if (project.EventDate < today)
-            return "Sự kiện đã diễn ra nên không thể tạo yêu cầu thay đổi.";
-        return null;
-    }
-
-    // ── Small helpers ─────────────────────────────────────────────────────────
-
-    private static int DaysToEvent(DateOnly eventDate, DateOnly today) => eventDate.DayNumber - today.DayNumber;
-
-    private static string PenaltyWindowLabel(IReadOnlyList<PenaltyRuleView> rules)
-    {
-        if (rules.Count == 0) return "Chưa cấu hình khung phạt T-day";
-        return string.Join(" · ", rules.Select(r => r.TDayMin switch
-        {
-            0 => $"T-{r.TDayMax} đến ngày diễn ra: {r.RatePercent:0.##}%",
-            _ when r.TDayMin == r.TDayMax => $"T-{r.TDayMax}: {r.RatePercent:0.##}%",
-            _ => $"T-{r.TDayMax} đến T-{r.TDayMin}: {r.RatePercent:0.##}%"
-        }));
-    }
-
-    private static string? Trim(string? value, int max)
-    {
-        var clean = value?.Trim();
-        if (string.IsNullOrEmpty(clean)) return null;
-        return clean.Length > max ? clean[..max] : clean;
-    }
-
-    // SYSUTCDATETIME values are read as Unspecified by SQL Server; mark them Utc so JSON carries the offset.
-    private static DateTime AsUtc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
-
-    private static DateTime? AsUtc(DateTime? value) => value is { } v ? AsUtc(v) : null;
-
-    private void AddHistory(ChangeRequest cr, int actorId, string action, string? note) =>
-        db.Crhistories.Add(new Crhistory { Crid = cr.Crid, ActorId = actorId, Action = action, Note = note, CreatedAt = DateTime.UtcNow });
-
-    private void Notify(int recipientId, string type, string message, string link) =>
-        db.Notifications.Add(new Notification
-        {
-            RecipientId = recipientId,
-            Type = type,
-            Message = message.Length > 300 ? message[..300] : message,
-            LinkUrl = link,
-            CreatedAt = DateTime.UtcNow
-        });
-
-    private void NotifyCounterparty(WeddingProject project, int actorId, ChangeRequest cr, string what)
-    {
-        if (actorId == project.CustomerId)
-            Notify(project.ManagerId, "CR update", $"Yêu cầu thay đổi {cr.Crcode} {what}.", ManagerLink(project));
-        else
-            Notify(project.CustomerId, "CR update", $"Yêu cầu thay đổi {cr.Crcode} {what}.", CustomerLink());
-    }
-
-    private static string ManagerLink(WeddingProject project) => $"/manager/projects/{project.ProjectCode}/change-requests";
-    private static string CustomerLink() => "/customer/change-requests";
 }

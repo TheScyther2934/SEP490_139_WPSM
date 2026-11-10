@@ -20,4 +20,8 @@ public interface IFileService
     Task<SignedFileUrl?> GetSignedUrlAsync(Guid fileId, int userId, string? role, CancellationToken cancellationToken = default);
     Task<FileContent?> OpenSignedAsync(Guid fileId, long expires, string signature, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid fileId, CancellationToken cancellationToken = default);
+    /// <summary>Stores a file the server received or generated (PDFs, proof photos); checks type and size (MSG17).</summary>
+    Task<StoredFileView> StoreAsync(int projectId, string purpose, string originalName, byte[] content, int? uploadedBy, CancellationToken cancellationToken = default);
+    /// <summary>Local path of a stored file; proof photos are served from it through PhotoLinks.</summary>
+    Task<string?> GetLocalPathAsync(Guid fileId, CancellationToken cancellationToken = default);
 }

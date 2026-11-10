@@ -1,127 +1,79 @@
-import { useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
-import { useSearchParams } from "react-router-dom";
-import { Alert, Button, Stack } from "@mui/material";
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Button } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import PrintIcon from "@mui/icons-material/Print";
 import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
-import CalendarToolbar from "./components/CalendarToolbar";
-import CalendarSummaryCards from "./components/CalendarSummaryCards";
-import HallGrid from "./components/HallGrid";
-import ResourceGrid from "./components/ResourceGrid";
-import MonthCalendar from "./components/MonthCalendar";
+import TextDialog from "../../../components/TextDialog";
+import CalendarFilters from "./components/CalendarFilters";
+import { AllocationTable, BookingTable } from "./components/CalendarTables";
 import AllocationDialog from "./components/AllocationDialog";
-import UsageDialog from "./components/UsageDialog";
-import { rangeFor, shiftAnchor } from "./calendarRange";
 import { useAsync } from "../../../hooks/useAsync";
-import { resourceCalendarService } from "../../../services/resourceCalendarService";
-import { notify } from "../../../store/notifySlice";
+import { useAction } from "../../../hooks/useAction";
+import { resourceService } from "../../../services/operationsService";
+import { projectService } from "../../../services/projectService";
+import { PATHS } from "../../../routes/paths";
 import { isoDate } from "../../../utils/format";
 
-// M-21 Resource Calendar (UC-25, UC-26). Day/week/month grids of hall bookings and shared resources,
-// with the allocation dialog and links to the M-22 conflict breakdown.
+// M-21 (UC-25, UC-26): hall bookings and shared-resource allocations; conflicts are checked on save (GBR-09).
 export default function ResourceCalendar() {
-  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const view = ["day", "week", "month"].includes(params.get("view")) ? params.get("view") : "week";
-  const anchor = params.get("date") || isoDate(new Date());
+  const today = new Date();
   const filters = {
-    hallId: params.get("hall") || "",
+    from: params.get("from") || isoDate(today),
+    to: params.get("to") || isoDate(new Date(today.getTime() + 13 * 86400000)),
+    hallId: params.get("hallId") || "",
     type: params.get("type") || "",
-    onlyConflicts: params.get("conflicts") === "1",
   };
-  const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
-  const { data, loading, error, reload } = useAsync(
-    () => resourceCalendarService.getCalendar({ from: range.from, to: range.to, hallId: filters.hallId }),
-    [range.from, range.to, filters.hallId]);
-
-  const [dialog, setDialog] = useState(null);
-  const [usage, setUsage] = useState(null);
-
-  const update = (patch) => {
-    const merged = {
-      view,
-      date: anchor,
-      hall: filters.hallId,
-      type: filters.type,
-      conflicts: filters.onlyConflicts ? "1" : "",
-      ...patch,
-    };
-    const clean = Object.fromEntries(Object.entries(merged)
-      .filter(([key, value]) => value && !(key === "view" && value === "week")));
-    setParams(clean, { replace: true });
+  const changeFilters = (patch) => {
+    const next = { ...filters, ...patch };
+    setParams(Object.fromEntries(Object.entries(next).filter(([, v]) => v)), { replace: true });
   };
+  const calendar = useAsync(() => resourceService.calendar({ ...filters, hallId: filters.hallId || undefined, type: filters.type || undefined }),
+    [filters.from, filters.to, filters.hallId, filters.type]);
+  const lookups = useAsync(() => Promise.all([projectService.getHalls(), projectService.getProjects()]));
+  const [halls, projects] = lookups.data ?? [[], []];
+  const { busy, run } = useAction();
+  const [editing, setEditing] = useState(null);
+  const [conflict, setConflict] = useState(null);
+  const [releasing, setReleasing] = useState(null);
 
-  const lanes = (data?.lanes ?? []).filter((lane) => !filters.type || lane.type === filters.type);
-
-  const openAllocation = (initial) => {
-    setUsage(null);
-    setDialog({ initial: initial ?? {} });
+  const open = (initial) => { setConflict(null); setEditing(initial ?? {}); };
+  const save = async (body) => {
+    const result = await run(() => (editing.allocationId ? resourceService.update(editing.allocationId, body) : resourceService.allocate(body)));
+    if (!result) return;
+    if (!result.allocation) { setConflict(result); return; }
+    setEditing(null);
+    calendar.reload();
   };
-
-  const selectProject = (booking) => {
-    const project = data?.projects.find((entry) => entry.projectId === booking.projectId);
-    if (!project) {
-      dispatch(notify({ message: "Dự án đã quyết toán hoặc đã đóng nên không thể phân bổ thêm tài nguyên.", severity: "warning" }));
-      return;
-    }
-    openAllocation({ projectId: project.projectId });
+  const requestException = async (body) => {
+    const result = await run(() => resourceService.requestException(body), "Đã gửi yêu cầu ngoại lệ tới Admin.");
+    if (result?.allocation) navigate(PATHS.manager.conflict(result.allocation.allocationId));
   };
-
-  const saved = async () => {
-    setDialog(null);
-    await reload({ silent: true });
+  const release = async () => {
+    if (await run(() => resourceService.release(releasing.allocationId), "Đã giải phóng tài nguyên.")) { setReleasing(null); calendar.reload(); }
   };
+  const activeProjects = projects.filter((p) => ["Active Baseline", "Baseline Frozen"].includes(p.status));
 
   return (
     <>
-      <PageHeader code="M-21" title="Lịch tài nguyên và điều phối sảnh"
-        subtitle={data ? `${data.halls.length} sảnh đang hoạt động · ${data.summary.events} tiệc trong kỳ đang xem` : "Theo dõi sảnh, ca tiệc và tài nguyên dùng chung theo ngày."}
-        actions={(
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-            <Button startIcon={<PrintIcon />} onClick={() => window.print()}>Xuất run-sheet</Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => openAllocation()} id="openAllocationBtn">Phân bổ tài nguyên</Button>
-          </Stack>
-        )} />
-
-      <DataState loading={loading} error={error} onRetry={reload}>
-        {data && (
-          <Stack spacing={2}>
-            <CalendarToolbar view={view} range={range} halls={data.halls} types={data.types} filters={filters}
-              conflictCount={data.summary.conflicts}
-              onChange={update} onStep={(delta) => update({ date: shiftAnchor(view, anchor, delta) })}
-              onToday={() => update({ date: isoDate(new Date()) })} />
-
-            <CalendarSummaryCards summary={data.summary} />
-
-            {view === "month" ? (
-              <MonthCalendar range={range} days={range.days} bookings={data.bookings} lanes={lanes} anchor={anchor}
-                onSelectDay={(day) => update({ view: "day", date: day })} />
-            ) : (
-              <>
-                <HallGrid halls={data.halls} bookings={data.bookings} days={range.days} view={view} onSelectProject={selectProject} />
-                <ResourceGrid lanes={lanes} days={range.days} view={view} onlyConflicts={filters.onlyConflicts}
-                  onOpenUsage={(lane, date) => setUsage({ lane, date })} />
-              </>
-            )}
-
-            {data.types.length === 0 && (
-              <Alert severity="info">
-                Chưa khai báo tài nguyên dùng chung. Chạy <code>Database/Updates/20261109_ResourceCalendar.sql</code> hoặc
-                bật seeder development để tạo danh mục thiết bị, nhân sự kỹ thuật và bếp.
-              </Alert>
-            )}
-          </Stack>
+      <PageHeader code="M-21" title="Lịch tài nguyên"
+        actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => open(null)} disabled={!calendar.data}>Phân bổ tài nguyên</Button>} />
+      <CalendarFilters filters={filters} halls={halls} onChange={changeFilters} />
+      <DataState loading={calendar.loading} error={calendar.error} onRetry={calendar.reload}>
+        {calendar.data && (
+          <>
+            <BookingTable bookings={calendar.data.bookings} />
+            <AllocationTable resources={calendar.data.resources} allocations={calendar.data.allocations}
+              onEdit={(a) => open({ ...a })} onRelease={setReleasing} />
+          </>
         )}
       </DataState>
-
-      <AllocationDialog open={!!dialog} calendar={data} initial={dialog?.initial}
-        onClose={() => setDialog(null)} onSaved={saved} />
-
-      <UsageDialog open={!!usage} lane={usage?.lane} date={usage?.date}
-        onClose={() => setUsage(null)}
-        onAllocate={() => openAllocation({ resourceId: usage?.lane?.resourceId })} />
+      <AllocationDialog open={!!editing} resources={calendar.data?.resources ?? []} projects={activeProjects} initial={editing} conflict={conflict}
+        busy={busy} onClose={() => setEditing(null)} onSave={save} onRequestException={requestException} />
+      <TextDialog open={!!releasing} title="Giải phóng tài nguyên" busy={busy} confirmText="Giải phóng" color="error"
+        description={releasing && `${releasing.resourceName} của ${releasing.projectCode} sẽ được trả lại.`} onClose={() => setReleasing(null)} onConfirm={release} />
     </>
   );
 }

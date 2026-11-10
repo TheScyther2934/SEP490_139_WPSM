@@ -21,11 +21,14 @@ const typeInto = async (page, selector, text) => {
   await page.type(selector, text);
 };
 // MUI select: open, pick, then wait until the menu and its backdrop are gone, or the next click hits the backdrop.
+// After a full load the session restore runs first, so wait for the select instead of clicking at once.
 const chooseOption = async (page, selectSelector, optionSelector) => {
-  await page.click(selectSelector);
+  await (await page.waitForSelector(selectSelector, { visible: true, timeout: 8000 })).click();
   await (await page.waitForSelector(optionSelector, { visible: true, timeout: 8000 })).click();
   await page.waitForFunction(() => !document.querySelector('[role="listbox"]'), { timeout: 8000 });
 };
+// Screenshots for a visual check, only when SHOTS_DIR is set.
+const shot = async (page, name) => { if (process.env.SHOTS_DIR) await page.screenshot({ path: `${process.env.SHOTS_DIR}/${name}.png`, fullPage: true }); };
 const login = async (page, email, password) => {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle2" });
   await page.type("#email", email);
@@ -66,6 +69,17 @@ const login = async (page, email, password) => {
     check("admin lands on /admin/dashboard", await waitPath(page, "/admin/dashboard"), path(page));
     check("A-01 shows KPI", await waitText(page, "Công suất sảnh tháng này"));
 
+    // ADMIN-UI: one horizontal bar instead of the sidebar on desktop; the drawer only opens from the menu button.
+    await page.setViewport({ width: 1440, height: 900 });
+    const nav = await page.$$eval('header nav[aria-label="Điều hướng chính"] a', (links) => links.map((a) => ({ text: a.innerText.trim(), active: a.classList.contains("active") })));
+    check("admin top bar lists the 9 admin screens", nav.length === 9, JSON.stringify(nav.map((n) => n.text)));
+    check("top bar marks the current screen", nav.find((n) => n.active)?.text === "Tổng quan", JSON.stringify(nav.filter((n) => n.active)));
+    check("admin has no permanent sidebar", !(await page.$(".MuiDrawer-docked")));
+    check("A-01 has six KPI cards and the overdue strip", await page.$$eval("#a01Kpis > *", (c) => c.length) === 6 && !!(await page.$("#a01Overdue")));
+    await shot(page, "a01-dashboard");
+    await page.click('header nav a[href="/admin/catalog"]');
+    check("top bar link opens A-02", await waitPath(page, "/admin/catalog"));
+
     const range = "from=2026-01-01&to=2026-12-31";
     await page.goto(`${BASE}/admin/reports/hall-utilization?${range}`, { waitUntil: "networkidle2" });
     check("F5 on a deep link keeps the session (refresh cookie)", await waitText(page, "Công suất theo sảnh"), path(page));
@@ -74,13 +88,41 @@ const login = async (page, email, password) => {
     check("report tab keeps the date range", await waitPath(page, "/admin/reports/net-revenue") && new URL(page.url()).search === `?${range}`, page.url());
 
     await page.goto(`${BASE}/admin/catalog`, { waitUntil: "networkidle2" });
+    await page.waitForSelector("#catalogTable");
+    check("A-02 table has the code column", (await page.$eval("#catalogTable thead", (h) => h.innerText)).includes("Mã"));
+    check("A-02 shows the row range", await waitText(page, "trên"));
+    await shot(page, "a02-catalog");
+    await page.type('input[aria-label="Tìm dịch vụ"]', "khong-co-dich-vu-nay");
+    check("A-02 search goes to the query string", await page.waitForFunction(() => new URL(location.href).searchParams.get("q") === "khong-co-dich-vu-nay", { timeout: 8000 }).then(() => true).catch(() => false), page.url());
+    check("A-02 search with no match shows the empty row", await waitText(page, "Không có dịch vụ phù hợp."));
+    await page.reload({ waitUntil: "networkidle2" });
+    check("F5 keeps the A-02 search", await page.$eval('input[aria-label="Tìm dịch vụ"]', (e) => e.value) === "khong-co-dich-vu-nay");
+    await page.goto(`${BASE}/admin/catalog`, { waitUntil: "networkidle2" });
+    await chooseOption(page, "#catalogStatusFilter", 'li[data-value="active"]');
+    check("A-02 status filter goes to the query string", new URL(page.url()).searchParams.get("status") === "active", page.url());
     await clickButton(page, "Thêm dịch vụ");
     await clickButton(page, "Lưu");
     check("A-03 validates required fields", await waitText(page, "Trường Tên dịch vụ là bắt buộc."));
+    check("A-03 status is a radio pair", (await page.$$('[role="dialog"] input[type="radio"]')).length === 2);
+    await shot(page, "a03-dialog");
     await clickButton(page, "Hủy");
 
     await page.goto(`${BASE}/admin/policies`, { waitUntil: "networkidle2" });
     check("A-06 shows policies from the API", await waitText(page, "Tỷ lệ các đợt thanh toán"));
+    check("A-06 penalty rules are a table", !!(await page.waitForSelector("#penaltyCard table", { timeout: 8000 }).catch(() => null)));
+    await shot(page, "a06-policies");
+    await page.goto(`${BASE}/admin/price-frames`, { waitUntil: "networkidle2" });
+    await shot(page, "a04-price-frames");
+    await page.goto(`${BASE}/admin/reports/hall-utilization?${range}`, { waitUntil: "networkidle2" });
+    await shot(page, "a10-hall-utilization");
+
+    // Narrow screens: the bar hides its links behind the menu button.
+    await page.setViewport({ width: 800, height: 900 });
+    check("narrow admin screen hides the top links", await page.$eval('header nav[aria-label="Điều hướng chính"]', (n) => getComputedStyle(n).display === "none"));
+    await page.click('button[aria-label="Mở menu"]');
+    await (await page.waitForSelector('.MuiDrawer-root a[href="/admin/policies"]', { visible: true, timeout: 8000 })).click();
+    check("drawer link opens A-06", await waitPath(page, "/admin/policies"));
+    await shot(page, "a06-policies-narrow");
 
     await page.goto(`${BASE}/manager/dashboard`, { waitUntil: "networkidle2" });
     check("admin on a manager URL gets /403", await waitPath(page, "/403"), path(page));
@@ -193,7 +235,7 @@ const login = async (page, email, password) => {
     await page.goto(`${BASE}/customer/roadmap`, { waitUntil: "networkidle2" });
     check("C-03 before freeze explains the roadmap", await waitText(page, "Lộ trình sẽ được tạo sau khi quản lý chốt baseline."));
     await page.goto(`${BASE}/customer/change-requests/CR-1`, { waitUntil: "networkidle2" });
-    check("placeholder screen keeps its route (C-07)", await waitText(page, "Màn hình đang được triển khai"));
+    check("C-07 with an unknown CR code shows not found", await waitText(page, "Không tìm thấy"));
     await page.goto(`${BASE}/admin/dashboard`, { waitUntil: "networkidle2" });
     check("customer on an admin URL gets /403", await waitPath(page, "/403"), path(page));
     await ctx.close();

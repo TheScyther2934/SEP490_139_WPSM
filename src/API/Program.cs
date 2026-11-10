@@ -44,6 +44,18 @@ builder.Services.AddScoped<IResourceCalendarRepository, ResourceCalendarReposito
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<PhotoLinks>();
+// Report 4 use cases added on 2026-11-05 (docs/explain/sds-gaps.md).
+builder.Services.AddSingleton<IPdfGenerator, Infrastructure.Pdf.QuestPdfGenerator>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IManagerWorkRepository, ManagerWorkRepository>();
+builder.Services.AddScoped<IChangeRequestRepository, ChangeRequestRepository>();
+builder.Services.AddScoped<IBeoRepository, BeoRepository>();
+builder.Services.AddScoped<IDayOfRepository, DayOfRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
+builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
+builder.Services.AddScoped<IConfigurationAdminRepository, ConfigurationAdminRepository>();
+builder.Services.AddScoped<OperationsJobs>();
 
 // SDS III.1.1: HS256 with a 256-bit secret from User Secrets or the environment.
 var jwtSecret = builder.Configuration["Jwt:Secret"];
@@ -156,6 +168,15 @@ if (backgroundJobsEnabled)
 {
     app.Services.GetRequiredService<IRecurringJobManager>()
         .AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    // Report 4 IV.3: recurring jobs run on Vietnam time.
+    var vietnam = OperationsSupport.VnTz;
+    var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    jobs.AddOrUpdate<OperationsJobs>("job-01-roadmap-reminders", job => job.RoadmapRemindersAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
+    jobs.AddOrUpdate<OperationsJobs>("job-02-t30-payment", job => job.T30PaymentsAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
+    jobs.AddOrUpdate<OperationsJobs>("job-03-beo-draft", job => job.BeoDraftsAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
+    jobs.AddOrUpdate<OperationsJobs>("job-04-load-day-of", job => job.LoadDayOfTimelineAsync(CancellationToken.None), "0 0 * * *", new RecurringJobOptions { TimeZone = vietnam });
+    jobs.AddOrUpdate<OperationsJobs>("job-05-overdue", job => job.OverdueDetectionAsync(CancellationToken.None), "* * * * *", new RecurringJobOptions { TimeZone = vietnam });
+    jobs.AddOrUpdate<OperationsJobs>("job-06-final-settlement", job => job.FinalSettlementAsync(CancellationToken.None), "0 1 * * *", new RecurringJobOptions { TimeZone = vietnam });
 }
 
 app.UseCors();

@@ -61,6 +61,10 @@ node "$Here\smtp.js"; if ($LASTEXITCODE) { $failed++ }
 $env:EVENT_DATE = "2027-05-18"
 node "$Here\react.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
 
+"--- Report 4 operations: CR, BEO, day-of, payments, feedback, resources, admin config"
+# Needs Hangfire on 5300: the JOB-05 check waits for the real recurring job.
+node "$Here\operations.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $failed++ }
+
 "--- Seeder restart when a sample slot is taken (I-018)"
 # Another project now holds the hall slot of sample WPSM-2026-014; a restart with seeding on must still start.
 sqlcmd -S $Sql -d $Db -I -b -Q "UPDATE dbo.WeddingProjects SET ProjectCode = 'WPSM-2026-USER1' WHERE ProjectCode = 'WPSM-2026-014'" | Out-Null

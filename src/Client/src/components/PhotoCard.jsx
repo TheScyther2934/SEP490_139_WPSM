@@ -10,7 +10,7 @@ export default function PhotoCard({ photo, to, height = 160, title, subtitle }) 
   const content = (
     <>
       {broken || !photo.imageUrl ? (
-        <Box sx={{ height, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "#eee7e3" }}>
+        <Box sx={{ height, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "action.hover" }}>
           <ImageNotSupportedIcon color="disabled" fontSize="large" />
         </Box>
       ) : (

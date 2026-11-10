@@ -29,24 +29,29 @@ public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStor
 
         using var buffer = new MemoryStream();
         await command.Content.CopyToAsync(buffer, cancellationToken);
-        if (buffer.Length is 0 or > MaxBytes) throw new InvalidOperationException("Tệp phải có dung lượng từ 1 byte đến 10 MB (MSG17).");
-        var match = DetectType(buffer.GetBuffer());
+        return await StoreAsync(projectId.Value, command.Purpose, command.OriginalName, buffer.ToArray(), command.UploadedBy, cancellationToken);
+    }
+
+    public async Task<StoredFileView> StoreAsync(int projectId, string purpose, string originalName, byte[] content, int? uploadedBy, CancellationToken cancellationToken = default)
+    {
+        if (!Purposes.Contains(purpose)) throw new InvalidOperationException("Loại tệp không hợp lệ.");
+        if (content.LongLength is 0 or > MaxBytes) throw new InvalidOperationException("Tệp phải có dung lượng từ 1 byte đến 10 MB (MSG17).");
+        var match = DetectType(content);
         if (match.ContentType is null) throw new InvalidOperationException("Chỉ chấp nhận tệp JPG, PNG hoặc PDF hợp lệ (MSG17).");
 
-        var content = buffer.ToArray();
         if (match.ContentType == "image/jpeg") content = ImageMetadataStripper.StripJpeg(content);
         else if (match.ContentType == "image/png") content = ImageMetadataStripper.StripPng(content);
 
-        var name = Path.GetFileName(command.OriginalName.Replace('\\', '/'));
+        var name = Path.GetFileName(originalName.Replace('\\', '/'));
         var entity = new StoredFile
         {
             FileId = Guid.NewGuid(),
             ProjectId = projectId,
-            Purpose = command.Purpose,
+            Purpose = purpose,
             OriginalName = name.Length > 200 ? name[^200..] : name,
             ContentType = match.ContentType,
             SizeBytes = content.Length,
-            UploadedBy = command.UploadedBy,
+            UploadedBy = uploadedBy,
             UploadedAt = DateTime.UtcNow
         };
         entity.StorageKey = $"{entity.UploadedAt:yyyy}/{entity.UploadedAt:MM}/{entity.FileId:N}{match.Extension}";
@@ -64,6 +69,12 @@ public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStor
             throw;
         }
         return new StoredFileView(entity.FileId, entity.Purpose, entity.OriginalName, entity.ContentType, entity.SizeBytes, entity.UploadedAt);
+    }
+
+    public async Task<string?> GetLocalPathAsync(Guid fileId, CancellationToken cancellationToken = default)
+    {
+        var key = await db.StoredFiles.AsNoTracking().Where(x => x.FileId == fileId).Select(x => x.StorageKey).FirstOrDefaultAsync(cancellationToken);
+        return key is null ? null : Path.GetFullPath(Path.Combine(options.RootPath, key));
     }
 
     public async Task<SignedFileUrl?> GetSignedUrlAsync(Guid fileId, int userId, string? role, CancellationToken cancellationToken = default)

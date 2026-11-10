@@ -22,11 +22,12 @@ export default function ManagerKpis({ summary }) {
     { label: "Dự án đang hoạt động", value: summary.active.length, to: PATHS.manager.projects },
     { label: "Đang soạn đặc tả", value: summary.drafting.length, to: PATHS.manager.projects },
     { label: "Tiệc trong 7 ngày", value: summary.thisWeek.length },
-    { label: "CR đang mở", value: summary.openCrs },
-    { label: "BEO lỗi thời", value: summary.stale.length, tone: summary.stale.length ? "error" : "primary" },
+    { label: "Việc đến hạn hôm nay", value: summary.tasksDueToday ?? 0 },
+    { label: "CR đang thương lượng", value: summary.openCrs },
+    { label: "BEO lỗi thời", value: summary.staleCount ?? summary.stale.length, tone: (summary.staleCount ?? summary.stale.length) ? "error" : "primary" },
   ];
   return (
-    <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(5, 1fr)" }, mb: 3 }}>
+    <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(6, 1fr)" }, mb: 3 }}>
       {cards.map((c) => <StatCard key={c.label} {...c} />)}
     </Box>
   );
