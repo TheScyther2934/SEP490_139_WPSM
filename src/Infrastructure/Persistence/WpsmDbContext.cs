@@ -155,6 +155,8 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => e.ComplaintCode, "UQ_Complaint_Code").IsUnique();
 
             entity.Property(e => e.Beoid).HasColumnName("BEOId");
+            entity.Property(e => e.CustomerId).HasColumnName("CustomerId");
+            entity.Property(e => e.Title).HasMaxLength(200);
             entity.Property(e => e.ComplaintCode).HasMaxLength(30);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
@@ -240,6 +242,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CritemId).HasColumnName("CRItemId");
             entity.Property(e => e.Crid).HasColumnName("CRId");
+            entity.Property(e => e.CatalogItemId).HasColumnName("CatalogItemId");
             entity.Property(e => e.DeltaAmount)
                 .HasComputedColumnSql("([NewUnitPrice]*[NewQuantity]-[OldUnitPrice]*[OldQuantity])", true)
                 .HasColumnType("decimal(30, 2)");

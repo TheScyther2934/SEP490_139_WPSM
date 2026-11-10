@@ -41,6 +41,7 @@ builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
 builder.Services.AddScoped<IChangeRequestRepository, ChangeRequestRepository>();
 builder.Services.AddScoped<IResourceCalendarRepository, ResourceCalendarRepository>();
+builder.Services.AddScoped<IComplaintRatingRepository, ComplaintRatingRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<PhotoLinks>();
@@ -96,6 +97,7 @@ builder.Services.AddScoped<IEmailOutbox, EmailOutbox>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
 builder.Services.AddScoped<EmailDispatchJob>();
+builder.Services.AddScoped<BeoCompilationJob>();
 
 var backgroundJobsEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true) && !string.IsNullOrWhiteSpace(connectionString);
 if (backgroundJobsEnabled)
@@ -173,7 +175,7 @@ if (backgroundJobsEnabled)
     var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
     jobs.AddOrUpdate<OperationsJobs>("job-01-roadmap-reminders", job => job.RoadmapRemindersAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
     jobs.AddOrUpdate<OperationsJobs>("job-02-t30-payment", job => job.T30PaymentsAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
-    jobs.AddOrUpdate<OperationsJobs>("job-03-beo-draft", job => job.BeoDraftsAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
+    jobs.AddOrUpdate<BeoCompilationJob>("job-03-compile-beo-draft", job => job.RunAsync(CancellationToken.None), "0 7 * * *");
     jobs.AddOrUpdate<OperationsJobs>("job-04-load-day-of", job => job.LoadDayOfTimelineAsync(CancellationToken.None), "0 0 * * *", new RecurringJobOptions { TimeZone = vietnam });
     jobs.AddOrUpdate<OperationsJobs>("job-05-overdue", job => job.OverdueDetectionAsync(CancellationToken.None), "* * * * *", new RecurringJobOptions { TimeZone = vietnam });
     jobs.AddOrUpdate<OperationsJobs>("job-06-final-settlement", job => job.FinalSettlementAsync(CancellationToken.None), "0 1 * * *", new RecurringJobOptions { TimeZone = vietnam });
