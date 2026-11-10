@@ -190,7 +190,7 @@ public sealed class DevelopmentDatabaseSeeder(
             if (!await db.DayOfTasks.AnyAsync(x => x.ProjectId == project.ProjectId, cancellationToken))
             {
                 var eventDate = p.EventDate;
-                var baseDateTime = eventDate.ToDateTime(new TimeOnly(11, 0));
+                var baseUtc = Domain.Services.RoadmapRules.ConvertVietnamToUtc(eventDate, new TimeOnly(11, 0));
                 var isCompleted = p.Status is "Event Completed" or "Settled" or "Closed";
 
                 db.DayOfTasks.AddRange(
@@ -198,36 +198,40 @@ public sealed class DevelopmentDatabaseSeeder(
                     {
                         ProjectId = project.ProjectId,
                         TaskName = "Kiểm tra set-up bàn tiệc & âm thanh ánh sáng",
-                        DeadlineTime = baseDateTime.AddHours(-1),
+                        DeadlineTime = baseUtc.AddHours(-1),
                         Status = isCompleted ? "Done" : "Pending",
-                        CompletedAt = isCompleted ? baseDateTime.AddHours(-1).AddMinutes(15) : null,
+                        CompletedAt = isCompleted ? baseUtc.AddHours(-1).AddMinutes(15) : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
                         PhotoRequired = true
                     },
                     new DayOfTask
                     {
                         ProjectId = project.ProjectId,
                         TaskName = "Đón tiếp khách mời & điều phối khai tiệc",
-                        DeadlineTime = baseDateTime,
+                        DeadlineTime = baseUtc,
                         Status = isCompleted ? "Done" : "Pending",
-                        CompletedAt = isCompleted ? baseDateTime : null,
+                        CompletedAt = isCompleted ? baseUtc : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
                         PhotoRequired = false
                     },
                     new DayOfTask
                     {
                         ProjectId = project.ProjectId,
                         TaskName = "Giám sát quy trình phục vụ tiệc theo BEO",
-                        DeadlineTime = baseDateTime.AddHours(1),
+                        DeadlineTime = baseUtc.AddHours(1),
                         Status = isCompleted ? "Done" : "Pending",
-                        CompletedAt = isCompleted ? baseDateTime.AddHours(1) : null,
+                        CompletedAt = isCompleted ? baseUtc.AddHours(1) : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
                         PhotoRequired = true
                     },
                     new DayOfTask
                     {
                         ProjectId = project.ProjectId,
                         TaskName = "Đối soát phát sinh và nghiệm thu tiệc",
-                        DeadlineTime = baseDateTime.AddHours(2),
+                        DeadlineTime = baseUtc.AddHours(2),
                         Status = isCompleted ? "Done" : "Pending",
-                        CompletedAt = isCompleted ? baseDateTime.AddHours(2) : null,
+                        CompletedAt = isCompleted ? baseUtc.AddHours(2) : null,
+                        CompletedBy = isCompleted ? project.ManagerId : null,
                         PhotoRequired = false
                     }
                 );

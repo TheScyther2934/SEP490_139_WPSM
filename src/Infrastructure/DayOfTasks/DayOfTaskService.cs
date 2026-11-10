@@ -18,10 +18,20 @@ namespace Infrastructure.DayOfTasks;
 /// </summary>
 public sealed class DayOfTaskService(
     WpsmDbContext db,
-    IFileStorage storage) : IDayOfTaskService
+    IFileStorage storage,
+    ILoadDayOfTimelineService? loadTimelineService = null) : IDayOfTaskService
 {
     private const long MaxFileBytes = 10 * 1024 * 1024; // 10 MB
     private static readonly string[] AllowedExtensions = [".jpg", ".jpeg", ".png"];
+
+    private static bool HasValidImageSignature(byte[] header)
+    {
+        if (header.Length >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF)
+            return true; // JPEG
+        if (header.Length >= 4 && header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47)
+            return true; // PNG
+        return false;
+    }
 
     public async Task<IReadOnlyList<DayOfTaskDto>?> GetDayOfTasksAsync(
         string projectCode,
@@ -41,7 +51,6 @@ public sealed class DayOfTaskService(
             return null;
         }
 
-        var nowUtc = DateTime.UtcNow;
         var tasks = await db.DayOfTasks
             .AsNoTracking()
             .Include(t => t.ExecutionPhotos)
@@ -50,6 +59,25 @@ public sealed class DayOfTaskService(
             .OrderBy(t => t.DeadlineTime)
             .ThenBy(t => t.DayOfTaskId)
             .ToListAsync(cancellationToken);
+
+        // On-demand timeline generation if project has 0 DayOfTasks and load service is configured
+        if (tasks.Count == 0 && loadTimelineService != null)
+        {
+            await loadTimelineService.LoadTimelineAsync(
+                new LoadDayOfTimelineCommand(ProjectId: project.ProjectId),
+                cancellationToken);
+
+            tasks = await db.DayOfTasks
+                .AsNoTracking()
+                .Include(t => t.ExecutionPhotos)
+                    .ThenInclude(p => p.Uploader)
+                .Where(t => t.ProjectId == project.ProjectId)
+                .OrderBy(t => t.DeadlineTime)
+                .ThenBy(t => t.DayOfTaskId)
+                .ToListAsync(cancellationToken);
+        }
+
+        var nowUtc = DateTime.UtcNow;
 
         return tasks.Select(t =>
         {
@@ -122,13 +150,25 @@ public sealed class DayOfTaskService(
                 return new CompleteDayOfTaskResult(false, "Nhiệm vụ này chỉ cho phép tải lên tối đa 3 ảnh minh chứng.");
             }
 
-            // Validate formats and size
+            // Validate formats, signatures, and size
             foreach (var photo in photos)
             {
                 var ext = Path.GetExtension(photo.FileName).ToLowerInvariant();
                 if (!AllowedExtensions.Contains(ext) || photo.Length <= 0 || photo.Length > MaxFileBytes)
                 {
                     return new CompleteDayOfTaskResult(false, "Ảnh không hợp lệ. Chỉ chấp nhận định dạng JPG/PNG dung lượng tối đa 10 MB mỗi ảnh (MSG17).");
+                }
+
+                // Check magic bytes
+                var header = new byte[4];
+                var bytesRead = await photo.Stream.ReadAsync(header.AsMemory(0, Math.Min(4, (int)photo.Length)), cancellationToken);
+                if (photo.Stream.CanSeek)
+                {
+                    photo.Stream.Position = 0;
+                }
+                if (!HasValidImageSignature(header.Take(bytesRead).ToArray()))
+                {
+                    return new CompleteDayOfTaskResult(false, "Nội dung tệp ảnh không đúng định dạng JPG/PNG hợp lệ (MSG17).");
                 }
             }
 
@@ -148,7 +188,7 @@ public sealed class DayOfTaskService(
                     UploadedAt = DateTime.UtcNow
                 };
 
-                db.ExecutionPhotos.Add(executionPhoto);
+                // Add to tracked navigation collection only to avoid duplicate tracking
                 task.ExecutionPhotos.Add(executionPhoto);
             }
         }

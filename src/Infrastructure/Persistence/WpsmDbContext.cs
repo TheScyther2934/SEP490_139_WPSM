@@ -263,6 +263,8 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => new { e.Status, e.DeadlineTime }, "IX_DayOfTasks_Status_Deadline");
 
             entity.Property(e => e.CompletedAt).HasPrecision(0);
+            entity.Property(e => e.OverdueFlaggedAt).HasPrecision(0);
+            entity.Property(e => e.RowVersion).IsRowVersion();
             entity.Property(e => e.DeadlineTime).HasPrecision(0);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
@@ -273,6 +275,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.ProjectId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_DayOf_Project");
+
+            entity.HasOne(d => d.CompletedByUser).WithMany()
+                .HasForeignKey(d => d.CompletedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DayOf_CompletedBy");
         });
 
         modelBuilder.Entity<ExecutionPhoto>(entity =>

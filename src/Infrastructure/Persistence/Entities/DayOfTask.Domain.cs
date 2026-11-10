@@ -49,6 +49,7 @@ public partial class DayOfTask
             return false;
 
         Status = "Overdue";
+        OverdueFlaggedAt = nowUtc;
 
         _domainEvents.Add(new DayOfTaskOverdueEvent(
             TaskId: DayOfTaskId,
@@ -85,5 +86,6 @@ public partial class DayOfTask
 
         Status = "Done";
         CompletedAt = nowUtc;
+        CompletedBy = userId;
     }
 }

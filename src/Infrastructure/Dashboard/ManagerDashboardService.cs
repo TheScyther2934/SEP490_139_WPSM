@@ -12,7 +12,7 @@ using Infrastructure.Persistence;
 namespace Infrastructure.Dashboard;
 
 /// <summary>
-/// M-01 Manager Dashboard Service implementation (FE-03, FE-09).
+/// M-01 Manager Dashboard Service implementation (FE-03, FE-09, SRS §3.3).
 /// Returns real operational metrics, my tasks, alert panels (Overdue day-of tasks &amp; Stale BEOs),
 /// and upcoming project milestones strictly scoped to the authenticated manager.
 /// </summary>
@@ -97,14 +97,31 @@ public sealed class ManagerDashboardService(WpsmDbContext db) : IManagerDashboar
             CustomerName: t.CustomerName,
             ManagerName: null)).ToList();
 
-        // 2. KPI calculation
+        // Tasks due today count (Roadmap tasks for manager + DayOfTasks on today's events)
+        var roadmapTasksDueToday = await db.RoadmapTasks
+            .AsNoTracking()
+            .CountAsync(t => activeProjectIds.Contains(t.ProjectId)
+                          && t.AssigneeRole == "Manager"
+                          && t.Status != "Done"
+                          && t.DueDate == today, cancellationToken);
+
+        var dayOfTasksDueToday = await db.DayOfTasks
+            .AsNoTracking()
+            .CountAsync(t => activeProjectIds.Contains(t.ProjectId)
+                          && t.Project.EventDate == today
+                          && t.Status != "Done", cancellationToken);
+
+        int tasksDueToday = roadmapTasksDueToday + dayOfTasksDueToday;
+
+        // 2. KPI calculation: 5 SRS §3.3 KPIs
         var kpis = new ManagerKpiSummary(
             ActiveProjects: activeProjects.Count,
-            DraftingProjects: activeProjects.Count(p => p.Status == "Active Baseline"),
-            EventsIn7Days: activeProjects.Count(p => p.EventDate >= today && p.EventDate <= today.AddDays(7)),
+            TasksDueToday: tasksDueToday,
             OpenChangeRequests: activeProjects.Sum(p => p.ChangeRequests.Count(c => c.Status is "Draft" or "Negotiating" or "Submitted")),
             StaleBeos: staleBeoCount,
-            OverdueTasksCount: overdueAlertViews.Count);
+            OverdueTasksCount: overdueAlertViews.Count,
+            DraftingProjects: activeProjects.Count(p => p.Status == "Active Baseline"),
+            EventsIn7Days: activeProjects.Count(p => p.EventDate >= today && p.EventDate <= today.AddDays(7)));
 
         // 3. My Tasks: Manager-assigned roadmap tasks that are Pending or Overdue
         var managerRoadmapTasks = await db.RoadmapTasks

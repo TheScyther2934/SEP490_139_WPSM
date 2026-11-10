@@ -3,29 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using Application.Events;
 using Application.OverdueAlerts;
-using Application.Persistence;
-using Domain.Enums;
+using Domain.Events;
 using Domain.Services;
-using Infrastructure.Email;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.OverdueAlerts;
 
 /// <summary>
 /// Implements JOB-05: Detect Overdue Day-of Tasks according to Report 3 (SRS) &amp; Report 4 (SDS).
 /// Periodically evaluates pending Day-of tasks on active event dates, applies fast skip,
-/// triggers domain transition Pending -> Overdue, raises DayOfTaskOverdueEvent, creates in-app
-/// notifications for Manager &amp; Admins, and queues alert emails for JOB-07 dispatch.
+/// triggers domain transition Pending -> Overdue, raises DayOfTaskOverdueEvent, persists changes,
+/// and dispatches domain events to notify Manager and Admins.
 /// </summary>
 public sealed class DetectOverdueTasksService(
     WpsmDbContext db,
-    INotificationRepository notificationRepository,
-    IEmailOutbox emailOutbox,
-    EmailOptions emailOptions,
+    IDomainEventDispatcher domainEventDispatcher,
     ILogger<DetectOverdueTasksService> logger) : IDetectOverdueTasksService
 {
     private static readonly HashSet<string> InactiveProjectStatuses = new(StringComparer.OrdinalIgnoreCase)
@@ -90,19 +87,10 @@ public sealed class DetectOverdueTasksService(
         int totalChecked = candidateTasks.Count;
         int overdueDetected = 0;
         int alertsCreated = 0;
-        int notificationsCreated = 0;
-        int emailsQueued = 0;
         int skipped = 0;
         int failed = 0;
         var errors = new List<string>();
-
-        // Preload active Admin recipients once
-        var activeAdmins = await db.Users
-            .AsNoTracking()
-            .Where(u => u.Role == "Admin" && u.Status == "Active")
-            .ToListAsync(cancellationToken);
-
-        var baseUrl = emailOptions.PublicBaseUrl?.TrimEnd('/') ?? "http://localhost:5173";
+        var eventsToDispatch = new List<DayOfTaskOverdueEvent>();
 
         foreach (var task in candidateTasks)
         {
@@ -129,144 +117,53 @@ public sealed class DetectOverdueTasksService(
                 overdueDetected++;
                 alertsCreated++;
 
-                var project = task.Project;
-                var hallName = project.Hall?.Name ?? "Sảnh tiệc";
-                var projectCode = project.ProjectCode;
-
-                // 5. In-app notifications & emails
-                // A. Assigned Manager
-                var manager = project.Manager;
-                if (manager is { Status: "Active" })
-                {
-                    var managerLink = $"/manager/projects/{Uri.EscapeDataString(projectCode)}/day-of?taskId={task.DayOfTaskId}";
-                    var managerMsg = $"[{projectCode}] Nhiệm vụ \"{task.TaskName}\" đã quá hạn từ lúc {task.DeadlineTime:HH:mm dd/MM/yyyy} ({hallName}).";
-
-                    var alreadyNotified = await db.Notifications
-                        .AsNoTracking()
-                        .AnyAsync(n => n.RecipientId == manager.UserId
-                                    && n.Type == NotificationTypes.OverdueAlert
-                                    && n.LinkUrl != null
-                                    && n.LinkUrl.Contains($"taskId={task.DayOfTaskId}"), cancellationToken);
-
-                    if (!alreadyNotified)
-                    {
-                        await notificationRepository.CreateNotificationAsync(
-                            recipientId: manager.UserId,
-                            type: NotificationTypes.OverdueAlert,
-                            message: managerMsg,
-                            linkUrl: managerLink,
-                            relatedEntityType: "DayOfTask",
-                            relatedEntityId: task.DayOfTaskId.ToString(),
-                            cancellationToken: cancellationToken);
-
-                        notificationsCreated++;
-
-                        // Queue email to Manager
-                        try
-                        {
-                            var emailSubject = $"[{projectCode}] Cảnh báo nhiệm vụ quá hạn: {task.TaskName}";
-                            var alertUrl = $"{baseUrl}{managerLink}";
-                            var emailBody = EmailTemplates.OverdueAlert(
-                                recipientName: manager.FullName,
-                                role: "Manager",
-                                projectCode: projectCode,
-                                taskName: task.TaskName,
-                                deadline: task.DeadlineTime,
-                                hallName: hallName,
-                                eventDate: project.EventDate,
-                                alertUrl: alertUrl);
-
-                            emailOutbox.Enqueue(
-                                toEmail: manager.Email,
-                                subject: emailSubject,
-                                bodyHtml: emailBody,
-                                kind: "OverdueAlert",
-                                projectId: project.ProjectId);
-
-                            emailsQueued++;
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            logger.LogWarning(ex, "Failed to queue overdue email for Manager {Email} on Task {TaskId}.", manager.Email, task.DayOfTaskId);
-                        }
-                    }
-                }
-
-                // B. All active Admins (A-15 & UC-45)
-                foreach (var admin in activeAdmins)
-                {
-                    var adminLink = $"/admin/photo-feed?projectCode={Uri.EscapeDataString(projectCode)}";
-                    var adminMsg = $"[{projectCode}] Nhiệm vụ \"{task.TaskName}\" đã quá hạn từ lúc {task.DeadlineTime:HH:mm dd/MM/yyyy} ({hallName}).";
-
-                    var alreadyNotified = await db.Notifications
-                        .AsNoTracking()
-                        .AnyAsync(n => n.RecipientId == admin.UserId
-                                    && n.Type == NotificationTypes.OverdueAlert
-                                    && n.Message.Contains(projectCode)
-                                    && n.Message.Contains(task.TaskName), cancellationToken);
-
-                    if (!alreadyNotified)
-                    {
-                        await notificationRepository.CreateNotificationAsync(
-                            recipientId: admin.UserId,
-                            type: NotificationTypes.OverdueAlert,
-                            message: adminMsg,
-                            linkUrl: adminLink,
-                            relatedEntityType: "DayOfTask",
-                            relatedEntityId: task.DayOfTaskId.ToString(),
-                            cancellationToken: cancellationToken);
-
-                        notificationsCreated++;
-
-                        // Queue email to Admin
-                        try
-                        {
-                            var emailSubject = $"[{projectCode}] Cảnh báo nhiệm vụ quá hạn: {task.TaskName}";
-                            var alertUrl = $"{baseUrl}/admin/overdue-alerts";
-                            var emailBody = EmailTemplates.OverdueAlert(
-                                recipientName: admin.FullName,
-                                role: "Admin",
-                                projectCode: projectCode,
-                                taskName: task.TaskName,
-                                deadline: task.DeadlineTime,
-                                hallName: hallName,
-                                eventDate: project.EventDate,
-                                alertUrl: alertUrl);
-
-                            emailOutbox.Enqueue(
-                                toEmail: admin.Email,
-                                subject: emailSubject,
-                                bodyHtml: emailBody,
-                                kind: "OverdueAlert",
-                                projectId: project.ProjectId);
-
-                            emailsQueued++;
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            logger.LogWarning(ex, "Failed to queue overdue email for Admin {Email} on Task {TaskId}.", admin.Email, task.DayOfTaskId);
-                        }
-                    }
-                }
-
-                // 6. Persist status transition to Overdue
-                await db.SaveChangesAsync(cancellationToken);
+                eventsToDispatch.AddRange(task.DomainEvents);
                 task.ClearDomainEvents();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 failed++;
-                var errorMsg = $"Task {task.DayOfTaskId} error: {ex.Message}";
+                var errorMsg = $"Task {task.DayOfTaskId} transition error: {ex.Message}";
                 errors.Add(errorMsg);
                 logger.LogError(ex, "Error processing overdue transition for Task {TaskId}.", task.DayOfTaskId);
+            }
+        }
+
+        // 5. Persist status transitions to database
+        if (overdueDetected > 0)
+        {
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "JOB-05 Error saving overdue transitions to database.");
+                errors.Add($"SaveChanges error: {ex.Message}");
+            }
+        }
+
+        // 6. Dispatch domain events (MSG21 notifications & alert emails)
+        int notificationsDispatched = 0;
+        foreach (var evt in eventsToDispatch)
+        {
+            try
+            {
+                await domainEventDispatcher.DispatchAsync(evt, cancellationToken);
+                notificationsDispatched++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "JOB-05 Error dispatching overdue event for Task {TaskId}.", evt.TaskId);
+                errors.Add($"Dispatch error for Task {evt.TaskId}: {ex.Message}");
             }
         }
 
         var completedAt = DateTime.UtcNow;
 
         logger.LogInformation(
-            "JOB-05 [ExecutionId: {ExecutionId}] Finished check. HasEventToday: {HasEventToday}, Checked: {Checked}, OverdueDetected: {Overdue}, Alerts: {Alerts}, Notifications: {Notifications}, Emails: {Emails}, Skipped: {Skipped}, Failed: {Failed}.",
-            executionId, hasEventToday, totalChecked, overdueDetected, alertsCreated, notificationsCreated, emailsQueued, skipped, failed);
+            "JOB-05 [ExecutionId: {ExecutionId}] Finished check. HasEventToday: {HasEventToday}, Checked: {Checked}, OverdueDetected: {Overdue}, Alerts: {Alerts}, Dispatched: {Dispatched}, Skipped: {Skipped}, Failed: {Failed}.",
+            executionId, hasEventToday, totalChecked, overdueDetected, alertsCreated, notificationsDispatched, skipped, failed);
 
         return new DetectOverdueTasksResult(
             ExecutionId: executionId,
@@ -276,8 +173,8 @@ public sealed class DetectOverdueTasksService(
             TotalTasksChecked: totalChecked,
             TotalOverdueDetected: overdueDetected,
             TotalAlertsCreated: alertsCreated,
-            TotalNotificationsCreated: notificationsCreated,
-            TotalEmailsQueued: emailsQueued,
+            TotalNotificationsCreated: notificationsDispatched,
+            TotalEmailsQueued: notificationsDispatched,
             TotalSkipped: skipped,
             TotalFailed: failed,
             Errors: errors);

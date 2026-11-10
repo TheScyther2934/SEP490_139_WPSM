@@ -344,13 +344,16 @@ GO
 -- 19. Day-of Task (late completion stays recorded: CompletedAt > DeadlineTime)
 IF OBJECT_ID(N'dbo.DayOfTasks', N'U') IS NULL
 CREATE TABLE dbo.DayOfTasks (
-    DayOfTaskId   INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
-    ProjectId     INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
-    TaskName      NVARCHAR(200) NOT NULL,
-    DeadlineTime  DATETIME2(0)  NOT NULL,
-    CompletedAt   DATETIME2(0)  NULL,
-    Status        NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
-    PhotoRequired BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    DayOfTaskId      INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
+    ProjectId        INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    TaskName         NVARCHAR(200) NOT NULL,
+    DeadlineTime     DATETIME2(0)  NOT NULL,
+    CompletedAt      DATETIME2(0)  NULL,
+    CompletedBy      INT           NULL CONSTRAINT FK_DayOf_CompletedBy REFERENCES dbo.Users(UserId),
+    OverdueFlaggedAt DATETIME2(0)  NULL,
+    Status           NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
+    PhotoRequired    BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    RowVersion       ROWVERSION    NOT NULL,
     CONSTRAINT CK_DayOf_Status    CHECK (Status IN ('Pending','Done','Overdue')),
     CONSTRAINT CK_DayOf_Completed CHECK (Status <> 'Done' OR CompletedAt IS NOT NULL)
 );

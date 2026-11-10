@@ -8,11 +8,12 @@ namespace Application.Dashboard;
 
 public sealed record ManagerKpiSummary(
     int ActiveProjects,
-    int DraftingProjects,
-    int EventsIn7Days,
+    int TasksDueToday,
     int OpenChangeRequests,
     int StaleBeos,
-    int OverdueTasksCount);
+    int OverdueTasksCount,
+    int DraftingProjects = 0,
+    int EventsIn7Days = 0);
 
 public sealed record ManagerTaskItemView(
     int TaskId,
@@ -54,7 +55,7 @@ public sealed record ManagerDashboardResponse(
     IReadOnlyList<StaleBeoAlertView> StaleBeos);
 
 /// <summary>
-/// M-01 Manager Dashboard Service contract (FE-03, FE-09, Report 3 SRS &amp; Report 4 SDS).
+/// M-01 Manager Dashboard Service contract (FE-03, FE-09, Report 3 SRS §3.3 &amp; Report 4 SDS).
 /// Returns real operational metrics, my tasks, alert panels (Overdue day-of tasks &amp; Stale BEOs),
 /// and upcoming project milestones strictly scoped to the authenticated manager.
 /// </summary>

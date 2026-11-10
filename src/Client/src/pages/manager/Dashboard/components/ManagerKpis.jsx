@@ -5,36 +5,32 @@ import { PATHS } from "../../../../routes/paths";
 export default function ManagerKpis({ kpis }) {
   if (!kpis) return null;
 
+  // 5 KPIs required by SRS §3.3
   const cards = [
     {
-      label: "Dự án đang hoạt động",
-      value: kpis.activeProjects,
+      label: "Dự án đang phụ trách",
+      value: kpis.activeProjects ?? 0,
       to: PATHS.manager.projects,
     },
     {
-      label: "Đang soạn đặc tả",
-      value: kpis.draftingProjects,
-      to: PATHS.manager.projects,
+      label: "Nhiệm vụ đến hạn hôm nay",
+      value: kpis.tasksDueToday ?? 0,
+      tone: (kpis.tasksDueToday ?? 0) > 0 ? "warning" : "primary",
     },
     {
-      label: "Tiệc trong 7 ngày",
-      value: kpis.eventsIn7Days,
-      to: PATHS.manager.projects,
-    },
-    {
-      label: "CR đang mở",
-      value: kpis.openChangeRequests,
+      label: "Yêu cầu thay đổi (CR)",
+      value: kpis.openChangeRequests ?? 0,
       to: PATHS.manager.projects,
     },
     {
       label: "BEO lỗi thời",
-      value: kpis.staleBeos,
-      tone: kpis.staleBeos > 0 ? "warning" : "primary",
+      value: kpis.staleBeos ?? 0,
+      tone: (kpis.staleBeos ?? 0) > 0 ? "warning" : "primary",
     },
     {
-      label: "Nhiệm vụ quá hạn",
-      value: kpis.overdueTasksCount,
-      tone: kpis.overdueTasksCount > 0 ? "error" : "primary",
+      label: "Cảnh báo quá hạn",
+      value: kpis.overdueTasksCount ?? 0,
+      tone: (kpis.overdueTasksCount ?? 0) > 0 ? "error" : "primary",
       to: PATHS.manager.overdueAlerts,
     },
   ];
@@ -47,7 +43,7 @@ export default function ManagerKpis({ kpis }) {
         gridTemplateColumns: {
           xs: "1fr 1fr",
           sm: "repeat(3, 1fr)",
-          md: "repeat(6, 1fr)",
+          md: "repeat(5, 1fr)",
         },
         mb: 3,
       }}

@@ -29,6 +29,9 @@ using Infrastructure.Payments;
 using Application.Dashboard;
 using Application.DayOfTasks;
 using Application.OverdueAlerts;
+using Application.Events;
+using Domain.Events;
+using Infrastructure.Events;
 using Infrastructure.Dashboard;
 using Infrastructure.DayOfTasks;
 using Infrastructure.OverdueAlerts;
@@ -104,6 +107,10 @@ builder.Services.AddScoped<IT30PaymentRequestService, T30PaymentRequestService>(
 builder.Services.AddScoped<IssueT30PaymentRequestJob>();
 builder.Services.AddScoped<IFinalSettlementService, FinalSettlementService>();
 builder.Services.AddScoped<FinalSettlementJob>();
+builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+builder.Services.AddScoped<IDomainEventHandler<DayOfTaskOverdueEvent>, DayOfTaskOverdueEventHandler>();
+builder.Services.AddScoped<ILoadDayOfTimelineService, LoadDayOfTimelineService>();
+builder.Services.AddScoped<LoadDayOfTimelineJob>();
 builder.Services.AddScoped<IDetectOverdueTasksService, DetectOverdueTasksService>();
 builder.Services.AddScoped<DetectOverdueTasksJob>();
 builder.Services.AddScoped<IManagerOverdueAlertService, ManagerOverdueAlertService>();
@@ -195,6 +202,11 @@ if (backgroundJobsEnabled)
         "job-06-final-settlement",
         job => job.RunAsync(CancellationToken.None),
         "0 1 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<LoadDayOfTimelineJob>(
+        "job-04-load-day-of-timeline",
+        job => job.ExecuteAsync(),
+        "0 6 * * *",
         new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
     recurringJobs.AddOrUpdate<DetectOverdueTasksJob>(
         "job-05-detect-overdue-tasks",

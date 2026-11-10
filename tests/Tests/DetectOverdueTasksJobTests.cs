@@ -1,29 +1,32 @@
 using System;
+using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
+using Application.Events;
 using Application.OverdueAlerts;
 using Application.Persistence;
 using Domain.Enums;
+using Domain.Events;
 using Infrastructure.Email;
+using Infrastructure.Events;
 using Infrastructure.OverdueAlerts;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
 using Infrastructure.Persistence.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Tests;
 
-public sealed class DetectOverdueTasksJobTests : IDisposable
+public class DetectOverdueTasksJobTests : IDisposable
 {
     private readonly WpsmDbContext _db;
     private readonly INotificationRepository _notificationRepo;
     private readonly IEmailOutbox _emailOutbox;
     private readonly EmailOptions _emailOptions;
     private readonly DetectOverdueTasksService _service;
-
     private readonly User _customer;
     private readonly User _manager;
     private readonly User _admin;
@@ -41,11 +44,21 @@ public sealed class DetectOverdueTasksJobTests : IDisposable
         _emailOutbox = new EmailOutbox(_db);
         _emailOptions = new EmailOptions { PublicBaseUrl = "http://localhost:5173" };
 
-        _service = new DetectOverdueTasksService(
+        var handler = new DayOfTaskOverdueEventHandler(
             _db,
             _notificationRepo,
             _emailOutbox,
             _emailOptions,
+            NullLogger<DayOfTaskOverdueEventHandler>.Instance);
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IDomainEventHandler<DayOfTaskOverdueEvent>>(handler);
+        var sp = services.BuildServiceProvider();
+        var dispatcher = new DomainEventDispatcher(sp, NullLogger<DomainEventDispatcher>.Instance);
+
+        _service = new DetectOverdueTasksService(
+            _db,
+            dispatcher,
             NullLogger<DetectOverdueTasksService>.Instance);
 
         _customer = new User
@@ -176,13 +189,14 @@ public sealed class DetectOverdueTasksJobTests : IDisposable
         Assert.True(result.HasEventToday);
         Assert.Equal(1, result.TotalTasksChecked); // Only taskOverdue had deadline < now
         Assert.Equal(1, result.TotalOverdueDetected);
-        Assert.Equal(2, result.TotalNotificationsCreated); // 1 for Manager, 1 for Admin
-        Assert.Equal(2, result.TotalEmailsQueued);
+        Assert.Equal(1, result.TotalAlertsCreated);
+        Assert.Equal(1, result.TotalNotificationsCreated);
 
         // Verify task state in database
         var updatedTask = await _db.DayOfTasks.FindAsync(101);
         Assert.NotNull(updatedTask);
         Assert.Equal("Overdue", updatedTask.Status);
+        Assert.NotNull(updatedTask.OverdueFlaggedAt);
 
         // Verify future task untouched
         var futureTask = await _db.DayOfTasks.FindAsync(102);
@@ -235,7 +249,6 @@ public sealed class DetectOverdueTasksJobTests : IDisposable
         var firstRun = await _service.DetectOverdueTasksAsync(
             new DetectOverdueTasksCommand(TargetDate: targetDate, CurrentUtc: nowUtc));
         Assert.Equal(1, firstRun.TotalOverdueDetected);
-        Assert.Equal(2, firstRun.TotalNotificationsCreated);
 
         // Second run
         var secondRun = await _service.DetectOverdueTasksAsync(

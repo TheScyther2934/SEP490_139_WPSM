@@ -35,6 +35,50 @@ public static class RoadmapRules
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VnTz));
 
     /// <summary>
+    /// Gets current date and time in Vietnam time.
+    /// </summary>
+    public static DateTime GetVietnamNow() =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VnTz);
+
+    /// <summary>
+    /// Converts a date and time specified in Vietnam time to UTC.
+    /// </summary>
+    public static DateTime ConvertVietnamToUtc(DateOnly date, TimeOnly time)
+    {
+        var dt = date.ToDateTime(time);
+        return TimeZoneInfo.ConvertTimeToUtc(dt, VnTz);
+    }
+
+    /// <summary>
+    /// Converts a local Vietnam DateTime to UTC.
+    /// </summary>
+    public static DateTime ConvertVietnamToUtc(DateTime localVnDateTime)
+    {
+        var unspecified = DateTime.SpecifyKind(localVnDateTime, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(unspecified, VnTz);
+    }
+
+    /// <summary>
+    /// Converts a UTC DateTime to Vietnam time.
+    /// </summary>
+    public static DateTime ConvertUtcToVietnam(DateTime utcDateTime)
+    {
+        var utc = DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, VnTz);
+    }
+
+    /// <summary>
+    /// Ensures a DateTime is explicitly treated as UTC.
+    /// </summary>
+    public static DateTime NormalizeToUtc(DateTime dt) =>
+        dt.Kind switch
+        {
+            DateTimeKind.Utc => dt,
+            DateTimeKind.Local => dt.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+        };
+
+    /// <summary>
     /// Resolves milestone target date from event date.
     /// </summary>
     public static DateOnly ResolveMilestoneDate(string milestone, DateOnly eventDate) =>

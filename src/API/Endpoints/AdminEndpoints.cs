@@ -19,6 +19,8 @@ public static class AdminEndpoints
         admin.MapGet("/reports", async (DateOnly from, DateOnly to, IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetReportAsync(from, to, ct)));
         admin.MapGet("/photos", async (string? projectCode, int? hallId, string? taskStatus, DateOnly? date, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
             Results.Ok((await repo.GetPhotosAsync(new PhotoFeedFilter(projectCode, hallId, taskStatus, date), ct)).Select(p => p with { ImageUrl = links.Url(p.PhotoId) })));
+        admin.MapGet("/photo-feed", async (string? projectCode, int? hallId, string? taskStatus, DateOnly? date, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
+            Results.Ok((await repo.GetPhotosAsync(new PhotoFeedFilter(projectCode, hallId, taskStatus, date), ct)).Select(p => p with { ImageUrl = links.Url(p.PhotoId) })));
         admin.MapGet("/photos/{photoId:int}", async (int photoId, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
             await repo.GetPhotoAsync(photoId, ct) is { } photo ? Results.Ok(photo with { ImageUrl = links.Url(photo.PhotoId) }) : Results.NotFound());
         admin.MapGet("/photos/{photoId:int}/content", async (int photoId, IAdminRepository repo, IWebHostEnvironment environment, CancellationToken ct) =>
