@@ -56,7 +56,7 @@ public sealed class AddendumRepository(WpsmDbContext db) : IAddendumRepository
             .Select(g => g.OrderByDescending(s => s.Version).First())
             .OrderBy(s => s.CatalogItem.Category)
             .ThenBy(s => s.CatalogItem.Name)
-            .Select(s => new CrSpecOptionView(
+            .Select(s => new AddendumCrSpecOptionView(
                 s.SpecItemId,
                 s.CatalogItemId,
                 s.CatalogItem.Name,

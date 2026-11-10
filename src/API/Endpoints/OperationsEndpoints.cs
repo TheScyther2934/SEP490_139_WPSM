@@ -41,11 +41,11 @@ public static class OperationsEndpoints
     private static void MapNotifications(RouteGroupBuilder api)
     {
         var group = api.MapGroup("/notifications").RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
-        group.MapGet("", async (bool? unread, INotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        group.MapGet("", async (bool? unread, IOperationsNotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             Results.Ok(await repo.GetAsync(UserId(user), unread == true, ct)));
-        group.MapPost("/{notificationId:int}/read", async (int notificationId, INotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        group.MapPost("/{notificationId:int}/read", async (int notificationId, IOperationsNotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.MarkReadAsync(UserId(user), notificationId, ct) ? Results.NoContent() : Results.NotFound());
-        group.MapPost("/read-all", async (INotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        group.MapPost("/read-all", async (IOperationsNotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
         {
             await repo.MarkAllReadAsync(UserId(user), ct);
             return Results.NoContent();
@@ -65,31 +65,31 @@ public static class OperationsEndpoints
     private static void MapChangeRequests(RouteGroupBuilder api)
     {
         var crs = api.MapGroup("/projects/{id}/change-requests").RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
-        crs.MapGet("", async (string id, string? status, IChangeRequestRepository repo, CancellationToken ct) => Results.Ok(await repo.ListAsync(id, status, ct)));
-        crs.MapGet("/spec-items", async (string id, IChangeRequestRepository repo, CancellationToken ct) => Results.Ok(await repo.GetSpecItemsAsync(id, ct)));
-        crs.MapPost("/preview", async (string id, CrItemsRequest request, IChangeRequestRepository repo, CancellationToken ct) =>
+        crs.MapGet("", async (string id, string? status, IOperationsChangeRequestRepository repo, CancellationToken ct) => Results.Ok(await repo.ListAsync(id, status, ct)));
+        crs.MapGet("/spec-items", async (string id, IOperationsChangeRequestRepository repo, CancellationToken ct) => Results.Ok(await repo.GetSpecItemsAsync(id, ct)));
+        crs.MapPost("/preview", async (string id, CrItemsRequest request, IOperationsChangeRequestRepository repo, CancellationToken ct) =>
             Results.Ok(await repo.PreviewAsync(id, request.Items, ct)));
-        crs.MapPost("", async (string id, CreateCrRequest request, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapPost("", async (string id, CreateCrRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var created = await repo.CreateAsync(id, UserId(user), Role(user), new CreateCrCommand(request.Type, request.Reason, request.Items, request.Submit), ct);
             return Results.Created($"/api/wpsm/projects/{id}/change-requests/{created.Code}", created);
         });
-        crs.MapGet("/{crCode}", async (string id, string crCode, IChangeRequestRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, crCode, ct)));
-        crs.MapPost("/{crCode}/submit", async (string id, string crCode, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapGet("/{crCode}", async (string id, string crCode, IOperationsChangeRequestRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, crCode, ct)));
+        crs.MapPost("/{crCode}/submit", async (string id, string crCode, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.SubmitAsync(id, crCode, UserId(user), Role(user), ct)));
-        crs.MapPut("/{crCode}/items", async (string id, string crCode, CrItemsRequest request, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapPut("/{crCode}/items", async (string id, string crCode, CrItemsRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.CounterProposeAsync(id, crCode, UserId(user), Role(user), request.Items, request.Note, ct)));
-        crs.MapPost("/{crCode}/approve", async (string id, string crCode, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapPost("/{crCode}/approve", async (string id, string crCode, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.ApproveAsync(id, crCode, UserId(user), Role(user), ct)));
-        crs.MapPost("/{crCode}/reject", async (string id, string crCode, ReasonRequest request, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapPost("/{crCode}/reject", async (string id, string crCode, ReasonRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.RejectAsync(id, crCode, UserId(user), Role(user), request.Reason, ct)));
-        crs.MapPost("/{crCode}/comments", async (string id, string crCode, NoteRequest request, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapPost("/{crCode}/comments", async (string id, string crCode, NoteRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.CommentAsync(id, crCode, UserId(user), Role(user), request.Note ?? "", ct)));
-        crs.MapPost("/{crCode}/exception-requests", async (string id, string crCode, NoteRequest request, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapPost("/{crCode}/exception-requests", async (string id, string crCode, NoteRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.RequestExceptionAsync(id, crCode, UserId(user), request.Note ?? "", ct)))
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
-        crs.MapGet("/{crCode}/addendum", async (string id, string crCode, IChangeRequestRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAddendumAsync(id, crCode, ct)));
-        crs.MapPost("/{crCode}/addendum/signed-copy", async (string id, string crCode, IFormFile file, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        crs.MapGet("/{crCode}/addendum", async (string id, string crCode, IOperationsChangeRequestRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAddendumAsync(id, crCode, ct)));
+        crs.MapPost("/{crCode}/addendum/signed-copy", async (string id, string crCode, IFormFile file, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
         {
             if (file.Length is <= 0 or > 10 * 1024 * 1024) return Results.BadRequest(new { message = "Chỉ chấp nhận tệp JPG, PNG hoặc PDF, tối đa 10 MB (MSG17)." });
             return OkOrNotFound(await repo.AttachSignedAsync(id, crCode, UserId(user), await ReadAsync(file, ct), file.FileName, ct));
@@ -99,10 +99,10 @@ public static class OperationsEndpoints
     private static void MapBeoAndDayOf(RouteGroupBuilder api)
     {
         var manager = api.MapGroup("/projects/{id}").RequireAuthorization(policy => policy.RequireRole("Manager"));
-        manager.MapGet("/beo", async (string id, IBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)));
-        manager.MapPut("/beo/notes", async (string id, NoteRequest request, IBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.SaveNotesAsync(id, request.Note, ct)));
-        manager.MapPost("/beo/freeze", async (string id, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.FreezeAsync(id, UserId(user), ct)));
-        manager.MapPost("/beo/reapprove", async (string id, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.ReapproveAsync(id, UserId(user), ct)));
+        manager.MapGet("/beo", async (string id, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)));
+        manager.MapPut("/beo/notes", async (string id, NoteRequest request, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.SaveNotesAsync(id, request.Note, ct)));
+        manager.MapPost("/beo/freeze", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.FreezeAsync(id, UserId(user), ct)));
+        manager.MapPost("/beo/reapprove", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.ReapproveAsync(id, UserId(user), ct)));
 
         manager.MapGet("/day-of", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.GetBoardAsync(id, ct), links)));
         manager.MapPost("/day-of/load", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.LoadTimelineAsync(id, ct), links)));
@@ -129,7 +129,7 @@ public static class OperationsEndpoints
         {
             if (receipt is { Length: > 10 * 1024 * 1024 }) return Results.BadRequest(new { message = "Chỉ chấp nhận tệp JPG, PNG hoặc PDF, tối đa 10 MB (MSG17)." });
             var bytes = receipt is { Length: > 0 } ? await ReadAsync(receipt, ct) : null;
-            return OkOrNotFound(await repo.RecordAsync(id, UserId(user), new RecordPaymentCommand(type, amount, method, paidDate, bytes, receipt?.FileName), ct));
+            return OkOrNotFound(await repo.RecordAsync(id, UserId(user), new OpRecordPaymentCommand(type, amount, method, paidDate, bytes, receipt?.FileName), ct));
         }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
         api.MapPost("/projects/{id}/payments/settlement-receipt", async (string id, IPaymentRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.IssueSettlementReceiptAsync(id, UserId(user), ct)))

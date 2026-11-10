@@ -17,7 +17,7 @@ public sealed class PaymentRepository(WpsmDbContext db, IFileService files, IPdf
         return project is null ? null : await MapAsync(project, cancellationToken);
     }
 
-    public async Task<PaymentsView?> RecordAsync(string projectCode, int managerId, RecordPaymentCommand command, CancellationToken cancellationToken = default)
+    public async Task<PaymentsView?> RecordAsync(string projectCode, int managerId, OpRecordPaymentCommand command, CancellationToken cancellationToken = default)
     {
         var project = await LoadAsync(projectCode, cancellationToken);
         if (project is null) return null;

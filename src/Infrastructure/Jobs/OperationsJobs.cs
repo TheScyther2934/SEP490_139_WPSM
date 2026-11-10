@@ -10,7 +10,7 @@ using static Infrastructure.Persistence.Repositories.OperationsSupport;
 namespace Infrastructure.Jobs;
 
 /// <summary>JOB-01..JOB-06 of Report 4 IV.3 (time zone Asia/Ho_Chi_Minh). Each job selects only rows still in the state it changes, so a rerun is harmless.</summary>
-public sealed class OperationsJobs(WpsmDbContext db, IBeoRepository beos, IDayOfRepository dayOf, IPaymentRepository payments, IEmailOutbox emailOutbox,
+public sealed class OperationsJobs(WpsmDbContext db, IOperationsBeoRepository beos, IDayOfRepository dayOf, IPaymentRepository payments, IEmailOutbox emailOutbox,
     ILogger<OperationsJobs> logger)
 {
     /// <summary>JOB-01: Pending tasks due within 3 days, not reminded in the last 24 hours.</summary>

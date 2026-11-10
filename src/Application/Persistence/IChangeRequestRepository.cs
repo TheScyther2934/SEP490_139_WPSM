@@ -4,7 +4,7 @@ namespace Application.Persistence;
 // Shared shapes for the Customer and Manager CR screens. The cost figures always come from the
 // server so GBR-03 (price delta, T-day penalty, total CR impact) is calculated in one place.
 
-public sealed record PenaltyRuleView(int TDayMin, int TDayMax, decimal RatePercent);
+public sealed record CrPenaltyRuleView(int TDayMin, int TDayMax, decimal RatePercent);
 
 /// <summary>GBR-03 cost impact. <paramref name="PenaltyRate"/> is 0 when no T-day rule applies.</summary>
 public sealed record CrCostView(
@@ -41,7 +41,7 @@ public sealed record CrFormView(
     decimal BaseContractValue,
     decimal CurrentTotal,
     IReadOnlyList<CrSpecOptionView> SpecItems,
-    IReadOnlyList<PenaltyRuleView> PenaltyRules,
+    IReadOnlyList<CrPenaltyRuleView> PenaltyRules,
     decimal ApplicablePenaltyRate,
     string PenaltyWindow,
     string? BlockedReason);
@@ -118,7 +118,7 @@ public sealed record CrDetailView(
     CrCostView Cost,
     IReadOnlyList<CrItemView> Items,
     IReadOnlyList<CrHistoryView> History,
-    IReadOnlyList<PenaltyRuleView> PenaltyRules,
+    IReadOnlyList<CrPenaltyRuleView> PenaltyRules,
     string? AddendumCode,
     string? BeoStatus,
     string? PendingException,

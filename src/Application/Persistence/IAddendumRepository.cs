@@ -51,7 +51,7 @@ public sealed record CrCostImpactView(
     IReadOnlyList<CrCostLineView> Items,
     IReadOnlyList<CrHistoryEntryView> History);
 
-public sealed record CrSpecOptionView(
+public sealed record AddendumCrSpecOptionView(
     int SpecItemId,
     int CatalogItemId,
     string ItemName,
@@ -71,7 +71,7 @@ public sealed record CrCreationContextView(
     decimal PenaltyRate,
     decimal BaseContractValue,
     decimal CurrentProjectTotal,
-    IReadOnlyList<CrSpecOptionView> SpecItems);
+    IReadOnlyList<AddendumCrSpecOptionView> SpecItems);
 
 public sealed record CreateCrItemInput(
     int TargetSpecItemId,

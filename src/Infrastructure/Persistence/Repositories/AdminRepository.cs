@@ -294,7 +294,6 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
                 Message = $"Yêu cầu ngoại lệ {request.RequestCode} cho {cr.Crcode} đã được {(approve ? "chấp thuận" : "từ chối")}."
             });
         }
-        if (!approve && request.Allocation is { } rejected) rejected.Status = "Released";
         if (approve && request.Allocation is { } allocation)
         {
             allocation.Status = "Exception Approved";
@@ -303,10 +302,10 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             allocation.ExceptionApprovedAt = now;
             allocation.ExceptionNote = note;
         }
-        else if (!approve && request.Allocation is { Status: "PendingException" } rejected)
+        else if (!approve && request.Allocation is { } rejectedAllocation)
         {
             // A rejected resource exception never becomes valid, so the pending allocation is released.
-            rejected.Status = "Released";
+            rejectedAllocation.Status = "Released";
         }
         await db.SaveChangesAsync(cancellationToken);
         return true;

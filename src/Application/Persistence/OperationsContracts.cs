@@ -4,11 +4,11 @@ namespace Application.Persistence;
 // BEO, day-of, payments, feedback and resources. Project access (GBR-12) is checked by the /projects/{id} filter.
 
 // ── G-04 Notifications (UC-03) ──────────────────────────────────────────────
-public sealed record NotificationView(int Id, string Type, string Message, string? LinkUrl, bool IsRead, DateTime CreatedAt);
+public sealed record OpNotificationView(int Id, string Type, string Message, string? LinkUrl, bool IsRead, DateTime CreatedAt);
 
-public interface INotificationRepository
+public interface IOperationsNotificationRepository
 {
-    Task<IReadOnlyList<NotificationView>> GetAsync(int userId, bool unreadOnly, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OpNotificationView>> GetAsync(int userId, bool unreadOnly, CancellationToken cancellationToken = default);
     Task<bool> MarkReadAsync(int userId, int notificationId, CancellationToken cancellationToken = default);
     Task MarkAllReadAsync(int userId, CancellationToken cancellationToken = default);
 }
@@ -35,34 +35,34 @@ public sealed record CrSpecItemView(int SpecItemId, string Name, string Category
     decimal UnitPrice, decimal? MinPrice, decimal? MaxPrice);
 public sealed record CrItemCommand(int SpecItemId, int NewQuantity, decimal NewUnitPrice);
 public sealed record CreateCrCommand(string Type, string Reason, IReadOnlyList<CrItemCommand> Items, bool Submit);
-public sealed record CrCostView(decimal PriceDelta, int TDay, decimal PenaltyRate, decimal PenaltyFee, bool PenaltyWaived,
+public sealed record OpCrCostView(decimal PriceDelta, int TDay, decimal PenaltyRate, decimal PenaltyFee, bool PenaltyWaived,
     decimal TotalImpact, decimal CurrentTotal, decimal NewTotal);
-public sealed record CrItemView(int SpecItemId, string Name, string Unit, int OldQuantity, decimal OldUnitPrice, int NewQuantity, decimal NewUnitPrice, decimal Delta);
-public sealed record CrHistoryView(string Actor, string ActorRole, string Action, string? Note, DateTime CreatedAt);
-public sealed record CrSummaryView(string Code, string Type, string Reason, string CreatedByRole, string Status, decimal TotalImpact, DateTime CreatedAt);
+public sealed record OpCrItemView(int SpecItemId, string Name, string Unit, int OldQuantity, decimal OldUnitPrice, int NewQuantity, decimal NewUnitPrice, decimal Delta);
+public sealed record OpCrHistoryView(string Actor, string ActorRole, string Action, string? Note, DateTime CreatedAt);
+public sealed record OpCrSummaryView(string Code, string Type, string Reason, string CreatedByRole, string Status, decimal TotalImpact, DateTime CreatedAt);
 public sealed record CrExceptionView(string Code, string Status, string Note, string? DecisionNote);
-public sealed record CrDetailView(string Code, string ProjectCode, string Type, string Reason, string CreatedByRole, string CreatedByName, string Status,
-    DateTime CreatedAt, DateTime? CustomerApprovedAt, DateTime? ManagerApprovedAt, IReadOnlyList<CrItemView> Items, CrCostView Cost,
-    IReadOnlyList<CrHistoryView> History, IReadOnlyList<CrExceptionView> Exceptions, string? AddendumCode, string? BeoEffect);
-public sealed record CrAddendumView(string AddendumCode, string CrCode, string Status, decimal TotalVariance, DateTime? SignedAt,
+public sealed record OpCrDetailView(string Code, string ProjectCode, string Type, string Reason, string CreatedByRole, string CreatedByName, string Status,
+    DateTime CreatedAt, DateTime? CustomerApprovedAt, DateTime? ManagerApprovedAt, IReadOnlyList<OpCrItemView> Items, OpCrCostView Cost,
+    IReadOnlyList<OpCrHistoryView> History, IReadOnlyList<CrExceptionView> Exceptions, string? AddendumCode, string? BeoEffect);
+public sealed record OpCrAddendumView(string AddendumCode, string CrCode, string Status, decimal TotalVariance, DateTime? SignedAt,
     Guid? PdfFileId, Guid? SignedFileId, decimal BaseValue, decimal CurrentTotal, decimal TotalPaid, decimal Outstanding, string? BeoEffect,
-    IReadOnlyList<CrItemView> Items, CrCostView Cost);
+    IReadOnlyList<OpCrItemView> Items, OpCrCostView Cost);
 
-public interface IChangeRequestRepository
+public interface IOperationsChangeRequestRepository
 {
-    Task<IReadOnlyList<CrSummaryView>> ListAsync(string projectCode, string? status, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OpCrSummaryView>> ListAsync(string projectCode, string? status, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CrSpecItemView>> GetSpecItemsAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<CrCostView> PreviewAsync(string projectCode, IReadOnlyList<CrItemCommand> items, CancellationToken cancellationToken = default);
-    Task<CrDetailView> CreateAsync(string projectCode, int userId, string role, CreateCrCommand command, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> GetAsync(string projectCode, string crCode, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> SubmitAsync(string projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> CounterProposeAsync(string projectCode, string crCode, int userId, string role, IReadOnlyList<CrItemCommand> items, string? note, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> ApproveAsync(string projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> RejectAsync(string projectCode, string crCode, int userId, string role, string? reason, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> CommentAsync(string projectCode, string crCode, int userId, string role, string note, CancellationToken cancellationToken = default);
-    Task<CrDetailView?> RequestExceptionAsync(string projectCode, string crCode, int managerId, string note, CancellationToken cancellationToken = default);
-    Task<CrAddendumView?> GetAddendumAsync(string projectCode, string crCode, CancellationToken cancellationToken = default);
-    Task<CrAddendumView?> AttachSignedAsync(string projectCode, string crCode, int managerId, byte[] content, string fileName, CancellationToken cancellationToken = default);
+    Task<OpCrCostView> PreviewAsync(string projectCode, IReadOnlyList<CrItemCommand> items, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView> CreateAsync(string projectCode, int userId, string role, CreateCrCommand command, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> GetAsync(string projectCode, string crCode, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> SubmitAsync(string projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> CounterProposeAsync(string projectCode, string crCode, int userId, string role, IReadOnlyList<CrItemCommand> items, string? note, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> ApproveAsync(string projectCode, string crCode, int userId, string role, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> RejectAsync(string projectCode, string crCode, int userId, string role, string? reason, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> CommentAsync(string projectCode, string crCode, int userId, string role, string note, CancellationToken cancellationToken = default);
+    Task<OpCrDetailView?> RequestExceptionAsync(string projectCode, string crCode, int managerId, string note, CancellationToken cancellationToken = default);
+    Task<OpCrAddendumView?> GetAddendumAsync(string projectCode, string crCode, CancellationToken cancellationToken = default);
+    Task<OpCrAddendumView?> AttachSignedAsync(string projectCode, string crCode, int managerId, byte[] content, string fileName, CancellationToken cancellationToken = default);
 }
 
 // ── BEO (UC-27..UC-29, SDS IV.4.2) ─────────────────────────────────────────
@@ -71,14 +71,14 @@ public sealed record BeoTimelineView(string Time, string Activity, string Depart
 public sealed record BeoDepartmentView(string Department, IReadOnlyList<BeoLineView> Lines);
 public sealed record BeoSheetView(string Department, DateTime GeneratedAt, Guid? FileId);
 public sealed record BeoVersionView(int Version, string Status, DateTime? FrozenAt, string? ApprovedBy);
-public sealed record BeoChangeView(string AddendumCode, string CrCode, decimal TotalVariance, DateTime ApprovedAt, IReadOnlyList<CrItemView> Items);
+public sealed record BeoChangeView(string AddendumCode, string CrCode, decimal TotalVariance, DateTime ApprovedAt, IReadOnlyList<OpCrItemView> Items);
 public sealed record BeoView(string ProjectCode, string CoupleName, DateOnly EventDate, int TDay, int? Version, string Status, DateTime? FrozenAt,
     string? ApprovedBy, string? Notes, bool CanFreeze, string? FreezeBlockReason, IReadOnlyList<string> PendingCrCodes,
     IReadOnlyList<BeoTimelineView> Timeline, IReadOnlyList<BeoLineView> Menu, IReadOnlyList<BeoDepartmentView> Departments,
     IReadOnlyList<string> AddendumCodes, IReadOnlyList<BeoSheetView> Sheets, IReadOnlyList<BeoVersionView> Versions,
     IReadOnlyList<BeoChangeView> ChangesSinceFreeze);
 
-public interface IBeoRepository
+public interface IOperationsBeoRepository
 {
     Task<BeoView?> GetAsync(string projectCode, CancellationToken cancellationToken = default);
     Task<BeoView?> SaveNotesAsync(string projectCode, string? notes, CancellationToken cancellationToken = default);
@@ -123,12 +123,12 @@ public sealed record PaymentLineView(int PaymentId, string Type, string Status, 
 public sealed record PaymentsView(string ProjectCode, string CoupleName, string ProjectStatus, DateOnly EventDate, decimal BaseValue,
     decimal ApprovedCrVariance, decimal CurrentTotal, decimal TotalPaid, decimal Outstanding, IReadOnlyList<PaymentLineView> Payments,
     bool CanRecordFinal, Guid? SettlementReceiptFileId, DateTime? SettledAt);
-public sealed record RecordPaymentCommand(string Type, decimal Amount, string Method, DateOnly PaidDate, byte[]? Receipt, string? ReceiptName);
+public sealed record OpRecordPaymentCommand(string Type, decimal Amount, string Method, DateOnly PaidDate, byte[]? Receipt, string? ReceiptName);
 
 public interface IPaymentRepository
 {
     Task<PaymentsView?> GetAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<PaymentsView?> RecordAsync(string projectCode, int managerId, RecordPaymentCommand command, CancellationToken cancellationToken = default);
+    Task<PaymentsView?> RecordAsync(string projectCode, int managerId, OpRecordPaymentCommand command, CancellationToken cancellationToken = default);
     Task<PaymentsView?> IssueSettlementReceiptAsync(string projectCode, int managerId, CancellationToken cancellationToken = default);
     /// <summary>JOB-02: T-30 payment becomes Due with amount = round(Current Total × T30 ratio) − NRD.</summary>
     Task<int> IssueT30PaymentsAsync(DateOnly today, CancellationToken cancellationToken = default);
@@ -162,14 +162,14 @@ public sealed record ResourceView(int ResourceId, string Name, string Type, int 
 public sealed record AllocationView(int AllocationId, int ResourceId, string ResourceName, string ResourceType, string ProjectCode, string Hall,
     DateTime StartTime, DateTime EndTime, int Quantity, string Status, string? ExceptionStatus, bool Mine);
 public sealed record HallBookingView(string ProjectCode, string Hall, string Slot, DateOnly EventDate, string Status, bool Mine);
-public sealed record ResourceCalendarView(IReadOnlyList<ResourceView> Resources, IReadOnlyList<HallBookingView> Bookings, IReadOnlyList<AllocationView> Allocations);
+public sealed record OpResourceCalendarView(IReadOnlyList<ResourceView> Resources, IReadOnlyList<HallBookingView> Bookings, IReadOnlyList<AllocationView> Allocations);
 public sealed record ConflictView(string ProjectCode, DateTime StartTime, DateTime EndTime, int Quantity);
 public sealed record AllocationCommand(int ResourceId, string ProjectCode, DateTime StartTime, DateTime EndTime, int Quantity);
 public sealed record AllocationResult(AllocationView? Allocation, string? Message, ResourceView? Resource, IReadOnlyList<ConflictView> Conflicts);
 
 public interface IResourceRepository
 {
-    Task<ResourceCalendarView> GetCalendarAsync(int managerId, DateOnly from, DateOnly to, int? hallId, string? type, CancellationToken cancellationToken = default);
+    Task<OpResourceCalendarView> GetCalendarAsync(int managerId, DateOnly from, DateOnly to, int? hallId, string? type, CancellationToken cancellationToken = default);
     /// <summary>Saves the allocation, or returns the conflicts (MSG08) without saving. Null when the project is not the Manager's.</summary>
     Task<AllocationResult?> AllocateAsync(int managerId, AllocationCommand command, CancellationToken cancellationToken = default);
     Task<AllocationResult?> UpdateAsync(int managerId, int allocationId, AllocationCommand command, CancellationToken cancellationToken = default);

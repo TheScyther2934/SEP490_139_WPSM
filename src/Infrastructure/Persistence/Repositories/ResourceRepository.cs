@@ -8,7 +8,7 @@ namespace Infrastructure.Persistence.Repositories;
 /// <summary>UC-25, UC-26 and the resource branch of UC-47 (GBR-09, SDS III.2.2 overlap query).</summary>
 public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
 {
-    public async Task<ResourceCalendarView> GetCalendarAsync(int managerId, DateOnly from, DateOnly to, int? hallId, string? type, CancellationToken cancellationToken = default)
+    public async Task<OpResourceCalendarView> GetCalendarAsync(int managerId, DateOnly from, DateOnly to, int? hallId, string? type, CancellationToken cancellationToken = default)
     {
         if (to < from) (from, to) = (to, from);
         if (to.DayNumber - from.DayNumber > 62) to = from.AddDays(62);
@@ -24,7 +24,7 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
         var allocations = await Project(db.ResourceAllocations.AsNoTracking()
             .Where(x => x.StartTime < end && x.EndTime > start && x.Status != "Released" && resourceIds.Contains(x.ResourceId) && (hallId == null || x.HallId == hallId))
             .OrderBy(x => x.StartTime), managerId).ToListAsync(cancellationToken);
-        return new ResourceCalendarView(resources, bookings, allocations);
+        return new OpResourceCalendarView(resources, bookings, allocations);
     }
 
     public async Task<AllocationResult?> AllocateAsync(int managerId, AllocationCommand command, CancellationToken cancellationToken = default)
