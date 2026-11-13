@@ -230,7 +230,7 @@ CREATE TABLE dbo.ResourceAllocations (
     ExceptionNote       NVARCHAR(300) NULL,
     CONSTRAINT CK_Alloc_Time     CHECK (EndTime > StartTime),
     CONSTRAINT CK_Alloc_Quantity CHECK (AllocatedQuantity > 0),
-    CONSTRAINT CK_Alloc_Status   CHECK (Status IN ('Reserved','Exception Approved','Released')),
+    CONSTRAINT CK_Alloc_Status   CHECK (Status IN ('Reserved','PendingException','Exception Approved','Released')),
     CONSTRAINT CK_Alloc_Exception CHECK (
         (IsExceptionApproved = 0 AND Status <> 'Exception Approved')
      OR (IsExceptionApproved = 1 AND Status IN ('Exception Approved','Released')
@@ -344,13 +344,16 @@ GO
 -- 19. Day-of Task (late completion stays recorded: CompletedAt > DeadlineTime)
 IF OBJECT_ID(N'dbo.DayOfTasks', N'U') IS NULL
 CREATE TABLE dbo.DayOfTasks (
-    DayOfTaskId   INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
-    ProjectId     INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
-    TaskName      NVARCHAR(200) NOT NULL,
-    DeadlineTime  DATETIME2(0)  NOT NULL,
-    CompletedAt   DATETIME2(0)  NULL,
-    Status        NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
-    PhotoRequired BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    DayOfTaskId      INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
+    ProjectId        INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    TaskName         NVARCHAR(200) NOT NULL,
+    DeadlineTime     DATETIME2(0)  NOT NULL,
+    CompletedAt      DATETIME2(0)  NULL,
+    CompletedBy      INT           NULL CONSTRAINT FK_DayOf_CompletedBy REFERENCES dbo.Users(UserId),
+    OverdueFlaggedAt DATETIME2(0)  NULL,
+    Status           NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
+    PhotoRequired    BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    RowVersion       ROWVERSION    NOT NULL,
     CONSTRAINT CK_DayOf_Status    CHECK (Status IN ('Pending','Done','Overdue')),
     CONSTRAINT CK_DayOf_Completed CHECK (Status <> 'Done' OR CompletedAt IS NOT NULL)
 );
@@ -450,10 +453,205 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_CRHistory_CR' AND object
     CREATE INDEX IX_CRHistory_CR ON dbo.CRHistories(CRId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOf_Project_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
     CREATE INDEX IX_DayOf_Project_Deadline ON dbo.DayOfTasks(ProjectId, DeadlineTime, Status);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOfTasks_Status_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
+    CREATE INDEX IX_DayOfTasks_Status_Deadline ON dbo.DayOfTasks(Status, DeadlineTime);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WeddingProjects_Manager_Status' AND object_id=OBJECT_ID('dbo.WeddingProjects'))
+    CREATE INDEX IX_WeddingProjects_Manager_Status ON dbo.WeddingProjects(ManagerId, Status);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Photo_Task' AND object_id=OBJECT_ID('dbo.ExecutionPhotos'))
     CREATE INDEX IX_Photo_Task ON dbo.ExecutionPhotos(DayOfTaskId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Notifications_Recipient' AND object_id=OBJECT_ID('dbo.Notifications'))
     CREATE INDEX IX_Notifications_Recipient ON dbo.Notifications(RecipientId, IsRead, CreatedAt DESC);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Complaint_Project' AND object_id=OBJECT_ID('dbo.Complaints'))
     CREATE INDEX IX_Complaint_Project ON dbo.Complaints(ProjectId, Status);
+GO
+
+-- Portal persistence update
+-- Additive update. Run against the WPSM database used by the application.
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET ARITHABORT ON;
+SET NUMERIC_ROUNDABORT OFF;
+IF COL_LENGTH(N'dbo.Payments', N'Status') IS NULL
+    ALTER TABLE dbo.Payments ADD Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Payments_PortalStatus DEFAULT 'Paid';
+IF COL_LENGTH(N'dbo.Payments', N'DueDate') IS NULL
+    ALTER TABLE dbo.Payments ADD DueDate DATE NULL;
+IF COL_LENGTH(N'dbo.RoadmapTasks', N'RemindedAt') IS NULL
+    ALTER TABLE dbo.RoadmapTasks ADD RemindedAt DATETIME2 NULL;
+IF COL_LENGTH(N'dbo.SpecItems', N'LineTotal') IS NULL
+    ALTER TABLE dbo.SpecItems ADD LineTotal AS (Quantity * UnitPrice) PERSISTED;
+IF COL_LENGTH(N'dbo.ChangeRequests', N'PenaltyRate') IS NULL
+    ALTER TABLE dbo.ChangeRequests ADD PenaltyRate DECIMAL(5,2) NULL;
+IF COL_LENGTH(N'dbo.Complaints', N'ComplaintCode') IS NULL
+    ALTER TABLE dbo.Complaints ADD ComplaintCode NVARCHAR(30) NULL;
+IF COL_LENGTH(N'dbo.Complaints', N'EscalationNote') IS NULL
+    ALTER TABLE dbo.Complaints ADD EscalationNote NVARCHAR(1000) NULL;
+IF COL_LENGTH(N'dbo.Complaints', N'CreatedAt') IS NULL
+    ALTER TABLE dbo.Complaints ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Complaints_PortalCreated DEFAULT SYSUTCDATETIME();
+IF COL_LENGTH(N'dbo.CRHistories', N'CreatedAt') IS NULL
+    ALTER TABLE dbo.CRHistories ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_CRHistories_PortalCreated DEFAULT SYSUTCDATETIME();
+IF COL_LENGTH(N'dbo.ExecutionPhotos', N'UploadedAt') IS NULL
+    ALTER TABLE dbo.ExecutionPhotos ADD UploadedAt DATETIME2 NOT NULL CONSTRAINT DF_ExecutionPhotos_PortalCreated DEFAULT SYSUTCDATETIME();
+IF COL_LENGTH(N'dbo.Notifications', N'CreatedAt') IS NULL
+    ALTER TABLE dbo.Notifications ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Notifications_PortalCreated DEFAULT SYSUTCDATETIME();
+IF COL_LENGTH(N'dbo.Ratings', N'CreatedAt') IS NULL
+    ALTER TABLE dbo.Ratings ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Ratings_PortalCreated DEFAULT SYSUTCDATETIME();
+-- Older SQL Server deployments required receipt/payment fields before a bank
+-- receipt could be uploaded. Allow the pending payment state used by the portal.
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.WeddingProjects') AND name=N'NRDReceiptUrl' AND is_nullable=0)
+    ALTER TABLE dbo.WeddingProjects ALTER COLUMN NRDReceiptUrl NVARCHAR(500) NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') AND name=N'PaymentMethod' AND is_nullable=0)
+    ALTER TABLE dbo.Payments ALTER COLUMN PaymentMethod NVARCHAR(50) NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') AND name=N'ReceiptFilePath' AND is_nullable=0)
+    ALTER TABLE dbo.Payments ALTER COLUMN ReceiptFilePath NVARCHAR(500) NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') AND name=N'RecordedBy' AND is_nullable=0)
+    ALTER TABLE dbo.Payments ALTER COLUMN RecordedBy INT NULL;
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') AND name=N'PaidDate' AND is_nullable=0)
+    ALTER TABLE dbo.Payments ALTER COLUMN PaidDate DATE NULL;
+IF COL_LENGTH(N'dbo.Payments', N'ReceiptContent') IS NULL
+    ALTER TABLE dbo.Payments ADD ReceiptContent VARBINARY(MAX) NULL;
+IF COL_LENGTH(N'dbo.Payments', N'ReceiptFileName') IS NULL
+    ALTER TABLE dbo.Payments ADD ReceiptFileName NVARCHAR(255) NULL;
+IF COL_LENGTH(N'dbo.Payments', N'ReceiptContentType') IS NULL
+    ALTER TABLE dbo.Payments ADD ReceiptContentType NVARCHAR(100) NULL;
+IF OBJECT_ID(N'dbo.EmailDeliveries', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.EmailDeliveries (
+        EmailDeliveryId INT IDENTITY(1,1) PRIMARY KEY,
+        ProjectId INT NOT NULL UNIQUE REFERENCES dbo.WeddingProjects(ProjectId),
+        Recipient NVARCHAR(100) NOT NULL,
+        ProtectedPayload NVARCHAR(MAX) NULL,
+        Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
+        Attempts INT NOT NULL DEFAULT 0,
+        CreatedAt DATETIME2 NOT NULL,
+        NextAttemptAt DATETIME2 NOT NULL,
+        SentAt DATETIME2 NULL,
+        CONSTRAINT CK_EmailDeliveries_Status CHECK (Status IN ('Pending','Sent','Failed'))
+    );
+END;
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id=OBJECT_ID(N'dbo.WeddingProjects') AND name=N'UX_Projects_PortalHallSlotDate'
+)
+AND NOT EXISTS (
+    SELECT HallId,SlotId,EventDate FROM dbo.WeddingProjects GROUP BY HallId,SlotId,EventDate HAVING COUNT(*)>1
+)
+    CREATE UNIQUE INDEX UX_Projects_PortalHallSlotDate ON dbo.WeddingProjects(HallId,SlotId,EventDate);
+GO
+
+-- ============================================================================
+-- H. INTEGRATION ENTITIES (API-01..04, JOB-07; SDS 3.27 and 3.28)
+-- ============================================================================
+
+IF OBJECT_ID(N'dbo.StoredFiles', N'U') IS NULL
+CREATE TABLE dbo.StoredFiles (
+    FileId       UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_StoredFiles PRIMARY KEY CONSTRAINT DF_StoredFiles_Id DEFAULT NEWSEQUENTIALID(),
+    ProjectId    INT            NULL CONSTRAINT FK_StoredFiles_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    Purpose      VARCHAR(20)    NOT NULL,
+    StorageKey   NVARCHAR(300)  NOT NULL CONSTRAINT UQ_StoredFiles_Key UNIQUE,
+    OriginalName NVARCHAR(200)  NOT NULL,
+    ContentType  VARCHAR(100)   NOT NULL,
+    SizeBytes    BIGINT         NOT NULL,
+    UploadedBy   INT            NULL CONSTRAINT FK_StoredFiles_User REFERENCES dbo.Users(UserId),
+    UploadedAt   DATETIME2(0)   NOT NULL CONSTRAINT DF_StoredFiles_UploadedAt DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT CK_StoredFiles_Purpose CHECK (Purpose IN ('NrdReceipt','PaymentReceipt','ProofPhoto','Thumbnail','AddendumPdf','SignedAddendum','BeoSheet','SettlementReceipt')),
+    CONSTRAINT CK_StoredFiles_Size CHECK (SizeBytes <= 10485760)
+);
+GO
+
+IF OBJECT_ID(N'dbo.EmailOutbox', N'U') IS NULL
+CREATE TABLE dbo.EmailOutbox (
+    EmailId           BIGINT IDENTITY(1,1) CONSTRAINT PK_EmailOutbox PRIMARY KEY,
+    ToEmail           NVARCHAR(100)  NOT NULL,
+    Subject           NVARCHAR(200)  NOT NULL,
+    BodyHtml          NVARCHAR(MAX)  NOT NULL,
+    Kind              VARCHAR(20)    NOT NULL,
+    Status            VARCHAR(10)    NOT NULL CONSTRAINT DF_EmailOutbox_Status DEFAULT 'Queued',
+    RetryCount        INT            NOT NULL CONSTRAINT DF_EmailOutbox_Retry DEFAULT 0,
+    NextAttemptAt     DATETIME2(0)   NOT NULL,
+    ProviderMessageId VARCHAR(100)   NULL,
+    LastError         NVARCHAR(300)  NULL,
+    RelatedProjectId  INT            NULL CONSTRAINT FK_EmailOutbox_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    CreatedAt         DATETIME2(0)   NOT NULL CONSTRAINT DF_EmailOutbox_CreatedAt DEFAULT SYSUTCDATETIME(),
+    SentAt            DATETIME2(0)   NULL,
+    DeliveredAt       DATETIME2(0)   NULL,
+    CONSTRAINT CK_EmailOutbox_Kind CHECK (Kind IN ('Credentials','Reminder','PaymentRequest','OverdueAlert')),
+    CONSTRAINT CK_EmailOutbox_Status CHECK (Status IN ('Queued','Sent','Failed'))
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_EmailOutbox_Dispatch' AND object_id=OBJECT_ID('dbo.EmailOutbox'))
+    CREATE INDEX IX_EmailOutbox_Dispatch ON dbo.EmailOutbox(Status, NextAttemptAt);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_EmailOutbox_Provider' AND object_id=OBJECT_ID('dbo.EmailOutbox'))
+    CREATE INDEX IX_EmailOutbox_Provider ON dbo.EmailOutbox(ProviderMessageId);
+GO
+
+-- GBR-01: baseline rows are read-only once the project has left Active Baseline.
+CREATE OR ALTER TRIGGER dbo.TR_SpecItems_BaselineImmutable ON dbo.SpecItems AFTER UPDATE, DELETE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM deleted d JOIN dbo.WeddingProjects w ON w.ProjectId = d.ProjectId
+               WHERE d.IsBaseline = 1 AND d.Version = 1 AND w.Status <> 'Active Baseline')
+        THROW 51001, 'The baseline is frozen and cannot be edited.', 1;
+END;
+GO
+
+-- ============================================================================
+-- ADMIN SCREENS: A-16/A-17 (UC-46) and A-18 (UC-47); same as Updates/20261103_AdminScreens.sql
+-- ============================================================================
+IF COL_LENGTH(N'dbo.Complaints', N'EscalatedAt') IS NULL
+    ALTER TABLE dbo.Complaints ADD EscalatedAt DATETIME2(0) NULL;
+IF COL_LENGTH(N'dbo.Complaints', N'ResolvedBy') IS NULL
+    ALTER TABLE dbo.Complaints ADD ResolvedBy INT NULL CONSTRAINT FK_Complaint_ResolvedBy REFERENCES dbo.Users(UserId);
+IF COL_LENGTH(N'dbo.Complaints', N'ResolvedAt') IS NULL
+    ALTER TABLE dbo.Complaints ADD ResolvedAt DATETIME2(0) NULL;
+GO
+-- SDS 3.14: one request per CR penalty waiver or resource conflict, decided by an Admin.
+IF OBJECT_ID(N'dbo.ExceptionRequests', N'U') IS NULL
+CREATE TABLE dbo.ExceptionRequests (
+    ExceptionRequestId INT IDENTITY(1,1) CONSTRAINT PK_ExceptionRequests PRIMARY KEY,
+    RequestCode   NVARCHAR(30)  NOT NULL CONSTRAINT UQ_Exception_Code UNIQUE,
+    SourceType    NVARCHAR(20)  NOT NULL,
+    ProjectId     INT           NOT NULL CONSTRAINT FK_Exception_Project     REFERENCES dbo.WeddingProjects(ProjectId),
+    CRId          INT           NULL     CONSTRAINT FK_Exception_CR          REFERENCES dbo.ChangeRequests(CRId),
+    AllocationId  INT           NULL     CONSTRAINT FK_Exception_Allocation  REFERENCES dbo.ResourceAllocations(AllocationId),
+    RequestedBy   INT           NOT NULL CONSTRAINT FK_Exception_RequestedBy REFERENCES dbo.Users(UserId),
+    RequestNote   NVARCHAR(300) NOT NULL,
+    Status        NVARCHAR(10)  NOT NULL CONSTRAINT DF_Exception_Status DEFAULT 'Pending',
+    DecisionBy    INT           NULL     CONSTRAINT FK_Exception_DecisionBy  REFERENCES dbo.Users(UserId),
+    DecisionNote  NVARCHAR(300) NULL,
+    DecidedAt     DATETIME2(0)  NULL,
+    CreatedAt     DATETIME2(0)  NOT NULL CONSTRAINT DF_Exception_CreatedAt DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT CK_Exception_Source  CHECK (SourceType IN ('CrPenaltyWaiver','ResourceConflict')),
+    CONSTRAINT CK_Exception_Target  CHECK ((SourceType = 'CrPenaltyWaiver' AND CRId IS NOT NULL AND AllocationId IS NULL)
+                                        OR (SourceType = 'ResourceConflict' AND AllocationId IS NOT NULL AND CRId IS NULL)),
+    CONSTRAINT CK_Exception_Status  CHECK (Status IN ('Pending','Approved','Rejected')),
+    CONSTRAINT CK_Exception_Decided CHECK (Status = 'Pending' OR (DecisionBy IS NOT NULL AND DecisionNote IS NOT NULL AND DecidedAt IS NOT NULL))
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Exception_Status' AND object_id=OBJECT_ID('dbo.ExceptionRequests'))
+    CREATE INDEX IX_Exception_Status ON dbo.ExceptionRequests(Status, CreatedAt);
+GO
+
+-- ============================================================================
+-- JWT SIGN-IN: refresh tokens (SDS 3.2); same as Updates/20261104_RefreshTokens.sql
+-- ============================================================================
+IF OBJECT_ID(N'dbo.RefreshTokens', N'U') IS NULL
+CREATE TABLE dbo.RefreshTokens (
+    RefreshTokenId    INT IDENTITY(1,1) CONSTRAINT PK_RefreshTokens PRIMARY KEY,
+    UserId            INT          NOT NULL CONSTRAINT FK_RefreshTokens_User REFERENCES dbo.Users(UserId),
+    TokenHash         CHAR(64)     NOT NULL CONSTRAINT UQ_RefreshTokens_Hash UNIQUE,
+    ExpiresAt         DATETIME2(0) NOT NULL,
+    AbsoluteExpiresAt DATETIME2(0) NOT NULL,
+    RevokedAt         DATETIME2(0) NULL,
+    ReplacedByTokenId INT          NULL CONSTRAINT FK_RefreshTokens_ReplacedBy REFERENCES dbo.RefreshTokens(RefreshTokenId),
+    CreatedAt         DATETIME2(0) NOT NULL CONSTRAINT DF_RefreshTokens_CreatedAt DEFAULT SYSUTCDATETIME(),
+    CreatedByIp       NVARCHAR(45) NULL,
+    CONSTRAINT CK_RefreshTokens_Expiry CHECK (ExpiresAt <= AbsoluteExpiresAt)
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RefreshTokens_User' AND object_id=OBJECT_ID('dbo.RefreshTokens'))
+    CREATE INDEX IX_RefreshTokens_User ON dbo.RefreshTokens(UserId, RevokedAt);
 GO

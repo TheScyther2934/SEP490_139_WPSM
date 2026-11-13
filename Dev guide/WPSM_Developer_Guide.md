@@ -1,6 +1,6 @@
 # Hướng dẫn phát triển WPSM
 
-Tài liệu này giúp thành viên mới chạy dự án, hiểu luồng từ màn hình đến SQL Server, biết file nào thuộc feature mình phụ trách và phối hợp thay đổi mà không làm lệch database hoặc API. Tài liệu mô tả solution hiện tại: Razor Pages trong `WPSM.Web`, ASP.NET Core API và các project `Application`, `Domain`, `Infrastructure` trên .NET 8.
+Tài liệu này giúp thành viên mới chạy dự án, hiểu luồng từ giao diện đến SQL Server, biết file nào thuộc feature mình phụ trách và phối hợp thay đổi mà không làm lệch database hoặc API. Solution hiện tại dùng React trong `src/Client`, ASP.NET Core API và các project `Application`, `Domain`, `Infrastructure` trên .NET 8.
 
 > **Tình trạng hiện tại:** solution đã có luồng database-backed cho Iteration 1 và repository đã chia theo feature. Một số tính năng phía sau Iteration 1 và một số tích hợp được mô tả trong Report 4 chưa được triển khai. Hãy kiểm tra Report 2 để xác định phạm vi iteration, Report 3 để xác định yêu cầu chức năng, Report 4 để hiểu thiết kế mục tiêu và thư mục `Screens` để xem đặc tả giao diện.
 
@@ -9,6 +9,7 @@ Tài liệu này giúp thành viên mới chạy dự án, hiểu luồng từ m
 ### 1.1 Công cụ cần có
 
 - .NET 8 SDK.
+- Node.js và npm để chạy React/Vite.
 - SQL Server hoặc SQL Server LocalDB. SQL Server là nơi lưu dữ liệu; LocalDB là cách chạy SQL Server cục bộ trên máy Windows cho phát triển.
 - SQL Server Management Studio (SSMS) hoặc công cụ tương đương để chạy script và xem dữ liệu.
 - Git và IDE/editor hỗ trợ .NET.
@@ -23,24 +24,24 @@ Nhóm thống nhất dùng cùng schema và bộ dữ liệu khởi tạo. Thôn
 2. Connection mặc định của Development nằm trong `src/API/appsettings.Development.json` và dùng `(localdb)\MSSQLLocalDB`. Nếu dùng SQL Server khác, mỗi thành viên đặt connection string riêng bằng User Secrets, không sửa connection string cá nhân vào file được commit:
 
    ```powershell
-   dotnet user-secrets set "ConnectionStrings:WpsmDb" "<connection-string-cua-may-ban>" --project src/API/WPSM.API.csproj
+   dotnet user-secrets set "ConnectionStrings:WpsmDb" "<connection-string-cua-may-ban>" --project src/API/API.csproj
    ```
 
-3. Nếu nhóm dùng seeder hiện tại, bật seeder và cấu hình email/mật khẩu mà seeder sẽ dùng để tạo hai tài khoản ứng dụng Admin và Manager. Đây là tài khoản đăng nhập ở G01, được lưu trong bảng `Users`; **không phải tài khoản Windows/SQL Server và cũng không phải tài khoản User Secrets**. User Secrets chỉ giữ cấu hình bootstrap này bên ngoài source code.
+3. Nếu nhóm dùng seeder hiện tại, bật seeder và cấu hình email/mật khẩu mà seeder sẽ dùng để tạo hai tài khoản ứng dụng Admin và Manager. Đây là tài khoản đăng nhập trên giao diện React, được lưu trong bảng `Users`; **không phải tài khoản Windows/SQL Server và cũng không phải tài khoản User Secrets**. User Secrets chỉ giữ cấu hình bootstrap này bên ngoài source code.
 
    Nếu mỗi thành viên có database LocalDB riêng, cả nhóm nên dùng cùng email/mật khẩu development để ai cũng đăng nhập được theo cùng hướng dẫn (mỗi database riêng sẽ có bản ghi tài khoản riêng). Nếu cả nhóm dùng một database chung, phải thống nhất một cặp email/mật khẩu Admin và một cặp Manager; không tự đặt khác nhau trên từng máy. Seeder không đổi mật khẩu của tài khoản đã tồn tại.
 
    Thay `<mat-khau-dev-rieng>` bằng mật khẩu development thật của nhóm, tối thiểu 12 ký tự; không gõ nguyên dấu `< >`:
 
    ```powershell
-   dotnet user-secrets set "Wpsm:SeedDevelopmentData" "true" --project src/API/WPSM.API.csproj
-   dotnet user-secrets set "Wpsm:Seed:Admin:Email" "admin@wpsm.local" --project src/API/WPSM.API.csproj
-   dotnet user-secrets set "Wpsm:Seed:Admin:Password" "<mat-khau-dev-rieng>" --project src/API/WPSM.API.csproj
-   dotnet user-secrets set "Wpsm:Seed:Manager:Email" "manager@wpsm.local" --project src/API/WPSM.API.csproj
-   dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<mat-khau-dev-rieng>" --project src/API/WPSM.API.csproj
+   dotnet user-secrets set "Wpsm:SeedDevelopmentData" "true" --project src/API/API.csproj
+   dotnet user-secrets set "Wpsm:Seed:Admin:Email" "admin@wpsm.local" --project src/API/API.csproj
+   dotnet user-secrets set "Wpsm:Seed:Admin:Password" "<mat-khau-dev-rieng>" --project src/API/API.csproj
+   dotnet user-secrets set "Wpsm:Seed:Manager:Email" "manager@wpsm.local" --project src/API/API.csproj
+   dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<mat-khau-dev-rieng>" --project src/API/API.csproj
    ```
 
-   `UserSecretsId` đã có trong `src/API/WPSM.API.csproj`, nên không cần chạy `user-secrets init`. Khi API chạy ở Development, seeder đọc các giá trị này, băm mật khẩu rồi tạo bản ghi trong `Users`. Sau đó G01 xác thực bằng bản ghi database. Đặt `Wpsm:SeedDevelopmentData` thành `false` nếu nhóm seed tài khoản bằng cách khác.
+   `UserSecretsId` đã có trong `src/API/API.csproj`, nên không cần chạy `user-secrets init`. Khi API chạy ở Development, seeder đọc các giá trị này, băm mật khẩu rồi tạo bản ghi trong `Users`. Đặt `Wpsm:SeedDevelopmentData` thành `false` nếu nhóm seed tài khoản bằng cách khác.
 
 4. Seeder chạy khi API khởi động trong môi trường Development và tạo tài khoản Admin/Manager, sảnh, ca tiệc, Catalog, PriceFrames và policy cơ bản. Seeder kiểm tra bản ghi đã có trước khi thêm; nếu đổi password của tài khoản đã được seed, cần cập nhật có chủ ý trong database hoặc xóa database dev cục bộ rồi tạo lại.
 
@@ -55,16 +56,18 @@ Mở hai terminal tại thư mục solution `SEP490_139_WPSM`.
 Terminal 1 – API:
 
 ```powershell
-dotnet run --project src/API/WPSM.API.csproj --launch-profile http
+dotnet run --project src/API/API.csproj --launch-profile http
 ```
 
-Terminal 2 – Razor Web:
+Terminal 2 – React:
 
 ```powershell
-dotnet run --project WPSM.Web/WPSM.Web.csproj --launch-profile http
+cd src/Client
+npm ci
+npm run dev
 ```
 
-Mở `http://localhost:5231/G01`. Web gọi API qua proxy cùng origin tại `/api/wpsm/*`; API mặc định chạy ở `http://localhost:5128`. Giữ cả hai tiến trình chạy khi thao tác trên giao diện.
+Mở `http://localhost:5173`. Vite chuyển tiếp `/api/wpsm/*` đến API ở `http://localhost:5128`. Giữ cả hai tiến trình chạy khi thao tác trên giao diện. Để tạo bản build được API phục vụ, chạy `npm run build` trong `src/Client`; output nằm trong `src/API/wwwroot`.
 
 ### 1.4 Kiểm tra nhanh trước khi nhận feature
 
@@ -73,15 +76,14 @@ Mở `http://localhost:5231/G01`. Web gọi API qua proxy cùng origin tại `/a
 - Đăng nhập bằng tài khoản dev vừa seed.
 - Kiểm tra role chuyển đúng trang; thử một luồng đọc dữ liệu và một luồng ghi dữ liệu trong phạm vi được giao.
 - Nếu API trả 503, kiểm tra SQL Server đang chạy, database đã tạo, connection string đúng và user có quyền.
-- Nếu API trả 401/403, kiểm tra đăng nhập, cookie và role; build thành công không xác nhận các điều kiện này.
+- Nếu API trả 401/403, kiểm tra đăng nhập, refresh cookie và role; build thành công không xác nhận các điều kiện này.
 
 ## 2. Kiến trúc và luồng tương tác giữa project
 
 ```mermaid
 flowchart LR
-    U[Trình duyệt] -->|GET Razor page| WEB[WPSM.Web · Razor Pages]
-    U -->|fetch /api/wpsm/*| WEB
-    WEB -->|proxy + cookie| API[WPSM.API · endpoints, auth, DI]
+    U[Trình duyệt] -->|React/Vite| WEB[src/Client · React]
+    WEB -->|/api/wpsm/* proxy khi dev| API[WPSM.API · endpoints, auth, DI]
     API -->|feature interface + DTO| APP[WPSM.Application]
     APP -->|không phụ thuộc EF/SQL| DOM[WPSM.Domain]
     API -->|đăng ký implementation tại composition root| INF[WPSM.Infrastructure]
@@ -91,38 +93,33 @@ flowchart LR
 
 Luồng đọc/ghi thường gặp:
 
-1. Thành viên tạo hoặc chỉnh `.cshtml` và JavaScript trong `WPSM.Web`.
-2. JavaScript gọi `/api/wpsm/...`; không gọi trực tiếp SQL Server và không tham chiếu `Infrastructure`.
-3. `WPSM.Web/Program.cs` chuyển request tới API, chuyển cookie xác thực đi/về và bảo vệ một số Razor routes theo role.
+1. Thành viên tạo hoặc chỉnh component/page trong `src/Client/src`.
+2. React gọi `/api/wpsm/...` qua `src/Client/src/services` và `src/Client/src/api`; không gọi trực tiếp SQL Server và không tham chiếu `Infrastructure`.
+3. Vite proxy request `/api` sang API khi phát triển; khi deploy, API phục vụ bundle React trong `src/API/wwwroot`.
 4. `src/API/Program.cs` định nghĩa API endpoint, authorization và đăng ký implementation qua Dependency Injection.
 5. Endpoint gọi interface feature nằm trong `Application/Persistence`.
 6. Implementation tại `Infrastructure/Persistence` dùng `WpsmDbContext`/EF Core để đọc hoặc ghi bảng.
 7. DTO trả về API rồi JavaScript cập nhật màn hình.
 
-**Quy tắc phụ thuộc:** Web chỉ biết HTTP/API; Application chứa contract dùng chung; Infrastructure chứa chi tiết SQL/EF; API là composition root nối interface với implementation. Không để Razor Page hoặc API endpoint tự truy vấn `WpsmDbContext`.
+**Quy tắc phụ thuộc:** React chỉ biết HTTP/API; Application chứa contract dùng chung; Infrastructure chứa chi tiết SQL/EF; API là composition root nối interface với implementation. Không để component React hoặc API endpoint tự truy vấn `WpsmDbContext`.
 
 ## 3. Ý nghĩa project và folder
 
-### `WPSM.Web`
+### `src/Client`
 
-Ứng dụng giao diện Razor Pages và static assets.
+Giao diện React, được phát triển bằng Vite và Material UI.
 
-- `Areas/General/Pages`: login, hồ sơ, đổi mật khẩu (G01–G03).
-- `Areas/Admin/Pages`: Catalog, PriceFrames, Policies (A02–A08; một số màn/dialog dùng chung page).
-- `Areas/Manager/Pages`: danh sách/tạo dự án, project hub, đặc tả (M02–M05).
-- `Areas/Customer/Pages`: tổng quan, hợp đồng, roadmap (C01–C04).
-- `Areas/*/Pages/Shared`: navigation dùng chung theo role.
-- `Pages/Shared/_Layout.cshtml`: layout chung; `_ViewStart.cshtml` chọn layout mặc định.
-- `wwwroot/js/wpsm-api.js`: gọi API, submit handler, hydration dữ liệu từ bootstrap. Trước khi thêm handler, tìm handler cũ theo screen ID để tránh xử lý submit/click hai lần.
-- `wwwroot/js/wpsm-theme.js`, `wwwroot/css/wpsm.css`, `site.css`: giao diện và theme.
-- `Program.cs`: Razor services, API `HttpClient`, proxy `/api/wpsm/*`, kiểm tra role cho routes và route aliases.
-- `appsettings.json`: cấu hình không bí mật; `appsettings.Development.json`: cấu hình phát triển như API base URL.
+- `src/pages`: màn hình theo vai trò Admin, Manager, Customer và xác thực.
+- `src/layouts`, `src/routes`: bố cục, route và kiểm tra role.
+- `src/services`, `src/api`: gọi REST API và quản lý đường dẫn endpoint.
+- `src/store`: trạng thái đăng nhập và dữ liệu giao diện bằng Redux Toolkit.
+- `vite.config.js`: dev server ở cổng 5173, proxy API ở cổng 5128; build vào `src/API/wwwroot`.
 
 ### `src/API`
 
 ASP.NET Core Web API, authentication/authorization và nơi khởi tạo ứng dụng.
 
-- `Program.cs`: đọc connection string, đăng ký `DbContext`, repositories, hasher, cookie auth, middleware lỗi và endpoints `/api/wpsm/*`.
+- `Program.cs`: đọc connection string, đăng ký `DbContext`, repositories, hasher, JWT authentication, middleware lỗi và endpoints `/api/wpsm/*`; đồng thời phục vụ React bundle khi đã build. Refresh token được gửi bằng HttpOnly cookie.
 - `DevelopmentDatabaseSeeder.cs`: tạo tài khoản dev và dữ liệu tham chiếu khi bật seed trong Development.
 - `appsettings.Development.json`: connection mặc định LocalDB và cờ seed mặc định tắt.
 - `Properties/launchSettings.json`: profile/port chạy local.
@@ -143,7 +140,7 @@ Contract giữa API và persistence, cùng DTO/command cho các luồng hiện t
 
 ### `src/Domain`
 
-Nơi đặt quy tắc nghiệp vụ thuần, trạng thái và value objects, không phụ thuộc database, HTTP hay Razor. Hiện project còn trống/placeholder; không nhầm với entity EF đang nằm trong Infrastructure. Khi bổ sung quy tắc phức tạp (ví dụ chuyển trạng thái Change Request hoặc tính surcharge), đưa logic thuần vào Domain thay vì nhồi thêm vào endpoint hoặc EF repository. Dùng `Services/` cho thuật toán nghiệp vụ thuần.
+Nơi đặt quy tắc nghiệp vụ thuần, trạng thái và value objects, không phụ thuộc database, HTTP hay giao diện. Hiện project còn trống/placeholder; không nhầm với entity EF đang nằm trong Infrastructure. Khi bổ sung quy tắc phức tạp (ví dụ chuyển trạng thái Change Request hoặc tính surcharge), đưa logic thuần vào Domain thay vì nhồi thêm vào endpoint hoặc EF repository. Dùng `Services/` cho thuật toán nghiệp vụ thuần.
 
 Các folder `Entities/`, `Enums/`, `Events/`, `Exceptions/`, `ValueObjects/`, `Services/` trong Domain hiện chỉ là folder khung. Tương tự, `Application/Behaviors`, `Common`, `Features` chưa có implementation đầy đủ. Folder chỉ tổ chức file; nó không tự chạy hay tự được DI sử dụng.
 
@@ -167,7 +164,7 @@ Chi tiết truy cập dữ liệu/EF Core và implementation của contract Appl
 
 - `../Docs/WPSM_Report2_Project management plan.docx`: iteration và kế hoạch.
 - `../Docs/WPSM_Report3_Software Requirement Specification.docx`: yêu cầu nghiệp vụ/use case.
-- `../Docs/WPSM - Report 4 - Software Design Specification (3).docx`: thiết kế mục tiêu; cần giữ kiến trúc Razor Pages, route, auth và schema đồng bộ với quyết định/code mới nhất.
+- `../Docs/WPSM - Report 4 - Software Design Specification (3).docx`: tài liệu thiết kế mục tiêu; đối chiếu với quyết định React, API, auth và schema mới nhất khi dùng tài liệu này.
 - `Database/WPSM_DB_Schema.sql`: schema SQL đang dùng làm cơ sở database-first và được theo dõi trong repository.
 - `../Screens/<Role>/<Screen>/DESIGN.md`: trạng thái, trường dữ liệu và hành vi UI cho từng màn hình (thư mục này hiện cũng nằm ngoài Git root).
 
@@ -179,6 +176,8 @@ Chi tiết truy cập dữ liệu/EF Core và implementation của contract Appl
 | Đặc tả và roadmap | `ISpecificationRoadmapRepository` | `SpecificationRoadmapRepository` | Sửa đặc tả, freeze baseline, tạo/đọc roadmap |
 | Cấu hình Admin | `IConfigurationRepository` | `ConfigurationRepository` | Catalog, PriceFrames, Policies |
 | Tài khoản/hồ sơ | `IAccountProfileRepository` | `AccountProfileRepository` | Tra cứu account, đăng nhập hỗ trợ, password, profile |
+| Yêu cầu thay đổi (FE-05) | `IChangeRequestRepository` | `ChangeRequestRepository` | Danh sách/form/chi tiết CR, thương lượng, phê duyệt hai bên, phụ lục, ngoại lệ phạt T-day |
+| Lịch tài nguyên (FE-07) | `IResourceCalendarRepository` | `ResourceCalendarRepository` | Lịch sảnh/ca và tài nguyên, phát hiện xung đột GBR-09, đổi thiết bị/giờ, thu hồi, ngoại lệ Admin |
 | Bootstrap màn hình | `IWpsmPortalSnapshotReader` | `WpsmPortalSnapshotReader` | Chỉ tổng hợp DTO cho UI; phụ thuộc các interface feature |
 
 Khi bắt đầu feature mới, thêm contract hẹp cho feature thay vì nối thêm mọi method vào một repository chung. Giữ query/write liên quan trong cùng feature; chỉ tách interface mới khi có trách nhiệm riêng rõ ràng. Register implementation tương ứng trong `src/API/Program.cs`.
@@ -196,7 +195,7 @@ Khi bắt đầu feature mới, thêm contract hẹp cho feature thay vì nối 
 
 ### Trong khi code
 
-1. UI: sửa đúng Razor Area/page; giữ role routing và ID/data attributes mà JavaScript hiện dùng.
+1. UI: sửa component/page phù hợp trong `src/Client/src`; giữ role routing và luồng API.
 2. API: thêm endpoint mỏng, kiểm tra input và role; endpoint chỉ phụ thuộc contract feature.
 3. Application: thêm/chỉnh DTO, command và interface trước khi Infrastructure implement; báo cho thành viên phụ thuộc khi contract đổi.
 4. Infrastructure: thực hiện query/update EF trong repository của đúng feature; không trả EF entity trực tiếp ra API.
@@ -234,7 +233,7 @@ Không sửa trực tiếp database của thành viên khác nếu chưa thống
 |---|---|
 | API dừng ngay khi khởi động | `ConnectionStrings:WpsmDb`, SQL Server/LocalDB đang chạy, database và schema đã tạo |
 | 503 từ API | SQL Server không kết nối được hoặc connection string trỏ sai instance/database |
-| 401 sau đăng nhập hoặc Web chuyển về G01 | Cookie có được proxy chuyển qua không; API có chạy đúng port không; đăng nhập thành công chưa |
+| 401 sau đăng nhập hoặc React quay về trang login | Access token/refresh cookie còn hợp lệ không; API và Vite proxy có chạy đúng port không |
 | 403 khi mở route | Role tài khoản không khớp route; không bỏ kiểm tra role để “cho chạy” |
 | 409 khi lưu | Unique/check/FK constraint từ SQL; xem log API và nội dung lỗi trả về |
 | Dữ liệu UI vẫn là mẫu | Kiểm tra `wpsm-api.js` handler, bootstrap response, `data-wpsm-screen`, query string `?id=` và API proxy |
@@ -250,7 +249,7 @@ Các file `appsettings*.json` chỉ chứa cấu hình không bí mật có th�
 - Các trang đang có là phạm vi Iteration 1; việc một route có giao diện không đồng nghĩa backend đã có toàn bộ nghiệp vụ cuối cùng.
 - Email gửi thông tin tài khoản chưa tích hợp; mật khẩu tạm hiện được trả cho Manager một lần để chuyển cho khách.
 - NRD receipt hiện lưu file private trên local disk của API; chưa có abstraction cloud/file service.
-- Cần tiếp tục đối chiếu Report 4 với quyết định Razor Pages và schema 23 bảng hiện tại khi mở rộng các iteration sau.
+- Cần tiếp tục đối chiếu Report 4 với kiến trúc React/API và schema hiện tại khi mở rộng các iteration sau.
 
 ## 9. Quy ước phối hợp đề xuất
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence.Entities;
@@ -35,6 +35,7 @@ public partial class WpsmDbContext : DbContext
     public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<Payment> Payments { get; set; }
+    public DbSet<EmailDelivery> EmailDeliveries { get; set; }
 
     public virtual DbSet<PolicyConfig> PolicyConfigs { get; set; }
 
@@ -154,6 +155,8 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => e.ComplaintCode, "UQ_Complaint_Code").IsUnique();
 
             entity.Property(e => e.Beoid).HasColumnName("BEOId");
+            entity.Property(e => e.CustomerId).HasColumnName("CustomerId");
+            entity.Property(e => e.Title).HasMaxLength(200);
             entity.Property(e => e.ComplaintCode).HasMaxLength(30);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
@@ -239,6 +242,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CritemId).HasColumnName("CRItemId");
             entity.Property(e => e.Crid).HasColumnName("CRId");
+            entity.Property(e => e.CatalogItemId).HasColumnName("CatalogItemId");
             entity.Property(e => e.DeltaAmount)
                 .HasComputedColumnSql("([NewUnitPrice]*[NewQuantity]-[OldUnitPrice]*[OldQuantity])", true)
                 .HasColumnType("decimal(30, 2)");
@@ -259,8 +263,11 @@ public partial class WpsmDbContext : DbContext
         modelBuilder.Entity<DayOfTask>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.DeadlineTime, e.Status }, "IX_DayOf_Project_Deadline");
+            entity.HasIndex(e => new { e.Status, e.DeadlineTime }, "IX_DayOfTasks_Status_Deadline");
 
             entity.Property(e => e.CompletedAt).HasPrecision(0);
+            entity.Property(e => e.OverdueFlaggedAt).HasPrecision(0);
+            entity.Property(e => e.RowVersion).IsRowVersion();
             entity.Property(e => e.DeadlineTime).HasPrecision(0);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
@@ -271,6 +278,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.ProjectId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_DayOf_Project");
+
+            entity.HasOne(d => d.CompletedByUser).WithMany()
+                .HasForeignKey(d => d.CompletedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DayOf_CompletedBy");
         });
 
         modelBuilder.Entity<ExecutionPhoto>(entity =>
@@ -323,6 +335,15 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Notifications_Recipient");
         });
 
+        modelBuilder.Entity<EmailDelivery>(entity =>
+        {
+            entity.ToTable("EmailDeliveries");
+            entity.HasKey(e => e.EmailDeliveryId);
+            entity.Property(e => e.Recipient).HasMaxLength(100);
+            entity.Property(e => e.Status).HasMaxLength(20);
+            entity.HasIndex(e => e.ProjectId).IsUnique();
+            entity.HasOne<WeddingProject>().WithMany().HasForeignKey(e => e.ProjectId).OnDelete(DeleteBehavior.NoAction);
+        });
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.PaymentType }, "UQ_Payment_Project_Type").IsUnique();
@@ -331,6 +352,8 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.PaymentMethod).HasMaxLength(10);
             entity.Property(e => e.PaymentType).HasMaxLength(10);
             entity.Property(e => e.ReceiptFilePath).HasMaxLength(500);
+            entity.Property(e => e.ReceiptFileName).HasMaxLength(255);
+            entity.Property(e => e.ReceiptContentType).HasMaxLength(100);
             entity.Property(e => e.Status)
                 .HasMaxLength(10)
                 .HasDefaultValue("Upcoming");
@@ -546,6 +569,7 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => e.CustomerId, "IX_Projects_Customer");
 
             entity.HasIndex(e => e.ManagerId, "IX_Projects_Manager");
+            entity.HasIndex(e => new { e.ManagerId, e.Status }, "IX_WeddingProjects_Manager_Status");
 
             entity.HasIndex(e => new { e.Status, e.EventDate }, "IX_Projects_Status_Date");
 

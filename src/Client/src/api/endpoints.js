@@ -1,0 +1,133 @@
+// Every API path in one place; services build requests from these.
+export const ENDPOINTS = {
+  auth: {
+    token: "/auth/token",
+    refresh: "/auth/token/refresh",
+    revoke: "/auth/token/revoke",
+    changePassword: "/auth/change-password",
+  },
+  profile: "/profile",
+  bootstrap: "/bootstrap",
+  halls: "/halls",
+  projects: "/projects",
+  project: (code) => `/projects/${encodeURIComponent(code)}`,
+  specification: (code) => `/projects/${encodeURIComponent(code)}/specification`,
+  freeze: (code) => `/projects/${encodeURIComponent(code)}/freeze`,
+  nrdReceipt: (code) => `/projects/${encodeURIComponent(code)}/nrd-receipt`,
+  resendCredentials: (code) => `/projects/${encodeURIComponent(code)}/resend-credentials`,
+  addenda: "/addenda",
+  projectChangeRequests: (code) => `/projects/${encodeURIComponent(code)}/change-requests`,
+  projectCostImpact: (code, crCode) => `/projects/${encodeURIComponent(code)}/change-requests/${encodeURIComponent(crCode)}/cost-impact`,
+  generateAddendum: (code, crCode) => `/projects/${encodeURIComponent(code)}/change-requests/${encodeURIComponent(crCode)}/addendum`,
+  attachSignedAddendum: (code, crCode) => `/projects/${encodeURIComponent(code)}/change-requests/${encodeURIComponent(crCode)}/signed-addendum`,
+  beo: (code) => `/projects/${encodeURIComponent(code)}/beo`,
+  beoDraft: (code) => `/projects/${encodeURIComponent(code)}/beo/draft`,
+  beoFreeze: (code) => `/projects/${encodeURIComponent(code)}/beo/freeze`,
+  beoDepartmentSheets: (code) => `/projects/${encodeURIComponent(code)}/beo/department-sheets`,
+  beoDepartmentPdf: (code, department) => `/projects/${encodeURIComponent(code)}/beo/department-sheets/${encodeURIComponent(department)}/pdf`,
+  compileT7Beo: "/projects/beo/compile-t7",
+  managerComplaints: "/manager/complaints",
+  managerComplaint: (complaintCode) => `/manager/complaints/${encodeURIComponent(complaintCode)}`,
+  managerComplaintAction: (complaintCode) => `/manager/complaints/${encodeURIComponent(complaintCode)}/action`,
+  catalog: "/catalog",
+  priceFrames: "/price-frames",
+  priceFrame: (id) => `/price-frames/${encodeURIComponent(id)}`,
+  policies: "/policies",
+  notifications: {
+    list: (filter = "All", page = 1, pageSize = 20) =>
+      `/notifications?filter=${encodeURIComponent(filter)}&page=${page}&pageSize=${pageSize}`,
+    unreadCount: "/notifications/unread-count",
+    markAsRead: (id) => `/notifications/${encodeURIComponent(id)}/read`,
+    markAllAsRead: "/notifications/read-all",
+  },
+  admin: {
+    dashboard: "/admin/dashboard",
+    reports: "/admin/reports",
+    photos: "/admin/photos",
+    photo: (id) => `/admin/photos/${id}`,
+    overdueAlerts: "/admin/overdue-alerts",
+    complaints: "/admin/complaints",
+    resolveComplaint: (id) => `/admin/complaints/${id}/resolve`,
+    exceptionRequests: "/admin/exception-requests",
+    decideException: (id) => `/admin/exception-requests/${id}/decision`,
+  },
+  overdueAlerts: "/overdue-alerts",
+  manager: {
+    dashboard: "/manager/dashboard",
+    overdueAlerts: "/manager/overdue-alerts",
+    roadmap: (code) => `/manager/projects/${encodeURIComponent(code)}/roadmap`,
+    completeTask: (code, taskId) => `/manager/projects/${encodeURIComponent(code)}/roadmap/tasks/${taskId}/complete`,
+    dayOfTasks: (code) => `/projects/${encodeURIComponent(code)}/day-of-tasks`,
+    completeDayOfTask: (code, taskId) => `/projects/${encodeURIComponent(code)}/day-of-tasks/${taskId}/complete`,
+    completeDayOfTaskDirect: (taskId) => `/day-of-tasks/${taskId}/complete`,
+  },
+  managerPayments: {
+    getPayments: (code) => `/projects/${encodeURIComponent(code)}/payments`,
+    recordPayment: (code) => `/projects/${encodeURIComponent(code)}/payments/record`,
+    getSettlement: (code) => `/projects/${encodeURIComponent(code)}/settlement`,
+    generateReceipt: (code) => `/projects/${encodeURIComponent(code)}/settlement/receipt`,
+    getReceiptFile: (code) => `/projects/${encodeURIComponent(code)}/settlement/receipt`,
+    downloadPaymentReceipt: (code, paymentType) => `/projects/${encodeURIComponent(code)}/payments/${encodeURIComponent(paymentType)}/receipt`,
+  },
+  customer: {
+    dashboard: "/customer/dashboard",
+    roadmap: "/customer/roadmap",
+    completeTask: (projectCode, taskId) => `/customer/projects/${encodeURIComponent(projectCode)}/roadmap/tasks/${taskId}/complete`,
+    changeRequests: "/customer/change-requests",
+    changeRequestContext: "/customer/change-requests/creation-context",
+    changeRequest: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}`,
+    decideChangeRequest: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/decision`,
+    postEvent: "/customer/post-event",
+    ratings: "/customer/ratings",
+    complaints: "/customer/complaints",
+    complaintBeoOptions: "/customer/complaints/beo-options",
+    complaint: (complaintCode) => `/customer/complaints/${encodeURIComponent(complaintCode)}`,
+  },
+  // FE-07. Manager calendar, allocation dialog (M-21) and conflict detail (M-22).
+  resourceCalendar: "/resource-calendar",
+  resources: "/resources",
+  resourceAllocations: "/resource-allocations",
+  resourceAllocation: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}`,
+  allocationException: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}/exception`,
+  // FE-05. Customer routes resolve the caller's own project (GBR-12); Manager routes carry the code.
+  changeRequests: {
+    customer: {
+      list: "/customer/change-requests",
+      form: "/customer/change-requests/form",
+      create: "/customer/change-requests",
+      detail: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}`,
+      submit: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/submit`,
+      approve: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/approve`,
+      reject: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/reject`,
+    },
+    manager: (projectCode) => {
+      const project = `/projects/${encodeURIComponent(projectCode)}/change-requests`;
+      return {
+        list: project,
+        form: `${project}/form`,
+        create: project,
+        detail: (crCode) => `${project}/${encodeURIComponent(crCode)}`,
+        submit: (crCode) => `${project}/${encodeURIComponent(crCode)}/submit`,
+        counter: (crCode) => `${project}/${encodeURIComponent(crCode)}/counter`,
+        approve: (crCode) => `${project}/${encodeURIComponent(crCode)}/approve`,
+        reject: (crCode) => `${project}/${encodeURIComponent(crCode)}/reject`,
+        exception: (crCode) => `${project}/${encodeURIComponent(crCode)}/exception`,
+      };
+    },
+  },
+  customerPayments: {
+    overview: (projectCode) => `/customer/payments${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    summary: (projectCode) => `/customer/payments/summary${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    milestones: (projectCode) => `/customer/payments/milestones${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    receipt: (paymentType, projectCode) =>
+      `/customer/payments/${encodeURIComponent(paymentType)}/receipt${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    finalReceipt: (projectCode) =>
+      `/customer/payments/final-receipt${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+  },
+  files: "/files",
+  file: (id) => `/files/${encodeURIComponent(id)}`,
+};
+
+// One lookup for the C-05/C-06 and M-07/M-08 screens: the Manager paths need the project code.
+export const changeRequestRoutes = (role, projectCode) =>
+  role === "Manager" ? ENDPOINTS.changeRequests.manager(projectCode) : ENDPOINTS.changeRequests.customer;
