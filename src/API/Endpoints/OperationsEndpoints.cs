@@ -24,11 +24,10 @@ public static class OperationsEndpoints
 
     public static RouteGroupBuilder MapOperationsEndpoints(this RouteGroupBuilder api)
     {
-        MapNotifications(api);
-        MapManagerWork(api);
-        MapChangeRequests(api);
+        var manager = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Manager"));
+        manager.MapGet("/manager/work", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetWorkAsync(UserId(user), ct)));
+
         MapBeoAndDayOf(api);
-        MapPayments(api);
         MapFeedback(api);
         MapResources(api);
         MapConfiguration(api);
@@ -57,9 +56,7 @@ public static class OperationsEndpoints
         var manager = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Manager"));
         manager.MapGet("/manager/work", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetWorkAsync(UserId(user), ct)));
         manager.MapGet("/manager/overdue-alerts", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetOverdueAsync(UserId(user), ct)));
-        manager.MapGet("/projects/{id}/roadmap/tasks", async (string id, IManagerWorkRepository repo, CancellationToken ct) => Results.Ok(await repo.GetRoadmapAsync(id, ct)));
-        manager.MapPost("/projects/{id}/roadmap/tasks/{taskId:int}/complete", async (string id, int taskId, IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.CompleteTaskAsync(id, taskId, UserId(user), ct) ? Results.NoContent() : Results.NotFound());
+        // /projects/{id}/roadmap/tasks routes are handled by ManagerRoadmapEndpoints
     }
 
     private static void MapChangeRequests(RouteGroupBuilder api)

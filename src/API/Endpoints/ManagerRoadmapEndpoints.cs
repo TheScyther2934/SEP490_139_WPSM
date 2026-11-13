@@ -57,8 +57,13 @@ public static class ManagerRoadmapEndpoints
 
         // ── Mark Manager Task Done (UC-21) ───────────────────────────────────
         api.MapPost("/manager/projects/{id}/roadmap/tasks/{taskId:int}/complete",
-            async (string id, int taskId, CompleteManagerTaskRequest? request, IManagerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            async (string id, int taskId, HttpContext context, IManagerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             {
+                CompleteManagerTaskRequest? request = null;
+                if (context.Request.HasJsonContentType())
+                {
+                    try { request = await context.Request.ReadFromJsonAsync<CompleteManagerTaskRequest>(cancellationToken: ct); } catch { }
+                }
                 var result = await repo.CompleteTaskAsync(UserId(user), Role(user), id, taskId, request?.ProofPhotoPaths, ct);
                 if (!result.Success)
                 {
@@ -130,8 +135,13 @@ public static class ManagerRoadmapEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
         api.MapPost("/projects/{id}/roadmap/tasks/{taskId:int}/complete",
-            async (string id, int taskId, CompleteManagerTaskRequest? request, IManagerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+            async (string id, int taskId, HttpContext context, IManagerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             {
+                CompleteManagerTaskRequest? request = null;
+                if (context.Request.HasJsonContentType())
+                {
+                    try { request = await context.Request.ReadFromJsonAsync<CompleteManagerTaskRequest>(cancellationToken: ct); } catch { }
+                }
                 var result = await repo.CompleteTaskAsync(UserId(user), Role(user), id, taskId, request?.ProofPhotoPaths, ct);
                 if (!result.Success)
                 {
