@@ -96,9 +96,11 @@ public static class OperationsEndpoints
     private static void MapBeoAndDayOf(RouteGroupBuilder api)
     {
         var manager = api.MapGroup("/projects/{id}").RequireAuthorization(policy => policy.RequireRole("Manager"));
-        manager.MapGet("/beo", async (string id, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)));
+        // BEO routes (GET /beo, POST /beo/freeze, etc.) are handled by ProjectEndpoints.cs using IBeoRepository.
+        // Keeping them here causes AmbiguousMatchException in ASP.NET Core routing.
+        // manager.MapGet("/beo", async (string id, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)));
         manager.MapPut("/beo/notes", async (string id, NoteRequest request, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.SaveNotesAsync(id, request.Note, ct)));
-        manager.MapPost("/beo/freeze", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.FreezeAsync(id, UserId(user), ct)));
+        // manager.MapPost("/beo/freeze", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.FreezeAsync(id, UserId(user), ct)));
         manager.MapPost("/beo/reapprove", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.ReapproveAsync(id, UserId(user), ct)));
 
         manager.MapGet("/day-of", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.GetBoardAsync(id, ct), links)));

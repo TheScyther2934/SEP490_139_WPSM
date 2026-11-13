@@ -257,7 +257,7 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
             .Include(p => p.ChangeRequests).ThenInclude(cr => cr.Critems)
             .Include(p => p.Beos).ThenInclude(b => b.ApprovedByNavigation)
             .Include(p => p.Beos).ThenInclude(b => b.BeodepartmentSheets)
-            .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && p.ManagerId == managerId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && (p.ManagerId == managerId || db.Users.Any(u => u.UserId == managerId && u.Role == "Admin")), cancellationToken);
 
     private static ProjectBeoView MapBeoView(WeddingProject project)
     {
