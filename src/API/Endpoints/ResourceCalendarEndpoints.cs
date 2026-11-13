@@ -22,6 +22,9 @@ public static class ResourceCalendarEndpoints
             Results.Ok(await repo.GetResourcesAsync(ct)))
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
+        // POST/PUT/DELETE /resource-allocations are handled by OperationsEndpoints (IResourceRepository)
+        // to support the ProjectCode-based allocation payload used by M-21 AllocationDialog and e2e operations.
+        /*
         api.MapPost("/resource-allocations", async (ResourceAllocationRequest request, IResourceCalendarRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var result = await repo.SaveAsync(null, ToCommand(request), UserId(user), ct);
@@ -41,6 +44,7 @@ public static class ResourceCalendarEndpoints
         api.MapDelete("/resource-allocations/{allocationId:int}", async (int allocationId, IResourceCalendarRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.ReleaseAsync(allocationId, UserId(user), ct) is { } detail ? Results.Ok(detail) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
+        */
 
         api.MapPost("/resource-allocations/{allocationId:int}/exception", async (int allocationId, ResourceExceptionRequest request, IResourceCalendarRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.RequestExceptionAsync(allocationId, request.Note, UserId(user), ct) is { } detail ? Results.Ok(detail) : Results.NotFound())

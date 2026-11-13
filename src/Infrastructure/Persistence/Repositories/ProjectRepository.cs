@@ -100,7 +100,8 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
             EventDate = command.EventDate,
             BaseContractValue = command.BaseValue,
             Nrdamount = command.NrdAmount,
-            Status = "Draft",
+            CurrentTotal = command.BaseValue,
+            Status = "Active Baseline",
             CreatedAt = today
         };
         db.WeddingProjects.Add(project);

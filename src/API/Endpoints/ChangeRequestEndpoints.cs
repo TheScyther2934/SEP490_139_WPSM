@@ -15,14 +15,18 @@ public static class ChangeRequestEndpoints
     public static RouteGroupBuilder MapChangeRequestEndpoints(this RouteGroupBuilder api)
     {
         // ── C-05 / C-06 (Customer) ────────────────────────────────────────────
+        // GET and POST /customer/change-requests are handled by CustomerEndpoints.cs (IAddendumRepository)
+        /*
         api.MapGet("/customer/change-requests", async (IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.GetListAsync(null, UserId(user), Role(user), ct) is { } list ? Results.Ok(list) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole(Customer));
+        */
 
         api.MapGet("/customer/change-requests/form", async (IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.GetFormAsync(null, UserId(user), Role(user), ct) is { } form ? Results.Ok(form) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole(Customer));
 
+        /*
         api.MapPost("/customer/change-requests", async (CrSaveRequest request, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var created = await repo.CreateAsync(null, UserId(user), Role(user), ToCommand(request), ct);
@@ -30,6 +34,7 @@ public static class ChangeRequestEndpoints
                 ? Results.NotFound()
                 : Results.Created($"/api/wpsm/customer/change-requests/{created.Code}", created);
         }).RequireAuthorization(policy => policy.RequireRole(Customer));
+        */
 
         api.MapGet("/customer/change-requests/{crCode}", async (string crCode, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.GetDetailAsync(null, crCode, UserId(user), Role(user), ct) is { } detail ? Results.Ok(detail) : Results.NotFound())
@@ -54,9 +59,12 @@ public static class ChangeRequestEndpoints
             .RequireAuthorization(policy => policy.RequireRole(Customer));
 
         // ── M-07 / M-08 (Manager) ─────────────────────────────────────────────
+        // GET /projects/{id}/change-requests is handled by ProjectEndpoints.cs (IAddendumRepository)
+        /*
         api.MapGet("/projects/{id}/change-requests", async (string id, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.GetListAsync(id, UserId(user), Role(user), ct) is { } list ? Results.Ok(list) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole(Manager));
+        */
 
         api.MapGet("/projects/{id}/change-requests/form", async (string id, IChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.GetFormAsync(id, UserId(user), Role(user), ct) is { } form ? Results.Ok(form) : Results.NotFound())

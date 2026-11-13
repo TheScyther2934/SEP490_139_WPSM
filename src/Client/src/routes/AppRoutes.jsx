@@ -86,7 +86,7 @@ export default function AppRoutes() {
 
       <Route element={<RequireRole><RoleLayout /></RequireRole>}>
         <Route path="/profile" element={<Profile />} />
-        <Route path="/notifications" element={<RequireRole roles={[ROLES.MANAGER, ROLES.CUSTOMER]}><Notifications /></RequireRole>} />
+        <Route path="/notifications" element={<RequireRole roles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER]}><Notifications /></RequireRole>} />
         <Route path="/403" element={<Forbidden />} />
       </Route>
 
