@@ -131,6 +131,10 @@ public sealed class DevelopmentDatabaseSeeder(
                     BaseContractValue = p.BaseValue,
                     Nrdamount = p.Nrd,
                     Status = p.Status,
+                    // CK_Projects_Frozen: every status other than Active Baseline needs a freeze timestamp.
+                    BaselineFrozenAt = p.Status == "Active Baseline"
+                        ? null
+                        : p.EventDate.ToDateTime(new TimeOnly(9, 0)).AddDays(-30),
                     CreatedAt = p.EventDate.ToDateTime(new TimeOnly(9, 0)).AddDays(-100)
                 };
                 db.WeddingProjects.Add(project);

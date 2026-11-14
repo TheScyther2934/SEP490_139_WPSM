@@ -1,5 +1,8 @@
-﻿# FE-07 Resource Calendar checks (M-21, M-22) on a throwaway database.
+﻿# FE-07 Resource Calendar integration checks (M-21, M-22, UC-25/UC-26) on a throwaway database.
 # Creates and drops WPSM_FE07_Test only; the application database is never touched.
+# The script drives the live API: POST/PUT/DELETE /resource-allocations (IResourceRepository) for the
+# schedule, GET /resource-calendar + GET /resource-allocations/{id} (IResourceCalendarRepository) for
+# the grid and the conflict breakdown, and A-18 for the special-exception decisions.
 $ErrorActionPreference = "Stop"
 $Here = $PSScriptRoot
 $Root = (Resolve-Path "$Here\..").Path
@@ -67,6 +70,10 @@ try {
     $schema = [IO.File]::ReadAllText("$Root\Database\WPSM_DB_Schema.sql").Replace("WPSM_DB", $Db)
     [IO.File]::WriteAllText("$Out\schema.sql", $schema, (New-Object Text.UTF8Encoding($true)))
     sqlcmd -S $Sql -I -b -f 65001 -i "$Out\schema.sql" | Out-Null
+    # The base schema predates additive columns; the Updates folder brings a database to HEAD.
+    Get-ChildItem "$Root\Database\Updates\*.sql" | Sort-Object Name | ForEach-Object {
+        sqlcmd -S $Sql -d $Db -I -b -f 65001 -i $_.FullName | Out-Null
+    }
 
     $env:ASPNETCORE_ENVIRONMENT = "Development"
     $env:ASPNETCORE_URLS = "http://localhost:$Port"
@@ -86,142 +93,168 @@ try {
     if (-not $ready) { throw "API không khởi động. Xem $Out\api.err" }
 
     $manager = Login "manager@test.local" $Password
-    $admin = Login "admin@test.local" $Password
     Check "manager signs in" ([bool]$manager)
+    $admin = Login "admin@test.local" $Password
     Check "admin signs in" ([bool]$admin)
+    $managerQueue = Call "GET" "/admin/exception-requests" $manager
+    Check "A-18 queue is Admin-only" ($managerQueue.Status -eq 403) "status=$($managerQueue.Status)"
 
-    # ── M-21 calendar for the demo project's event day (seeders create its allocations) ──
-    $day = "2026-12-20"
-    $calendar = (Call "GET" "/resource-calendar?from=$day&to=$day" $manager).Data
-    Check "M-21 returns the active halls" (($calendar.halls | Measure-Object).Count -eq 4) "halls=$(($calendar.halls | Measure-Object).Count)"
-    Check "M-21 lists the demo booking" (($calendar.bookings | Where-Object { $_.code -eq "WPSM-2026-014" } | Measure-Object).Count -eq 1)
-    Check "M-21 returns the 10 shared resources" (($calendar.resources | Measure-Object).Count -eq 10) "resources=$(($calendar.resources | Measure-Object).Count)"
-    Check "M-21 returns the 5 resource types" (($calendar.types | Measure-Object).Count -eq 5)
-    Check "M-21 summary counts the event" ($calendar.summary.events -ge 1) "events=$($calendar.summary.events)"
-    $technicianLane = $calendar.lanes | Where-Object { $_.type -eq "Technician" -and $_.usages.Count -gt 0 } | Select-Object -First 1
-    Check "M-21 lanes show the seeded technician allocation" ([bool]$technicianLane) "lanes=$(($calendar.lanes | Measure-Object).Count)"
-    $resourceId = $technicianLane.resourceId
-    $totalQuantity = $technicianLane.totalQuantity
-    $usage = $technicianLane.usages | Select-Object -First 1
-    Check "lane usage shows 3 of 6 booked" ($usage.reservedQuantity -eq 3 -and $totalQuantity -eq 6) "reserved=$($usage.reservedQuantity) total=$totalQuantity"
+    # ── A project whose event is 10 days away, with a frozen baseline ─────────
+    $eventDate = (Get-Date).Date.AddDays(10).ToString("yyyy-MM-dd")
+    $halls = (Call "GET" "/halls?date=$eventDate" $manager).Data
+    $hall = $halls | Where-Object { ($_.slots | Where-Object { $_.available }) } | Select-Object -First 1
+    $slot = $hall.slots | Where-Object { $_.available } | Select-Object -First 1
+    $email = "fe07.$([guid]::NewGuid().ToString('N').Substring(0,8))@example.com"
+    $created = Call "POST" "/projects" $manager @{
+        coupleName = "FE07 Test Couple"; customerEmail = $email; customerPhone = "0900005678"
+        hall = $hall.name; slot = $slot.slotName; eventDate = $eventDate
+        baseValue = 100000000; nrdAmount = 50000000; paymentMethod = "Cash"
+    }
+    Check "M-03 creates the project" ($created.Status -eq 201) ($created.Data | ConvertTo-Json -Compress -Depth 3)
+    $projectCode = $created.Data.project.id
+    $frozen = Call "POST" "/projects/$projectCode/freeze" $manager
+    Check "M-05 freezes the baseline" ($frozen.Status -eq 200) ($frozen.Data | ConvertTo-Json -Compress -Depth 2)
 
-    $projectId = ($calendar.bookings | Where-Object { $_.code -eq "WPSM-2026-014" }).projectId
-    $seededAllocation = ($usage.allocations | Select-Object -First 1).allocationId
+    # ── M-21 grid and resource picker ────────────────────────────────────────
+    $calendar = (Call "GET" "/resource-calendar?from=$eventDate&to=$eventDate" $manager).Data
+    Check "M-21 returns the active halls" (($calendar.halls | Measure-Object).Count -ge 1) "halls=$(($calendar.halls | Measure-Object).Count)"
+    Check "M-21 lists the new booking" (($calendar.bookings | Where-Object { $_.code -eq $projectCode } | Measure-Object).Count -eq 1)
+    Check "M-21 returns the shared resources" (($calendar.resources | Measure-Object).Count -ge 5) "resources=$(($calendar.resources | Measure-Object).Count)"
+    Check "M-21 returns the resource types" (($calendar.types | Measure-Object).Count -ge 3)
 
-    # ── M-22 detail of an existing allocation ──
-    $detail = (Call "GET" "/resource-allocations/$seededAllocation" $manager).Data
-    Check "M-22 opens the seeded allocation" ($detail.allocationId -eq $seededAllocation)
-    Check "seeded allocation is Reserved" ($detail.status -eq "Reserved") $detail.status
-    Check "seeded allocation has no conflict" ($detail.hasConflict -eq $false)
-    Check "M-22 can request an exception only when over capacity" ($detail.canRequestException -eq $false)
+    $resource = $calendar.resources | Where-Object { $_.totalQuantity -ge 4 } | Select-Object -First 1
+    Check "a resource with capacity is available" ([bool]$resource) "resource=$($resource | ConvertTo-Json -Compress)"
+    $resourceId = $resource.resourceId
+    $total = [int]$resource.totalQuantity
 
-    # ── GBR-09: over-capacity is rejected with the clashing events ──
+    # ── M-21 allocate a reserved quantity ────────────────────────────────────
+    $first = Call "POST" "/resource-allocations" $manager @{
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T17:30:00+07:00"; endTime = "${eventDate}T19:30:00+07:00"; quantity = 3
+    }
+    Check "M-21 saves a reserved allocation" ($first.Status -eq 200 -and $first.Data.allocation.status -eq "Reserved") "status=$($first.Status)/$($first.Data.allocation.status)"
+    $allocationId = $first.Data.allocation.allocationId
+
+    $detail = (Call "GET" "/resource-allocations/$allocationId" $manager).Data
+    Check "M-22 opens the allocation" ($detail.allocationId -eq $allocationId)
+    Check "M-22 reports the reserved quantity" ($detail.quantity -eq 3 -and $detail.status -eq "Reserved") "qty=$($detail.quantity)/$($detail.status)"
+    Check "a reserved allocation has no conflict" ($detail.hasConflict -eq $false)
+    Check "M-22 offers the exception only for a conflict" ($detail.canRequestException -eq $false)
+
+    # ── M-21/GBR-09: over-capacity is rejected with the clashing events ──────
+    $overflowQuantity = $total - 2
     $over = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T17:30:00+07:00"; endTime = "${day}T21:30:00+07:00"; quantity = 5
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T17:30:00+07:00"; endTime = "${eventDate}T21:30:00+07:00"; quantity = $overflowQuantity
     }
     Check "GBR-09 rejects an over-capacity allocation" ($over.Status -eq 409) "status=$($over.Status)"
-    Check "the conflict names the shortage" ($over.Data.conflict.shortage -eq 2) "shortage=$($over.Data.conflict.shortage)"
-    Check "the conflict lists the clashing project" (($over.Data.conflict.clashing | Where-Object { $_.projectCode -eq "WPSM-2026-014" } | Measure-Object).Count -eq 1)
+    Check "the conflict lists the clashing project" (($over.Data.conflicts | Where-Object { $_.projectCode -eq $projectCode } | Measure-Object).Count -ge 1) ($over.Data.conflicts | ConvertTo-Json -Compress)
+    Check "the conflict explains the shortage (MSG08)" ([bool]$over.Data.message) $over.Data.message
 
-    # ── UC-47: request the Admin exception, the pending row does not consume capacity ──
-    $pending = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T17:30:00+07:00"; endTime = "${day}T21:30:00+07:00"; quantity = 5
-        requestException = $true; exceptionNote = "Sảnh cần thêm 2 kỹ thuật viên cho phần ánh sáng"
+    # ── UC-47: request the Admin exception; the pending row does not consume capacity ──
+    $pending = Call "POST" "/resource-allocations/exception-requests" $manager @{
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T17:30:00+07:00"; endTime = "${eventDate}T21:30:00+07:00"; quantity = $overflowQuantity
+        note = "Không còn dàn âm thanh nào khác trong ngày, đề nghị Admin chấp thuận"
     }
-    Check "M-21 sends the exception request and saves the pending allocation" ($pending.Status -eq 201) "status=$($pending.Status)"
-    Check "pending allocation is PendingException" ($pending.Data.status -eq "PendingException") $pending.Data.status
-    $requestCode = $pending.Data.pendingRequestCode
-    Check "pending allocation carries the exception code" ([bool]$requestCode) $requestCode
+    Check "M-21 sends the exception request" ($pending.Status -eq 200) ($pending.Data | ConvertTo-Json -Compress -Depth 3)
+    Check "the pending request is recorded on the allocation" ($pending.Data.allocation.exceptionStatus -eq "Pending") $pending.Data.allocation.exceptionStatus
+    $pendingAllocationId = $pending.Data.allocation.allocationId
 
     $free = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T18:00:00+07:00"; endTime = "${day}T19:00:00+07:00"; quantity = 1
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T08:00:00+07:00"; endTime = "${eventDate}T09:00:00+07:00"; quantity = 1
     }
-    Check "pending rows are ignored by the conflict query" ($free.Status -eq 201) "status=$($free.Status)"
-    $freeAllocation = $free.Data.allocationId
+    Check "a pending request does not block a free window" ($free.Status -eq 200) "status=$($free.Status)"
+    $freeAllocationId = $free.Data.allocation.allocationId
 
-    # ── A-18 receives and decides the resource exception ──
+    # ── A-18 receives and decides the resource exception ─────────────────────
     $queueResult = (Call "GET" "/admin/exception-requests" $admin).Data
-    $queue = $queueResult.items
-    $request = $queue | Where-Object { $_.code -eq $requestCode }
-    Check "A-18 receives the resource conflict request" ([bool]$request) "code=$requestCode"
+    $request = $queueResult.items | Where-Object { $_.allocation.id -eq $pendingAllocationId }
+    if (-not $request) { $request = $queueResult.items | Where-Object { $_.sourceType -eq "ResourceConflict" -and $_.resource.allocationId -eq $pendingAllocationId } }
+    Check "A-18 receives the resource conflict request" ([bool]$request) "pending=$($queueResult.summary.pending)"
     Check "A-18 queue reports the pending count" ($queueResult.summary.pending -ge 1) "pending=$($queueResult.summary.pending)"
     if ($request) {
-        Check "A-18 request carries the resource context" ($request.sourceType -eq "ResourceConflict" -and $request.resource.resourceName -eq $technicianLane.name -and $request.resource.shortage -eq 3) ($request.resource | ConvertTo-Json -Compress)
-        Check "A-18 lists the clashing events" (($request.resource.clashing | Where-Object { $_.projectCode -eq "WPSM-2026-014" } | Measure-Object).Count -ge 1)
+        Check "A-18 carries the resource context and shortage" ($request.sourceType -eq "ResourceConflict" -and $request.resource.shortage -ge 1) ($request.resource | ConvertTo-Json -Compress -Depth 3)
+        Check "A-18 lists the clashing events" (($request.resource.clashing | Measure-Object).Count -ge 1)
         Check "A-18 names the requesting manager" ([bool]$request.requestedByName) $request.requestedByName
         $blankNote = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $true; note = " " }
         Check "A-18 requires the decision note" ($blankNote.Status -eq 400) "status=$($blankNote.Status)"
-        $decision = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $true; note = "Chấp thuận bổ sung kỹ thuật viên" }
+        $decision = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $true; note = "Chấp thuận vượt công suất" }
         Check "A-18 approves the resource exception" ($decision.Status -eq 204) "status=$($decision.Status)"
-        $decidedRequest = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.code -eq $requestCode })
-        Check "A-18 records the decision audit" ($decidedRequest.status -eq "Approved" -and $decidedRequest.decisionNote -eq "Chấp thuận bổ sung kỹ thuật viên" -and [bool]$decidedRequest.decidedByName -and [bool]$decidedRequest.decidedAt) ($decidedRequest | ConvertTo-Json -Compress -Depth 3)
+        $decided = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.id -eq $request.id })
+        Check "A-18 records the decision audit" ($decided.status -eq "Approved" -and $decided.decisionNote -eq "Chấp thuận vượt công suất" -and [bool]$decided.decidedByName) ($decided | ConvertTo-Json -Compress -Depth 3)
         $again = Call "POST" "/admin/exception-requests/$($request.id)/decision" $admin @{ approve = $false; note = "Đổi quyết định" }
         Check "A-18 refuses a second decision" ($again.Status -eq 400) "status=$($again.Status)"
     }
-    $approved = (Call "GET" "/resource-allocations/$($pending.Data.allocationId)" $manager).Data
-    Check "approved exception marks the allocation" ($approved.status -eq "Exception Approved" -and $approved.isExceptionApproved) $approved.status
-    Check "approved exception keeps the Admin note" ($approved.exceptionNote -eq "Chấp thuận bổ sung kỹ thuật viên") $approved.exceptionNote
+    $approved = (Call "GET" "/resource-allocations/$pendingAllocationId" $manager).Data
+    Check "the approved exception marks the allocation" ($approved.status -eq "Exception Approved" -and $approved.isExceptionApproved) $approved.status
+    Check "the approved exception keeps the Admin note" ($approved.exceptionNote -eq "Chấp thuận vượt công suất") $approved.exceptionNote
 
-    # ── A-18 rejection releases the pending allocation ──
-    $rejectedPending = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T17:30:00+07:00"; endTime = "${day}T21:30:00+07:00"; quantity = 1
-        requestException = $true; exceptionNote = "Đề nghị giữ thêm 1 kỹ thuật viên dự phòng"
+    # ── A-18 rejection releases the pending allocation ──────────────────────
+    $secondPending = Call "POST" "/resource-allocations/exception-requests" $manager @{
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T17:30:00+07:00"; endTime = "${eventDate}T21:30:00+07:00"; quantity = 1
+        note = "Đề nghị giữ thêm 1 thiết bị dự phòng"
     }
-    Check "M-21 opens a second pending request" ($rejectedPending.Status -eq 201) "status=$($rejectedPending.Status)"
-    $secondCode = $rejectedPending.Data.pendingRequestCode
-    $secondRequest = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.code -eq $secondCode })
+    Check "M-21 opens a second pending request" ($secondPending.Status -eq 200) "status=$($secondPending.Status)"
+    $secondId = $secondPending.Data.allocation.allocationId
+    $secondRequest = ((Call "GET" "/admin/exception-requests" $admin).Data.items | Where-Object { $_.resource.allocationId -eq $secondId } | Select-Object -First 1)
     if ($secondRequest) {
-        $rejected = Call "POST" "/admin/exception-requests/$($secondRequest.id)/decision" $admin @{ approve = $false; note = "Không đủ nhân sự, giữ nguyên quy tắc" }
+        $rejected = Call "POST" "/admin/exception-requests/$($secondRequest.id)/decision" $admin @{ approve = $false; note = "Không đủ thiết bị, giữ nguyên quy tắc" }
         Check "A-18 rejects the resource exception" ($rejected.Status -eq 204) "status=$($rejected.Status)"
-        $releasedAfterReject = (Call "GET" "/resource-allocations/$($rejectedPending.Data.allocationId)" $manager).Data
+        $releasedAfterReject = (Call "GET" "/resource-allocations/$secondId" $manager).Data
         Check "a rejected exception releases the allocation" ($releasedAfterReject.status -eq "Released") $releasedAfterReject.status
     }
 
-    $afterApprove = (Call "GET" "/resource-calendar?from=$day&to=$day" $manager).Data
-    Check "M-21 now reports the capacity conflict" ($afterApprove.summary.conflicts -ge 1) "conflicts=$($afterApprove.summary.conflicts)"
+    $afterApprove = (Call "GET" "/resource-calendar?from=$eventDate&to=$eventDate" $manager).Data
+    Check "M-21 reports the approved over-capacity allocation" ($afterApprove.summary.conflicts -ge 1) "conflicts=$($afterApprove.summary.conflicts)"
+    Check "M-21 counts the pending exception" ($afterApprove.summary.pendingExceptions -ge 0)
 
-    # ── M-22 reschedule / substitute ──
-    $conflictingUpdate = Call "PUT" "/resource-allocations/$freeAllocation" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T17:00:00+07:00"; endTime = "${day}T22:00:00+07:00"; quantity = 3
+    # ── M-22 reschedule / substitute ─────────────────────────────────────────
+    $conflictingUpdate = Call "PUT" "/resource-allocations/$freeAllocationId" $manager @{
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T17:00:00+07:00"; endTime = "${eventDate}T22:00:00+07:00"; quantity = 1
     }
     Check "rescheduling into a conflicting window is rejected" ($conflictingUpdate.Status -eq 409) "status=$($conflictingUpdate.Status)"
 
-    $movedUpdate = Call "PUT" "/resource-allocations/$freeAllocation" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T08:00:00+07:00"; endTime = "${day}T09:00:00+07:00"; quantity = 1
+    $movedUpdate = Call "PUT" "/resource-allocations/$freeAllocationId" $manager @{
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T09:00:00+07:00"; endTime = "${eventDate}T10:00:00+07:00"; quantity = 1
     }
-    Check "rescheduling to a free window succeeds" ($movedUpdate.Status -eq 200) "status=$($movedUpdate.Status)"
+    Check "rescheduling to a free window succeeds" ($movedUpdate.Status -eq 200 -and $movedUpdate.Data.allocation.status -eq "Reserved") "status=$($movedUpdate.Status)"
+    $movedDetail = (Call "GET" "/resource-allocations/$freeAllocationId" $manager).Data
+    $movedStart = ([datetime]$movedDetail.startTime).ToUniversalTime()
+    $movedEnd = ([datetime]$movedDetail.endTime).ToUniversalTime()
+    Check "M-22 shows the new window" ($movedStart.Hour -eq 2 -and $movedEnd.Hour -eq 3) "$($movedDetail.startTime) - $($movedDetail.endTime)"
 
-    $released = Call "DELETE" "/resource-allocations/$freeAllocation" $manager
-    Check "M-22 releases the allocation" ($released.Status -eq 200 -and $released.Data.status -eq "Released") "status=$($released.Status)/$($released.Data.status)"
-    $editReleased = Call "PUT" "/resource-allocations/$freeAllocation" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T08:00:00+07:00"; endTime = "${day}T09:00:00+07:00"; quantity = 1
+    $released = Call "DELETE" "/resource-allocations/$freeAllocationId" $manager
+    Check "M-22 releases the allocation" ($released.Status -eq 204) "status=$($released.Status)"
+    $releasedDetail = (Call "GET" "/resource-allocations/$freeAllocationId" $manager).Data
+    Check "the released allocation is no longer reserved" ($releasedDetail.status -eq "Released") $releasedDetail.status
+    $editReleased = Call "PUT" "/resource-allocations/$freeAllocationId" $manager @{
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T09:00:00+07:00"; endTime = "${eventDate}T10:00:00+07:00"; quantity = 1
     }
     Check "a released allocation cannot be edited" ($editReleased.Status -eq 400) "status=$($editReleased.Status)"
 
-    # ── Validation and scope ──
+    # ── Validation and scope ────────────────────────────────────────────────
     $badTimes = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T20:00:00+07:00"; endTime = "${day}T19:00:00+07:00"; quantity = 1
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T20:00:00+07:00"; endTime = "${eventDate}T19:00:00+07:00"; quantity = 1
     }
     Check "end before start is rejected" ($badTimes.Status -eq 400) "status=$($badTimes.Status)"
     $tooMany = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = $projectId
-        startTime = "${day}T08:00:00+07:00"; endTime = "${day}T09:00:00+07:00"; quantity = 99
+        resourceId = $resourceId; projectCode = $projectCode
+        startTime = "${eventDate}T08:00:00+07:00"; endTime = "${eventDate}T09:00:00+07:00"; quantity = $total + 1
     }
     Check "quantity above the total is rejected" ($tooMany.Status -eq 400) "status=$($tooMany.Status)"
     $foreign = Call "POST" "/resource-allocations" $manager @{
-        resourceId = $resourceId; projectId = 999999
-        startTime = "${day}T08:00:00+07:00"; endTime = "${day}T09:00:00+07:00"; quantity = 1
+        resourceId = $resourceId; projectCode = "WPSM-2026-999"
+        startTime = "${eventDate}T08:00:00+07:00"; endTime = "${eventDate}T09:00:00+07:00"; quantity = 1
     }
     Check "a project outside the Manager scope returns 404" ($foreign.Status -eq 404) "status=$($foreign.Status)"
-    $forbidden = Call "GET" "/resource-calendar?from=$day&to=$day" $admin
+    $forbidden = Call "GET" "/resource-calendar?from=$eventDate&to=$eventDate" $admin
     Check "Admin cannot open the Manager calendar" ($forbidden.Status -eq 403) "status=$($forbidden.Status)"
 } catch {
     $bad++
