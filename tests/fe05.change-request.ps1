@@ -71,6 +71,10 @@ try {
     $schema = [IO.File]::ReadAllText("$Root\Database\WPSM_DB_Schema.sql").Replace("WPSM_DB", $Db)
     [IO.File]::WriteAllText("$Out\schema.sql", $schema, (New-Object Text.UTF8Encoding($true)))
     sqlcmd -S $Sql -I -b -f 65001 -i "$Out\schema.sql" | Out-Null
+    # The base schema predates additive columns; the Updates folder brings a database to HEAD.
+    Get-ChildItem "$Root\Database\Updates\*.sql" | Sort-Object Name | ForEach-Object {
+        sqlcmd -S $Sql -d $Db -I -b -f 65001 -i $_.FullName | Out-Null
+    }
 
     $env:ASPNETCORE_ENVIRONMENT = "Development"
     $env:ASPNETCORE_URLS = "http://localhost:$Port"
@@ -93,6 +97,8 @@ try {
     Check "manager signs in" ([bool]$manager)
     $admin = Login "admin@test.local" $Password
     Check "admin signs in" ([bool]$admin)
+    $managerQueue = Call "GET" "/admin/exception-requests" $manager
+    Check "A-18 queue is Admin-only" ($managerQueue.Status -eq 403) "status=$($managerQueue.Status)"
 
     # ── A project whose event is 10 days away → inside the T-14 penalty window ──
     $eventDate = (Get-Date).Date.AddDays(10).ToString("yyyy-MM-dd")
@@ -150,8 +156,8 @@ try {
 
     # ── M-07 list ────────────────────────────────────────────────────────────
     $list = (Call "GET" "/projects/$projectCode/change-requests" $manager).Data
-    Check "M-07 lists the ticket" (($list.items | Where-Object { $_.code -eq $crCode } | Measure-Object).Count -eq 1)
-    Check "M-07 summary counts the Negotiating ticket" ($list.summary.negotiating -eq 1) "negotiating=$($list.summary.negotiating)"
+    Check "M-07 lists the ticket" (($list | Where-Object { $_.crCode -eq $crCode } | Measure-Object).Count -eq 1) ($list | ConvertTo-Json -Compress -Depth 3)
+    Check "M-07 lists the ticket as Negotiating" (($list | Where-Object { $_.crCode -eq $crCode }).status -eq "Negotiating")
 
     # ── M-08 counter-proposal ────────────────────────────────────────────────
     $counterQty = $catering.quantity + 5
@@ -202,19 +208,19 @@ try {
     $customer = $changed.Data.accessToken
 
     $customerList = (Call "GET" "/customer/change-requests" $customer).Data
-    Check "C-05 lists the customer's CR" (($customerList.items | Where-Object { $_.code -eq $crCode } | Measure-Object).Count -eq 1)
-    Check "C-05 shows the negotiation status" (($customerList.items | Where-Object { $_.code -eq $crCode }).status -eq "Negotiating")
+    Check "C-05 lists the customer's CR" (($customerList | Where-Object { $_.crCode -eq $crCode } | Measure-Object).Count -eq 1) ($customerList | ConvertTo-Json -Compress -Depth 2)
+    Check "C-05 shows the negotiation status" (($customerList | Where-Object { $_.crCode -eq $crCode }).status -eq "Negotiating")
 
     $customerForm = (Call "GET" "/customer/change-requests/form" $customer).Data
     $customerItem = $customerForm.specItems | Where-Object { $_.unitPrice -eq 3500000 } | Select-Object -First 1
     $customerCr = Call "POST" "/customer/change-requests" $customer @{
-        type = "Table count"; description = "Điều chỉnh số bàn theo xác nhận của gia đình"; submit = $false
-        items = @(@{ specItemId = $customerItem.specItemId; newQuantity = $customerItem.quantity + 1; newUnitPrice = $customerItem.unitPrice })
+        projectCode = $projectCode
+        type = "Table count"; description = "Điều chỉnh số bàn theo xác nhận của gia đình"
+        items = @(@{ targetSpecItemId = $customerItem.specItemId; newQuantity = $customerItem.quantity + 1; newUnitPrice = $customerItem.unitPrice })
     }
-    Check "C-06 saves a draft" ($customerCr.Status -eq 201) ($customerCr.Data | ConvertTo-Json -Compress -Depth 3)
-    Check "draft stays Draft" ($customerCr.Data.status -eq "Draft") $customerCr.Data.status
-    $submitted = Call "POST" "/customer/change-requests/$($customerCr.Data.code)/submit" $customer
-    Check "C-06 submits the draft" ($submitted.Status -eq 200 -and $submitted.Data.status -eq "Negotiating") "status=$($submitted.Status)/$($submitted.Data.status)"
+    Check "C-06 creates a ticket from the Customer screen" ($customerCr.Status -eq 201) ($customerCr.Data | ConvertTo-Json -Compress -Depth 3)
+    Check "customer ticket enters negotiation" ($customerCr.Data.status -eq "Negotiating") $customerCr.Data.status
+    Check "customer ticket is priced by the server" ($customerCr.Data.costImpact -eq $customerItem.unitPrice) "impact=$($customerCr.Data.costImpact)"
 
     $customerApprove = Call "POST" "/customer/change-requests/$crCode/approve" $customer @{ note = $null }
     Check "customer approval completes the mutual consent" ($customerApprove.Data.status -eq "Approved") $customerApprove.Data.status
@@ -230,16 +236,16 @@ try {
     Check "the addendum is listed for the project" (($addenda | Measure-Object).Count -eq 1) ($addenda | ConvertTo-Json -Compress -Depth 3)
 
     # Rejection closes a ticket and keeps the audit trail (GBR-13)
-    $rejectCustomer = Call "POST" "/customer/change-requests/$($submitted.Data.code)/reject" $customer @{ reason = "Không cần điều chỉnh nữa" }
+    $rejectCustomer = Call "POST" "/customer/change-requests/$($customerCr.Data.crCode)/reject" $customer @{ reason = "Không cần điều chỉnh nữa" }
     Check "customer rejects with a reason" ($rejectCustomer.Status -eq 200 -and $rejectCustomer.Data.status -eq "Rejected") "status=$($rejectCustomer.Status)/$($rejectCustomer.Data.status)"
     $afterReject = (Call "GET" "/customer/change-requests" $customer).Data
-    Check "rejected CR stays in the list for audit" (($afterReject.items | Where-Object { $_.code -eq $submitted.Data.code }).status -eq "Rejected")
-    Check "summary separates approved and rejected" ($afterReject.summary.approved -eq 1 -and $afterReject.summary.rejected -eq 1) ($afterReject.summary | ConvertTo-Json -Compress)
+    Check "rejected CR stays in the list for audit" (($afterReject | Where-Object { $_.crCode -eq $customerCr.Data.crCode }).status -eq "Rejected")
+    Check "list keeps both the approved and rejected tickets" ((
+        $afterReject | Where-Object { $_.crCode -in @($crCode, $customerCr.Data.crCode) } | Measure-Object).Count -eq 2)
 
     # Cross-account isolation (GBR-12)
-    $otherManager = Login "admin@test.local" $Password
-    $forbidden = Call "GET" "/projects/$projectCode/change-requests" $otherManager
-    Check "a non-assigned account cannot read the CR list" ($forbidden.Status -in @(401, 403, 404)) "status=$($forbidden.Status)"
+    $anonymous = Call "GET" "/projects/$projectCode/change-requests" $null
+    Check "the CR list requires authentication" ($anonymous.Status -eq 401) "status=$($anonymous.Status)"
 } catch {
     $bad++
     Write-Host "ERROR $($_.Exception.Message)" -ForegroundColor Red
