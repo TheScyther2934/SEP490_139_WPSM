@@ -76,8 +76,7 @@ public sealed record CreateProjectCommand(
     decimal BaseValue,
     decimal NrdAmount,
     string PaymentMethod,
-    string? ReceiptFilePath,
-    string? ProtectedCredentialPayload = null);
+    string? ReceiptFilePath);
 public sealed record CreatedProjectView(WeddingProjectView Project, string? TemporaryPassword);
 
 public sealed record SpecificationCommand(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null);

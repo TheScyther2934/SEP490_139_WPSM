@@ -129,17 +129,8 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
             emailOutbox.Enqueue(customer.Email, $"Tài khoản WPSM cho dự án {project.ProjectCode}",
                 EmailTemplates.Credentials(customer.FullName, customer.Email, temporaryPassword, project.ProjectCode, emailOptions.PublicBaseUrl),
                 "Credentials", project.ProjectId);
+        // One delivery path only: the outbox row above commits with the project and JOB-07 sends it (SDS outbox pattern).
         await db.SaveChangesAsync(cancellationToken);
-        if (newCustomer && command.ProtectedCredentialPayload is not null)
-        {
-            db.EmailDeliveries.Add(new EmailDelivery
-            {
-                ProjectId = project.ProjectId, Recipient = customer.Email,
-                ProtectedPayload = command.ProtectedCredentialPayload,
-                CreatedAt = DateTime.UtcNow, NextAttemptAt = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync(cancellationToken);
-        }
         await transaction.CommitAsync(cancellationToken);
         var loaded = await readModel.ProjectViewsQuery().SingleAsync(x => x.ProjectId == project.ProjectId, cancellationToken);
         return new CreatedProjectView(await readModel.MapProjectAsync(loaded, cancellationToken), newCustomer ? temporaryPassword : null);

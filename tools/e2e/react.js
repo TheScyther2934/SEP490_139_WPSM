@@ -29,6 +29,20 @@ const chooseOption = async (page, selectSelector, optionSelector) => {
 };
 // Screenshots for a visual check, only when SHOTS_DIR is set.
 const shot = async (page, name) => { if (process.env.SHOTS_DIR) await page.screenshot({ path: `${process.env.SHOTS_DIR}/${name}.png`, fullPage: true }); };
+// Direct API calls with a Bearer token, for rules the UI hides (permissions, self-lock, Customer creation).
+const apiAs = async (email, password) => {
+  const r = await fetch(`${BASE}/api/wpsm/auth/token`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+  const token = r.ok ? (await r.json()).accessToken : null;
+  return async (url, method = "GET", body) => {
+    const res = await fetch(`${BASE}/api/wpsm/${url}`, { method, headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+};
+// Clicks a button by its label inside the A-19 row of one account.
+const clickRowButton = async (page, email, label) => {
+  const handle = await page.waitForSelector(`::-p-xpath(//tr[@data-account="${email}"]//button[normalize-space(.)="${label}"])`, { timeout: 8000 });
+  await handle.click();
+};
 const login = async (page, email, password) => {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle2" });
   await page.type("#email", email);
@@ -72,7 +86,7 @@ const login = async (page, email, password) => {
     // ADMIN-UI: one horizontal bar instead of the sidebar on desktop; the drawer only opens from the menu button.
     await page.setViewport({ width: 1440, height: 900 });
     const nav = await page.$$eval('header nav[aria-label="Điều hướng chính"] a', (links) => links.map((a) => ({ text: a.innerText.trim(), active: a.classList.contains("active") })));
-    check("admin top bar lists the 9 admin screens", nav.length === 9, JSON.stringify(nav.map((n) => n.text)));
+    check("admin top bar lists the 10 admin screens", nav.length === 10, JSON.stringify(nav.map((n) => n.text)));
     check("top bar marks the current screen", nav.find((n) => n.active)?.text === "Tổng quan", JSON.stringify(nav.filter((n) => n.active)));
     check("admin has no permanent sidebar", !(await page.$(".MuiDrawer-docked")));
     check("A-01 has six KPI cards and the overdue strip", await page.$$eval("#a01Kpis > *", (c) => c.length) === 6 && !!(await page.$("#a01Overdue")));
@@ -107,6 +121,98 @@ const login = async (page, email, password) => {
     await shot(page, "a03-dialog");
     await clickButton(page, "Hủy");
 
+    // A-19 account management: create Manager, validation, duplicate email, edit, lock/unlock, reissue password.
+    // Dialogs close with a fade; a click before the backdrop is gone lands on the backdrop (L-18).
+    const dialogGone = () => page.waitForFunction(() => !document.querySelector('[role="dialog"]') && !document.querySelector(".MuiBackdrop-root:not(.MuiBackdrop-invisible)"), { timeout: 8000 }).catch(() => {});
+    await dialogGone();
+    await page.click('header nav a[href="/admin/accounts"]');
+    check("top bar link opens A-19", await waitPath(page, "/admin/accounts"));
+    await page.waitForSelector("#accountTable");
+    check("A-19 marks the admin's own row and disables its lock",
+      await page.$eval('[data-account="admin@test.local"]', (r) => r.innerText.includes("(bạn)") && r.querySelector("button:last-child").disabled).catch(() => false));
+    await clickButton(page, "Thêm tài khoản");
+    await clickButton(page, "Lưu");
+    check("A-19 validates required fields", await waitText(page, "Trường Họ tên là bắt buộc.") && await waitText(page, "Trường Email là bắt buộc."));
+    const staffEmail = `staff${Date.now()}@example.com`;
+    await page.type("#accountFullName", "Nguyễn Văn Quản Lý");
+    await page.type("#accountEmail", staffEmail);
+    await page.type("#accountPhone", "0912 345 678");
+    await clickButton(page, "Lưu");
+    const readPassword = () => page.waitForSelector("#temporaryPassword [data-password]", { timeout: 8000 }).then((h) => h.evaluate((e) => e.textContent)).catch(() => null);
+    const staffPassword = await readPassword();
+    check("A-19 creates a Manager and shows the dev temporary password", !!staffPassword);
+    await clickButton(page, "Đóng");
+    await dialogGone();
+    await page.type('input[aria-label="Tìm tài khoản"]', staffEmail);
+    await page.waitForFunction(() => new URL(location.href).searchParams.get("q"), { timeout: 8000 }).catch(() => {});
+    await page.waitForSelector(`[data-account="${staffEmail}"]`, { timeout: 8000 }).catch(() => {});
+    check("A-19 new row is a Manager waiting for the password change",
+      await page.$eval(`[data-account="${staffEmail}"]`, (r) => r.innerText.includes("Quản lý vận hành") && r.innerText.includes("Chờ đổi mật khẩu") && r.innerText.includes("0912345678")).catch(() => false));
+    await shot(page, "a19-accounts");
+
+    await clickButton(page, "Thêm tài khoản");
+    await page.type("#accountFullName", "Trùng email");
+    await page.type("#accountEmail", staffEmail);
+    await clickButton(page, "Lưu");
+    check("A-19 rejects a duplicate email", await waitText(page, "Email đã được dùng cho tài khoản khác."));
+    await clickButton(page, "Hủy");
+    await dialogGone();
+
+    await clickRowButton(page, staffEmail, "Sửa");
+    await typeInto(page, "#accountFullName", "Nguyễn Văn Đã Sửa");
+    await clickButton(page, "Lưu");
+    check("A-19 edit updates the row", await waitText(page, "Nguyễn Văn Đã Sửa"));
+    await dialogGone();
+
+    const statusIs = (text) => page.waitForFunction((e, t) => document.querySelector(`[data-account="${e}"] [data-status]`)?.innerText === t, { timeout: 8000 }, staffEmail, text)
+      .then(() => true).catch(() => false);
+    await clickRowButton(page, staffEmail, "Khóa");
+    await (await page.waitForSelector("#confirmAccountAction", { visible: true })).click();
+    check("A-19 lock shows Đã khóa", await statusIs("Đã khóa"));
+    await dialogGone();
+    {
+      const other = await browser.createBrowserContext();
+      const p2 = await other.newPage();
+      await login(p2, staffEmail, staffPassword);
+      check("locked account cannot sign in (generic error)", await waitText(p2, "Email hoặc mật khẩu không đúng"));
+      await other.close();
+    }
+    await clickRowButton(page, staffEmail, "Mở khóa");
+    await (await page.waitForSelector("#confirmAccountAction", { visible: true })).click();
+    check("A-19 unlock restores the account", await statusIs("Chờ đổi mật khẩu"));
+    await dialogGone();
+    await clickRowButton(page, staffEmail, "Cấp lại mật khẩu");
+    await (await page.waitForSelector("#confirmAccountAction", { visible: true })).click();
+    const reissued = await readPassword();
+    check("A-19 reissue gives a new temporary password", !!reissued && reissued !== staffPassword);
+    await clickButton(page, "Đóng");
+    await dialogGone();
+    {
+      const other = await browser.createBrowserContext();
+      const p2 = await other.newPage();
+      await login(p2, staffEmail, staffPassword);
+      check("old password stops working after reissue", await waitText(p2, "Email hoặc mật khẩu không đúng"));
+      await login(p2, staffEmail, reissued);
+      check("new Manager signs in with the reissued password and must change it", await waitPath(p2, "/change-password"), path(p2));
+      await other.close();
+    }
+
+    // Rules the UI does not offer, checked on the API.
+    const adminApi = await apiAs("admin@test.local", PW);
+    const list = await adminApi("admin/accounts");
+    const me = list.body?.find((a) => a.email === "admin@test.local");
+    const seedManager = list.body?.find((a) => a.email === "manager@test.local");
+    check("API: admin cannot lock own account", (await adminApi(`admin/accounts/${me?.id}/status`, "POST", { active: false })).status === 400);
+    check("API: Customer accounts are not created by Admin",
+      (await adminApi("admin/accounts", "POST", { fullName: "Khách", email: `cus${Date.now()}@example.com`, phone: "", role: "Customer" })).status === 400);
+    check("API: invalid email is rejected", (await adminApi("admin/accounts", "POST", { fullName: "Sai email", email: "khong-hop-le", phone: "", role: "Manager" })).status === 400);
+    check("API: unknown account returns 404", (await adminApi("admin/accounts/999999/status", "POST", { active: false })).status === 404);
+    const lockBusy = await adminApi(`admin/accounts/${seedManager?.id}/status`, "POST", { active: false });
+    check("API: Manager with open projects cannot be locked", seedManager?.openProjects > 0 && lockBusy.status === 400, JSON.stringify(lockBusy.body));
+    if (lockBusy.status === 200) await adminApi(`admin/accounts/${seedManager.id}/status`, "POST", { active: true });
+    const managerApi = await apiAs("manager@test.local", PW);
+    check("API: Manager gets 403 on admin accounts", (await managerApi("admin/accounts")).status === 403);
+
     await page.goto(`${BASE}/admin/policies`, { waitUntil: "networkidle2" });
     check("A-06 shows policies from the API", await waitText(page, "Tỷ lệ các đợt thanh toán"));
     check("A-06 penalty rules are a table", !!(await page.waitForSelector("#penaltyCard table", { timeout: 8000 }).catch(() => null)));
@@ -120,7 +226,10 @@ const login = async (page, email, password) => {
     await page.setViewport({ width: 800, height: 900 });
     check("narrow admin screen hides the top links", await page.$eval('header nav[aria-label="Điều hướng chính"]', (n) => getComputedStyle(n).display === "none"));
     await page.click('button[aria-label="Mở menu"]');
-    await (await page.waitForSelector('.MuiDrawer-root a[href="/admin/policies"]', { visible: true, timeout: 8000 })).click();
+    const drawerLink = await page.waitForSelector('.MuiDrawer-root a[href="/admin/policies"]', { visible: true, timeout: 8000 });
+    // The drawer slides in; a click during the transition lands on the backdrop and closes it.
+    await page.waitForFunction(() => getComputedStyle(document.querySelector(".MuiDrawer-paper")).transform === "none", { timeout: 5000 }).catch(() => {});
+    await drawerLink.click();
     check("drawer link opens A-06", await waitPath(page, "/admin/policies"));
     await shot(page, "a06-policies-narrow");
 
@@ -196,6 +305,8 @@ const login = async (page, email, password) => {
     check("unknown project code shows an error, not a crash", await waitText(page, "Không tìm thấy dự án"));
     await page.goto(`${BASE}/customer/overview`, { waitUntil: "networkidle2" });
     check("manager on a customer URL gets /403", await waitPath(page, "/403"), path(page));
+    await page.goto(`${BASE}/admin/accounts`, { waitUntil: "networkidle2" });
+    check("manager on A-19 gets /403", await waitPath(page, "/403"), path(page));
 
     // Sign out ends the session; protected URLs go back to /login.
     await page.goto(`${BASE}/manager/dashboard`, { waitUntil: "networkidle2" });

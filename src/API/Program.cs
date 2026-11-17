@@ -37,8 +37,6 @@ builder.Services.AddScoped<IAccountProfileRepository, AccountProfileRepository>(
 builder.Services.AddScoped<IWpsmPortalSnapshotReader, WpsmPortalSnapshotReader>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
-builder.Services.AddScoped<CredentialEmailSender>();
-builder.Services.AddHostedService<CredentialEmailDispatcher>();
 builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
 builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
@@ -56,6 +54,7 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IConfigurationAdminRepository, ConfigurationAdminRepository>();
+builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<OperationsJobs>();
 
 // SDS III.1.1: HS256 with a 256-bit secret from User Secrets or the environment.
@@ -86,10 +85,13 @@ builder.Services.AddSingleton(new EmailOptions
     User = builder.Configuration["Smtp:User"],
     Password = builder.Configuration["Smtp:Password"],
     EnableSsl = builder.Configuration.GetValue("Smtp:EnableSsl", true),
-    From = builder.Configuration["Smtp:From"] ?? "no-reply@wpsm.local",
+    // Brevo SMTP relay: Smtp:From must be a sender verified in Brevo (Smtp:User is the SMTP login, not a mailbox).
+    // The Smtp:User fallback only suits providers where the login is the mailbox (e.g. Gmail).
+    From = builder.Configuration["Smtp:From"] ?? builder.Configuration["Smtp:User"] ?? "no-reply@wpsm.local",
     PickupDirectory = builder.Configuration["Smtp:PickupDirectory"] ?? (builder.Environment.IsDevelopment() ? Path.Combine(appDataPath, "mail") : null),
     WebhookSecret = builder.Configuration["Smtp:WebhookSecret"],
-    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5231"
+    // Links in emails open the React client, which the API serves (port 5128 in Development).
+    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5128"
 });
 builder.Services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
 builder.Services.AddScoped<IFileService, FileService>();
@@ -187,6 +189,16 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+{
+    // Which email transport is active, without secret values (EMAIL-SMTP): helps diagnose provider configuration.
+    var mail = app.Services.GetRequiredService<EmailOptions>();
+    if (!string.IsNullOrWhiteSpace(mail.Host))
+        app.Logger.LogInformation("Email: SMTP {Host}:{Port} SSL={Ssl} user={User} password={HasPassword} from={From}",
+            mail.Host, mail.Port, mail.EnableSsl, string.IsNullOrWhiteSpace(mail.User) ? "(none)" : mail.User,
+            string.IsNullOrEmpty(mail.Password) ? "(none)" : "set", mail.From);
+    else
+        app.Logger.LogInformation("Email: no Smtp:Host, messages go to the pickup directory {Directory}", mail.PickupDirectory ?? "(none)");
+}
 if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Wpsm:SeedDevelopmentData", true))
 {
     await using var scope = app.Services.CreateAsyncScope();

@@ -34,10 +34,10 @@ public sealed class ProjectReadModel(WpsmDbContext db)
 
         var addendumCount = await db.ContractAddenda.CountAsync(a => a.ProjectId == x.ProjectId, cancellationToken);
         var slotTime = $"{x.Slot.StartTime:HH:mm} - {x.Slot.EndTime:HH:mm}";
-        var emailDeliveryStatus = await db.EmailDeliveries.Where(e => e.ProjectId == x.ProjectId).Select(e => e.Status).FirstOrDefaultAsync(cancellationToken);
+        // Credentials go through the outbox only (JOB-07); Queued is shown as Pending. The old EmailDeliveries table is no longer written.
         var emailOutboxStatus = await db.EmailOutbox.Where(e => e.RelatedProjectId == x.ProjectId && e.Kind == "Credentials")
             .OrderByDescending(e => e.EmailId).Select(e => e.Status).FirstOrDefaultAsync(cancellationToken);
-        var credentialStatus = emailDeliveryStatus ?? emailOutboxStatus ?? "ExistingAccount";
+        var credentialStatus = emailOutboxStatus switch { null => "ExistingAccount", "Queued" => "Pending", var status => status };
 
         return new WeddingProjectView(x.ProjectCode, x.Customer.FullName, x.Hall.Name, x.Slot.SlotName, x.EventDate,
             x.BaseContractValue, x.Nrdamount, x.Status,

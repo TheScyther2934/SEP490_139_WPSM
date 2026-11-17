@@ -1,7 +1,5 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text.Json;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
@@ -28,17 +26,18 @@ public static class ProjectEndpoints
             await repo.GetProjectAsync(id, ct) is { } project ? Results.Ok(project) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
-        api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository repo, IAccountProfileRepository accounts, IPasswordHasher<User> hasher, IDataProtectionProvider protection, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
+        api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository repo, IAccountProfileRepository accounts, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var temporaryPassword = RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*", 16);
             var newCustomer = await accounts.FindAccountAsync(request.CustomerEmail, ct) is null;
             var passwordHash = hasher.HashPassword(new User { Email = request.CustomerEmail, Role = "Customer" }, temporaryPassword);
             var created = await repo.CreateProjectAsync(new CreateProjectCommand(request.CoupleName, request.CustomerEmail, request.CustomerPhone,
-                request.Hall, request.Slot, request.EventDate, request.BaseValue, request.NrdAmount, request.PaymentMethod, request.ReceiptFilePath,
-                protection.CreateProtector("WPSM.CredentialEmail.v1").Protect(JsonSerializer.Serialize(new CredentialEmailPayload(request.CoupleName, temporaryPassword)))),
+                request.Hall, request.Slot, request.EventDate, request.BaseValue, request.NrdAmount, request.PaymentMethod, request.ReceiptFilePath),
                 UserId(user), passwordHash, temporaryPassword, ct);
             var emailStatus = created.TemporaryPassword is not null ? "Pending" : "ExistingAccount";
-            return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, newCustomer ? created.TemporaryPassword : null, emailStatus));
+            // The password travels only by email once SMTP is configured; the screen shows it only in Development without SMTP.
+            var shownPassword = newCustomer && ShowsPasswordOnScreen(environment, email) ? created.TemporaryPassword : null;
+            return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, shownPassword, emailStatus));
         }).RequireAuthorization(policy => policy.RequireRole("Manager"));
 
         api.MapPost("/projects/{id}/resend-credentials", async (string id, IProjectRepository repo, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>

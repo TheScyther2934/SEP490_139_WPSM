@@ -27,6 +27,7 @@ export const PATHS = {
     overdueAlerts: "/admin/overdue-alerts", // A-15
     complaints: "/admin/complaints", // A-16, A-17
     exceptionRequests: "/admin/exception-requests", // A-18
+    accounts: "/admin/accounts", // A-19 (outside the SRS: account management)
   },
 
   manager: {

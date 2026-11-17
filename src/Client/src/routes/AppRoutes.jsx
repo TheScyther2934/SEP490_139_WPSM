@@ -19,6 +19,7 @@ import NotFound from "../pages/errors/NotFound";
 
 import AdminDashboard from "../pages/admin/Dashboard";
 import Catalog from "../pages/admin/Catalog";
+import Accounts from "../pages/admin/Accounts";
 import PriceFrames from "../pages/admin/PriceFrames";
 import Policies from "../pages/admin/Policies";
 import Reports from "../pages/admin/Reports";
@@ -106,6 +107,7 @@ export default function AppRoutes() {
         <Route path="overdue-alerts" element={<AdminOverdueAlerts />} />
         <Route path="complaints" element={<EscalatedComplaints />} />
         <Route path="exception-requests" element={<ExceptionRequests />} />
+        <Route path="accounts" element={<Accounts />} />
         <Route path="*" element={<NotFound />} />
       </Route>
 

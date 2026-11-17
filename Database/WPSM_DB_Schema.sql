@@ -6,7 +6,7 @@
 -- Script is idempotent (safe to re-run); it never drops anything.
 -- ============================================================================
 
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'WPSM_DB')
+IF NOT EXISTS (SELECT name FROM sys.Databases WHERE name = N'WPSM_DB')
     CREATE DATABASE [WPSM_DB];
 GO
 

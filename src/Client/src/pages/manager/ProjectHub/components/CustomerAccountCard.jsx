@@ -20,7 +20,7 @@ export default function CustomerAccountCard({ project }) {
     try {
       const result = await projectService.resendCredentials(project.id);
       setPassword(result.temporaryPassword ?? null);
-      dispatch(notify("Đã xếp lại email thông tin đăng nhập."));
+      dispatch(notify("Đã lưu lại email thông tin đăng nhập."));
     } catch (e) {
       setError(errorMessage(e));
     } finally {

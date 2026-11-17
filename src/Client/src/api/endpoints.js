@@ -31,6 +31,10 @@ export const ENDPOINTS = {
     resolveComplaint: (id) => `/admin/complaints/${id}/resolve`,
     exceptionRequests: "/admin/exception-requests",
     decideException: (id) => `/admin/exception-requests/${id}/decision`,
+    accounts: "/admin/accounts",
+    account: (id) => `/admin/accounts/${id}`,
+    accountStatus: (id) => `/admin/accounts/${id}/status`,
+    accountResetPassword: (id) => `/admin/accounts/${id}/reset-password`,
   },
   customer: {
     dashboard: "/customer/dashboard",

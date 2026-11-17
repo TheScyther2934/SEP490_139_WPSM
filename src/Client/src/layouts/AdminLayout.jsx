@@ -8,6 +8,7 @@ import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import WarningIcon from "@mui/icons-material/Warning";
 import ReportProblemIcon from "@mui/icons-material/ReportProblem";
 import RuleIcon from "@mui/icons-material/Rule";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import TopNavShell from "./TopNavShell";
 import adminTheme, { NAVY } from "../adminTheme";
 import { PATHS } from "../routes/paths";
@@ -24,6 +25,7 @@ const ITEMS = [
   { label: "Cảnh báo quá hạn", icon: WarningIcon, to: A.overdueAlerts },
   { label: "Khiếu nại", icon: ReportProblemIcon, to: A.complaints },
   { label: "Ngoại lệ", icon: RuleIcon, to: A.exceptionRequests },
+  { label: "Tài khoản", icon: ManageAccountsIcon, to: A.accounts },
 ];
 
 export default function AdminLayout() {
