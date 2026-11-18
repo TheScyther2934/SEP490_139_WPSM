@@ -61,7 +61,6 @@ builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<PhotoLinks>();
 // Report 4 use cases added on 2026-11-05 (docs/explain/sds-gaps.md).
 builder.Services.AddSingleton<IPdfGenerator, Infrastructure.Pdf.QuestPdfGenerator>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IManagerWorkRepository, ManagerWorkRepository>();
 builder.Services.AddScoped<IChangeRequestRepository, ChangeRequestRepository>();
 builder.Services.AddScoped<IBeoRepository, BeoRepository>();

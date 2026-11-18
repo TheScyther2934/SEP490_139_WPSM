@@ -7,6 +7,8 @@ namespace API.Endpoints;
 // Entry point for every /api/wpsm endpoint; each feature group lives in its own *Endpoints.cs file.
 public static class WpsmApiEndpoints
 {
+    private const string ProjectsPrefix = "/api/wpsm/projects/";
+
     public static RouteGroupBuilder MapWpsmApi(this WebApplication app)
     {
         var api = app.MapGroup("/api/wpsm");
@@ -19,8 +21,10 @@ public static class WpsmApiEndpoints
                 if (context.User.FindFirstValue("MustChangePassword") == bool.TrueString &&
                     path is not ("/api/wpsm/auth/change-password" or "/api/wpsm/profile"))
                     return Results.Json(new { message = "Vui lòng đổi mật khẩu trước khi sử dụng hệ thống." }, statusCode: 403);
-                if (path.StartsWith("/api/wpsm/projects/", StringComparison.OrdinalIgnoreCase) &&
-                    context.Request.RouteValues["id"] is string code &&
+                // GBR-12: the segment right after /projects/ is always the project code. Route parameter names differ
+                // ({id} vs {projectCode}, and {id:int} can be a task id), so reading RouteValues["id"] rejected valid owners.
+                if (path.StartsWith(ProjectsPrefix, StringComparison.OrdinalIgnoreCase) &&
+                    Uri.UnescapeDataString(path[ProjectsPrefix.Length..].Split('/')[0]) is { Length: > 0 } code &&
                     !await context.RequestServices.GetRequiredService<IProjectRepository>().CanAccessAsync(code, UserId(context.User),
                         context.User.FindFirstValue(ClaimTypes.Role) ?? "", context.RequestAborted))
                     return Results.NotFound(new { message = "Không tìm thấy dự án trong phạm vi tài khoản." });
@@ -41,6 +45,9 @@ public static class WpsmApiEndpoints
         api.MapOverdueAlertEndpoints();
         api.MapManagerDashboardEndpoints();
         api.MapDayOfTaskEndpoints();
+        // Report 4: CR, BEO, project payments, feedback, resources, penalty rules, /manager/work (dropped by the merge with
+        // integrate/merge-all-branches; its duplicate routes were removed from OperationsEndpoints instead).
+        api.MapOperationsEndpoints();
         return api;
     }
 

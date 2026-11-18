@@ -12,7 +12,7 @@ const check = (name, ok, detail = "") => { if (!ok) bad++; console.log(`${ok ? "
   if (!login.ok) throw new Error(`Fixture login failed (${login.status})`);
   const cookie = login.headers.get("set-cookie").split(";")[0];
   const email = "smtp" + Date.now() + "@example.com";
-  const res = await fetch(base + "/projects", { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ coupleName: "SMTP", customerEmail: email, customerPhone: "0900000003", hall: "Sảnh Kim Cương", slot: "Lunch", eventDate: "2027-06-01", baseValue: 100000000, nrdAmount: 30000000, paymentMethod: "Cash" }) });
+  const res = await fetch(base + "/projects", { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie, Authorization: `Bearer ${tokens.accessToken}` }, body: JSON.stringify({ coupleName: "SMTP", customerEmail: email, customerPhone: "0900000003", hall: "Sảnh Kim Cương", slot: "Lunch", eventDate: "2027-06-01", baseValue: 100000000, nrdAmount: 30000000, paymentMethod: "Cash" }) });
   const body = await res.json();
   check("password hidden when SMTP configured", res.status === 201 && body.temporaryPassword === null, res.status);
   check("credential email reported as pending", body.emailStatus === "Pending", body.emailStatus);

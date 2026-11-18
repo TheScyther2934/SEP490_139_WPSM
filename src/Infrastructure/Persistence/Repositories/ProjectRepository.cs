@@ -72,7 +72,7 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
             {
                 Email = command.CustomerEmail.Trim(),
                 FullName = command.CoupleName.Trim(),
-                Phone = command.CustomerPhone.Trim(),
+                Phone = WpsmValueNormalizer.NormalizePhone(command.CustomerPhone), // CK_Users_Phone: digits only
                 Role = "Customer",
                 Status = "Active",
                 MustChangePassword = true,
@@ -100,7 +100,9 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
             EventDate = command.EventDate,
             BaseContractValue = command.BaseValue,
             Nrdamount = command.NrdAmount,
-            Status = "Draft",
+            // UC-17 / CK_Projects_Status: a new project starts in Active Baseline; CurrentTotal = base value until CRs are approved.
+            CurrentTotal = command.BaseValue,
+            Status = "Active Baseline",
             CreatedAt = today
         };
         db.WeddingProjects.Add(project);

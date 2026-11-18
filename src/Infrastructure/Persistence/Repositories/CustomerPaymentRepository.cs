@@ -293,7 +293,10 @@ public sealed class CustomerPaymentRepository(
         var finalStatus = PaymentCalculator.ResolveMilestoneStatus(final?.Status, finalDueDate, today, project.Status, "FINAL");
         var isSettled = string.Equals(project.Status, "Settled", StringComparison.OrdinalIgnoreCase);
 
-        var finalAmount = final?.Amount ?? (isSettled ? Math.Max(0m, summary.CurrentProjectTotal - nrdPaid - t30Paid) : summary.OutstandingBalance);
+        // FINAL is what remains after T-30: an unpaid T-30 must not be counted again in FINAL.
+        var finalAmount = final?.Amount ?? (isSettled
+            ? Math.Max(0m, summary.CurrentProjectTotal - nrdPaid - t30Paid)
+            : Math.Max(0m, summary.OutstandingBalance - (t30Paid > 0 ? 0m : t30Amount)));
         var finalPaid = (isSettled || string.Equals(finalStatus, "Paid", StringComparison.OrdinalIgnoreCase)) ? finalAmount : 0m;
 
         var finalReceiptAvailable = isSettled && (final?.ReceiptContent != null || !string.IsNullOrEmpty(final?.ReceiptFilePath) ||

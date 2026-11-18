@@ -310,6 +310,7 @@ export default function Notifications() {
             return (
               <Card
                 key={n.notificationId}
+                data-notification={n.notificationId}
                 variant="outlined"
                 sx={{
                   position: "relative",

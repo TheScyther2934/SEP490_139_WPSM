@@ -359,6 +359,15 @@ CREATE TABLE dbo.DayOfTasks (
 );
 GO
 
+-- Upgrade databases created before CompletedBy / OverdueFlaggedAt / RowVersion existed (CREATE TABLE above only runs once).
+IF COL_LENGTH(N'dbo.DayOfTasks', N'CompletedBy') IS NULL
+    ALTER TABLE dbo.DayOfTasks ADD CompletedBy INT NULL CONSTRAINT FK_DayOf_CompletedBy REFERENCES dbo.Users(UserId);
+IF COL_LENGTH(N'dbo.DayOfTasks', N'OverdueFlaggedAt') IS NULL
+    ALTER TABLE dbo.DayOfTasks ADD OverdueFlaggedAt DATETIME2(0) NULL;
+IF COL_LENGTH(N'dbo.DayOfTasks', N'RowVersion') IS NULL
+    ALTER TABLE dbo.DayOfTasks ADD RowVersion ROWVERSION NOT NULL;
+GO
+
 -- 20. Execution Photo (1-3 per task that requires proof - enforced by triggers below)
 IF OBJECT_ID(N'dbo.ExecutionPhotos', N'U') IS NULL
 CREATE TABLE dbo.ExecutionPhotos (

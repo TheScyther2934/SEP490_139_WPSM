@@ -299,7 +299,7 @@ const login = async (page, email, password) => {
       await clickButton(page, "Lưu nháp");
       check("M-05 saves the draft", await waitText(page, "Đã lưu đặc tả."));
       await page.goto(`${BASE}/manager/projects/${projectCode}/roadmap`, { waitUntil: "networkidle2" });
-      check("M-06 before freeze explains the roadmap", await waitText(page, "Lộ trình được tạo sau khi baseline được đóng băng."));
+      check("M-06 before freeze explains the roadmap", await waitText(page, "Lộ trình sẽ được tạo tự động sau khi baseline dự án được đóng băng."));
     }
     await page.goto(`${BASE}/manager/projects/KHONG-CO`, { waitUntil: "networkidle2" });
     check("unknown project code shows an error, not a crash", await waitText(page, "Không tìm thấy dự án"));

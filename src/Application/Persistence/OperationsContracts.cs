@@ -3,15 +3,7 @@ namespace Application.Persistence;
 // Contracts for the use cases added from Report 4 (SDS II, IV.2): notifications, Manager work, change requests,
 // BEO, day-of, payments, feedback and resources. Project access (GBR-12) is checked by the /projects/{id} filter.
 
-// ── G-04 Notifications (UC-03) ──────────────────────────────────────────────
-public sealed record NotificationView(int Id, string Type, string Message, string? LinkUrl, bool IsRead, DateTime CreatedAt);
-
-public interface INotificationRepository
-{
-    Task<IReadOnlyList<NotificationView>> GetAsync(int userId, bool unreadOnly, CancellationToken cancellationToken = default);
-    Task<bool> MarkReadAsync(int userId, int notificationId, CancellationToken cancellationToken = default);
-    Task MarkAllReadAsync(int userId, CancellationToken cancellationToken = default);
-}
+// G-04 notifications (UC-03): see INotificationRepository.cs.
 
 // ── M-01, M-06, M-23 Manager work (UC-21, UC-32) ───────────────────────────
 public sealed record ManagerTaskView(int TaskId, string ProjectCode, string CoupleName, string Milestone, string Title, string AssigneeRole,
@@ -123,12 +115,12 @@ public sealed record PaymentLineView(int PaymentId, string Type, string Status, 
 public sealed record PaymentsView(string ProjectCode, string CoupleName, string ProjectStatus, DateOnly EventDate, decimal BaseValue,
     decimal ApprovedCrVariance, decimal CurrentTotal, decimal TotalPaid, decimal Outstanding, IReadOnlyList<PaymentLineView> Payments,
     bool CanRecordFinal, Guid? SettlementReceiptFileId, DateTime? SettledAt);
-public sealed record RecordPaymentCommand(string Type, decimal Amount, string Method, DateOnly PaidDate, byte[]? Receipt, string? ReceiptName);
+public sealed record RecordPaymentLineCommand(string Type, decimal Amount, string Method, DateOnly PaidDate, byte[]? Receipt, string? ReceiptName);
 
 public interface IPaymentRepository
 {
     Task<PaymentsView?> GetAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<PaymentsView?> RecordAsync(string projectCode, int managerId, RecordPaymentCommand command, CancellationToken cancellationToken = default);
+    Task<PaymentsView?> RecordAsync(string projectCode, int managerId, RecordPaymentLineCommand command, CancellationToken cancellationToken = default);
     Task<PaymentsView?> IssueSettlementReceiptAsync(string projectCode, int managerId, CancellationToken cancellationToken = default);
     /// <summary>JOB-02: T-30 payment becomes Due with amount = round(Current Total × T30 ratio) − NRD.</summary>
     Task<int> IssueT30PaymentsAsync(DateOnly today, CancellationToken cancellationToken = default);

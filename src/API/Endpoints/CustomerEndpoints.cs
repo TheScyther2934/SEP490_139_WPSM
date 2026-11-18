@@ -20,7 +20,7 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/photos/{photoId:int}",
-            async (int photoId, WpsmDbContext db, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
+            async (int photoId, WpsmDbContext db, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage, ClaimsPrincipal user, CancellationToken ct) =>
             {
                 var userId = UserId(user);
                 var photo = await db.ExecutionPhotos
@@ -33,7 +33,7 @@ public static class CustomerEndpoints
                 if (photo.DayOfTask.Project.CustomerId != userId)
                     return Results.Forbid();
 
-                return PhotoFile(photo.ImageFilePath, environment);
+                return PhotoFile(photo.ImageFilePath, environment, storage);
             })
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 

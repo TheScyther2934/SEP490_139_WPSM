@@ -34,7 +34,18 @@ public sealed class ManagerPaymentRepository(
         if (project is null) return null;
 
         var today = PaymentCalculator.GetVietnamToday();
-        return BuildOverview(project, today);
+        return BuildOverview(project, today, await GetT30RatioAsync(today, cancellationToken));
+    }
+
+    // Policy T30_RATIO in force today (SDS: T30 required = round(CurrentTotal × ratio) − NRD); 70% when unset.
+    private async Task<decimal> GetT30RatioAsync(DateOnly today, CancellationToken cancellationToken)
+    {
+        var ratio = await db.PolicyConfigs.AsNoTracking()
+            .Where(p => p.PolicyType == "T30_RATIO" && p.EffectiveFrom <= today)
+            .OrderByDescending(p => p.EffectiveFrom)
+            .Select(p => p.RatePercent)
+            .FirstOrDefaultAsync(cancellationToken);
+        return ratio > 0 ? ratio : 70m;
     }
 
     public async Task<RecordPaymentResult> RecordPaymentAsync(
@@ -219,7 +230,7 @@ public sealed class ManagerPaymentRepository(
             var receiptModel = BuildReceiptPdfModel(project, currentTotal, newTotalPaid, managerName, DateTime.UtcNow);
             var receiptPdfBytes = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(receiptModel);
 
-            var settlementStorageKey = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}.pdf";
+            var settlementStorageKey = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}.pdf"; // unique: storage never overwrites
             using var pdfStream = new MemoryStream(receiptPdfBytes);
             await storage.UploadAsync(pdfStream, settlementStorageKey, cancellationToken);
 
@@ -271,7 +282,7 @@ public sealed class ManagerPaymentRepository(
         }
         catch { }
 
-        var updatedOverview = BuildOverview(project, today);
+        var updatedOverview = BuildOverview(project, today, await GetT30RatioAsync(today, cancellationToken));
         return new RecordPaymentResult(
             Success: true,
             Message: $"Ghi nhận thanh toán đợt {canonicalType} ({command.Amount:N0} đ) thành công.",
@@ -319,7 +330,7 @@ public sealed class ManagerPaymentRepository(
         var receiptModel = BuildReceiptPdfModel(project, calc.CurrentProjectTotal, calc.TotalRecordedPayments, managerName, DateTime.UtcNow);
         var receiptPdfBytes = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(receiptModel);
 
-        var settlementStorageKey = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}.pdf";
+        var settlementStorageKey = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}.pdf"; // unique: storage never overwrites
         using var pdfStream = new MemoryStream(receiptPdfBytes);
         await storage.UploadAsync(pdfStream, settlementStorageKey, cancellationToken);
 
@@ -499,7 +510,8 @@ public sealed class ManagerPaymentRepository(
 
     private static ManagerPaymentOverviewView BuildOverview(
         WeddingProject project,
-        DateOnly today)
+        DateOnly today,
+        decimal t30Ratio)
     {
         var crVariance = PaymentCalculator.CalculateApprovedCrVariance(
             project.ChangeRequests.Select(c => (c.Status, c.TotalVariance, c.CostImpact, c.PenaltyFee)));
@@ -528,7 +540,7 @@ public sealed class ManagerPaymentRepository(
             IsSettled: isSettled
         );
 
-        var milestones = BuildMilestones(project, summary, today);
+        var milestones = BuildMilestones(project, summary, today, t30Ratio);
         var history = BuildHistory(project);
         var settlement = BuildSettlementCalculation(project, today);
 
@@ -538,7 +550,8 @@ public sealed class ManagerPaymentRepository(
     private static IReadOnlyList<ManagerPaymentMilestoneView> BuildMilestones(
         WeddingProject project,
         ManagerPaymentSummaryView summary,
-        DateOnly today)
+        DateOnly today,
+        decimal t30Ratio)
     {
         var payments = project.Payments.ToList();
         var nrdPayment = payments.FirstOrDefault(p => string.Equals(p.PaymentType, "NRD", StringComparison.OrdinalIgnoreCase));
@@ -550,13 +563,16 @@ public sealed class ManagerPaymentRepository(
         var nrdPaid = nrdPayment?.Amount ?? project.Nrdamount;
         var nrdStatus = PaymentCalculator.ResolveMilestoneStatus(nrdPayment?.Status ?? "Paid", project.EventDate.AddDays(-90), today, project.Status, "NRD");
 
-        var t30Amount = t30Payment?.Amount ?? PaymentCalculator.CalculateT30Amount(summary.BaseContractValue, nrdPaid);
+        // T-30 follows the current total (base + approved CRs), not the original base value.
+        var t30Amount = t30Payment?.Amount ?? Math.Round(
+            PaymentCalculator.CalculateT30Amount(summary.CurrentProjectTotal, nrdPaid, t30Ratio), 0, MidpointRounding.AwayFromZero);
         var t30PaidAmount = t30Payment?.Status == "Paid" ? (t30Payment.Amount ?? 0m) : 0m;
         var t30DueDate = t30Payment?.DueDate ?? project.EventDate.AddDays(-30);
         var t30Status = PaymentCalculator.ResolveMilestoneStatus(t30Payment?.Status, t30DueDate, today, project.Status, "T30");
 
         var finalDueDate = project.EventDate;
-        var finalAmount = finalPayment?.Amount ?? summary.OutstandingBalance;
+        // FINAL is what remains after T-30: an unpaid T-30 must not be counted again in FINAL.
+        var finalAmount = finalPayment?.Amount ?? Math.Max(0m, summary.OutstandingBalance - (t30PaidAmount > 0 ? 0m : t30Amount));
         var finalPaidAmount = finalPayment?.Status == "Paid" ? (finalPayment.Amount ?? 0m) : 0m;
         var finalStatus = summary.IsSettled || (finalPayment?.Status == "Paid")
             ? "Paid"

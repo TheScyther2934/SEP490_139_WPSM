@@ -27,8 +27,8 @@ public static class AdminEndpoints
             Results.Ok((await repo.GetPhotosAsync(new PhotoFeedFilter(projectCode, hallId, taskStatus, date), ct)).Select(p => p with { ImageUrl = links.Url(p.PhotoId) })));
         admin.MapGet("/photos/{photoId:int}", async (int photoId, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
             await repo.GetPhotoAsync(photoId, ct) is { } photo ? Results.Ok(photo with { ImageUrl = links.Url(photo.PhotoId) }) : Results.NotFound());
-        admin.MapGet("/photos/{photoId:int}/content", async (int photoId, IAdminRepository repo, IWebHostEnvironment environment, CancellationToken ct) =>
-            await repo.GetPhotoPathAsync(photoId, ct) is { } path ? PhotoFile(path, environment) : Results.NotFound());
+        admin.MapGet("/photos/{photoId:int}/content", async (int photoId, IAdminRepository repo, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage, CancellationToken ct) =>
+            await repo.GetPhotoPathAsync(photoId, ct) is { } path ? PhotoFile(path, environment, storage) : Results.NotFound());
         admin.MapGet("/overdue-alerts", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetOverdueAlertsAsync(ct)));
         admin.MapGet("/complaints", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetEscalatedComplaintsAsync(ct)));
         admin.MapPost("/complaints/{complaintId:int}/resolve", async (int complaintId, ResolveComplaintRequest request, IAdminRepository repo, ClaimsPrincipal user, CancellationToken ct) =>

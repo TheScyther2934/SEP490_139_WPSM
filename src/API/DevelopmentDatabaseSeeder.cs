@@ -73,14 +73,17 @@ public sealed class DevelopmentDatabaseSeeder(
         await db.SaveChangesAsync(cancellationToken);
 
         var manager = await db.Users.FirstAsync(x => x.Email == configuration["Wpsm:Seed:Manager:Email"], cancellationToken);
-        var catalogEntities = await db.ServiceCatalogItems.Where(x => x.Status == "Active").ToListAsync(cancellationToken);
+        var catalogEntities = await db.ServiceCatalogItems.Where(x => x.Status == "Active").OrderBy(x => x.ItemId).ToListAsync(cancellationToken);
+        var priceFrames = await db.PriceFrames.AsNoTracking().Where(x => x.EffectiveFrom <= today)
+            .GroupBy(x => x.ItemId).Select(g => g.OrderByDescending(x => x.EffectiveFrom).First())
+            .ToDictionaryAsync(x => x.ItemId, cancellationToken);
 
         var sampleProjects = new[]
         {
             new ProjectSeed("WPSM-2026-014", "Nguyễn Minh Anh & Trần Thu Hà", "minhanh.wedding@gmail.com", "0912345678", "Sảnh Hoàng Gia", "Evening", new DateOnly(2026, 12, 20), 185_000_000m, 55_500_000m, "Baseline Frozen"),
-            new ProjectSeed("WPSM-2025-008", "Nguyễn Bảo Long & Trần Phương Linh", "long.nguyenbaolong@gmail.com", "0908123456", "Sảnh Kim Cương", "Evening", new DateOnly(2025, 12, 28), 210_000_000m, 63_000_000m, "Active Baseline"),
-            new ProjectSeed("WPSM-2025-019", "Lê Hoàng Nam & Vũ Hoài Phương", "nam.lehoang@corp.vn", "0934567890", "Sảnh Pha Lê", "Lunch", new DateOnly(2025, 12, 15), 160_000_000m, 48_000_000m, "Active Baseline"),
-            new ProjectSeed("WPSM-2025-002", "Phạm Tuấn & Đỗ Lan Hương", "tuanlan.wedding25@yahoo.com", "0987654321", "Sảnh Vườn Ngọc", "Evening", new DateOnly(2025, 11, 10), 140_000_000m, 42_000_000m, "Active Baseline"),
+            new ProjectSeed("WPSM-2025-008", "Nguyễn Bảo Long & Trần Phương Linh", "long.nguyenbaolong@gmail.com", "0908123456", "Sảnh Kim Cương", "Evening", new DateOnly(2027, 1, 16), 210_000_000m, 63_000_000m, "Active Baseline"),
+            new ProjectSeed("WPSM-2025-019", "Lê Hoàng Nam & Vũ Hoài Phương", "nam.lehoang@corp.vn", "0934567890", "Sảnh Pha Lê", "Lunch", new DateOnly(2027, 1, 30), 160_000_000m, 48_000_000m, "Active Baseline"),
+            new ProjectSeed("WPSM-2025-002", "Phạm Tuấn & Đỗ Lan Hương", "tuanlan.wedding25@yahoo.com", "0987654321", "Sảnh Vườn Ngọc", "Evening", new DateOnly(2027, 1, 23), 140_000_000m, 42_000_000m, "Active Baseline"),
             new ProjectSeed("WPSM-2025-001", "Trần Văn An & Lê Mai Chi", "anchi.tran@gmail.com", "0971234567", "Sảnh Kim Cương", "Evening", new DateOnly(2025, 10, 25), 195_000_000m, 58_500_000m, "Event Completed"),
             new ProjectSeed("WPSM-2025-011", "Hoàng Quốc Bảo & Phạm Thảo Linh", "baolinh2025@outlook.com", "0962345678", "Sảnh Pha Lê", "Evening", new DateOnly(2025, 10, 5), 175_000_000m, 52_500_000m, "Settled"),
             new ProjectSeed("WPSM-2025-004", "Đặng Tuấn Kiệt & Bùi Thúy Hạnh", "kiethanh.wedding@gmail.com", "0943210987", "Sảnh Hoàng Gia", "Lunch", new DateOnly(2025, 9, 18), 220_000_000m, 66_000_000m, "Closed")
@@ -130,27 +133,20 @@ public sealed class DevelopmentDatabaseSeeder(
                     EventDate = p.EventDate,
                     BaseContractValue = p.BaseValue,
                     Nrdamount = p.Nrd,
+                    CurrentTotal = p.BaseValue,
                     Status = p.Status,
+                    // CK_Projects_Frozen: every status after Active Baseline needs the freeze time.
+                    BaselineFrozenAt = p.Status == "Active Baseline" ? null : p.EventDate.ToDateTime(new TimeOnly(9, 0)).AddDays(-35),
                     CreatedAt = p.EventDate.ToDateTime(new TimeOnly(9, 0)).AddDays(-100)
                 };
                 db.WeddingProjects.Add(project);
                 await db.SaveChangesAsync(cancellationToken);
             }
 
-            foreach (var item in catalogEntities)
-            {
-                if (await db.SpecItems.AnyAsync(x => x.ProjectId == project.ProjectId && x.CatalogItemId == item.ItemId && x.Version == 1, cancellationToken)) continue;
-                db.SpecItems.Add(new SpecItem
-                {
-                    ProjectId = project.ProjectId,
-                    CatalogItemId = item.ItemId,
-                    Description = item.Name,
-                    Quantity = item.Category == "Catering" ? 30 : 1,
-                    UnitPrice = item.DefaultPrice,
-                    IsBaseline = true,
-                    Version = 1
-                });
-            }
+            // Seed the baseline only once: the seeder runs on every start, and catalog items added later
+            // must not leak into existing (possibly frozen or settled) specifications.
+            if (!await db.SpecItems.AnyAsync(x => x.ProjectId == project.ProjectId, cancellationToken))
+                db.SpecItems.AddRange(BuildSampleSpecification(project.ProjectId, p.BaseValue, catalogEntities, priceFrames));
 
             if (!await db.Payments.AnyAsync(x => x.ProjectId == project.ProjectId && x.PaymentType == "NRD", cancellationToken))
             db.Payments.Add(new Payment
@@ -400,5 +396,52 @@ public sealed class DevelopmentDatabaseSeeder(
 
     private sealed record HallSeed(string Name, int Minimum, int Maximum, decimal BasePrice);
     private sealed record CatalogSeed(string Name, string Category, string Unit, decimal Price);
+    // Core combo (Hall, Decor, MC, AV at default price) plus one catering line whose tables × unit price
+    // fills the rest, so the baseline total equals the contract value and stays inside the PriceFrame.
+    private static IEnumerable<SpecItem> BuildSampleSpecification(int projectId, decimal baseValue,
+        IReadOnlyList<ServiceCatalogItem> catalog, IReadOnlyDictionary<int, PriceFrame> frames)
+    {
+        var lines = new List<SpecItem>();
+        foreach (var category in new[] { "Hall", "Decor", "MC", "AV" })
+        {
+            var item = catalog.FirstOrDefault(x => x.Category == category);
+            if (item is null) continue;
+            lines.Add(new SpecItem { ProjectId = projectId, CatalogItemId = item.ItemId, Description = item.Name, Quantity = 1, UnitPrice = item.DefaultPrice, IsBaseline = true, Version = 1 });
+        }
+
+        var catering = catalog.FirstOrDefault(x => x.Category == "Catering");
+        if (catering is null) return lines;
+
+        // Preferred: keep the default menu price and move the hall rental (inside its PriceFrame) so tables come out whole.
+        var hall = lines.FirstOrDefault(x => catalog.First(c => c.ItemId == x.CatalogItemId).Category == "Hall");
+        if (hall is not null && catering.DefaultPrice > 0 && frames.TryGetValue(hall.CatalogItemId, out var hallFrame))
+        {
+            var others = lines.Where(x => x != hall).Sum(x => x.UnitPrice);
+            for (var step = 0m; step <= hallFrame.MaxPrice - hallFrame.MinPrice; step += 500_000m)
+            foreach (var hallPrice in new[] { hall.UnitPrice - step, hall.UnitPrice + step })
+            {
+                if (hallPrice < hallFrame.MinPrice || hallPrice > hallFrame.MaxPrice) continue;
+                var remaining = baseValue - others - hallPrice;
+                if (remaining <= 0 || remaining % catering.DefaultPrice != 0) continue;
+                hall.UnitPrice = hallPrice;
+                lines.Add(new SpecItem { ProjectId = projectId, CatalogItemId = catering.ItemId, Description = catering.Name, Quantity = (int)(remaining / catering.DefaultPrice), UnitPrice = catering.DefaultPrice, IsBaseline = true, Version = 1 });
+                return lines;
+            }
+        }
+
+        var rest = baseValue - lines.Sum(x => x.UnitPrice);
+        var min = frames.TryGetValue(catering.ItemId, out var f) ? f.MinPrice : catering.DefaultPrice * 0.8m;
+        var max = f?.MaxPrice ?? catering.DefaultPrice * 1.2m;
+        int tables = 0; decimal price = 0;
+        for (var n = (int)Math.Ceiling(rest / max); min > 0 && n <= (int)Math.Floor(rest / min); n++)
+        {
+            if (n <= 0 || rest % n != 0 || (rest / n) % 1000 != 0) continue;
+            if (tables == 0 || Math.Abs(rest / n - catering.DefaultPrice) < Math.Abs(price - catering.DefaultPrice)) { tables = n; price = rest / n; }
+        }
+        if (tables == 0) { tables = Math.Max(1, (int)Math.Round(rest / catering.DefaultPrice)); price = catering.DefaultPrice; }
+        lines.Add(new SpecItem { ProjectId = projectId, CatalogItemId = catering.ItemId, Description = catering.Name, Quantity = tables, UnitPrice = price, IsBaseline = true, Version = 1 });
+        return lines;
+    }
+
     private sealed record ProjectSeed(string Code, string Couple, string Email, string Phone, string Hall, string Slot, DateOnly EventDate, decimal BaseValue, decimal Nrd, string Status);
 }

@@ -24,7 +24,6 @@ public static class OperationsEndpoints
 
     public static RouteGroupBuilder MapOperationsEndpoints(this RouteGroupBuilder api)
     {
-        MapNotifications(api);
         MapManagerWork(api);
         MapChangeRequests(api);
         MapBeoAndDayOf(api);
@@ -38,28 +37,12 @@ public static class OperationsEndpoints
     private static string Role(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Role) ?? "";
     private static IResult OkOrNotFound(object? value) => value is null ? Results.NotFound() : Results.Ok(value);
 
-    private static void MapNotifications(RouteGroupBuilder api)
-    {
-        var group = api.MapGroup("/notifications").RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
-        group.MapGet("", async (bool? unread, INotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            Results.Ok(await repo.GetAsync(UserId(user), unread == true, ct)));
-        group.MapPost("/{notificationId:int}/read", async (int notificationId, INotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.MarkReadAsync(UserId(user), notificationId, ct) ? Results.NoContent() : Results.NotFound());
-        group.MapPost("/read-all", async (INotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-        {
-            await repo.MarkAllReadAsync(UserId(user), ct);
-            return Results.NoContent();
-        });
-    }
-
     private static void MapManagerWork(RouteGroupBuilder api)
     {
         var manager = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Manager"));
         manager.MapGet("/manager/work", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetWorkAsync(UserId(user), ct)));
-        manager.MapGet("/manager/overdue-alerts", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetOverdueAsync(UserId(user), ct)));
-        manager.MapGet("/projects/{id}/roadmap/tasks", async (string id, IManagerWorkRepository repo, CancellationToken ct) => Results.Ok(await repo.GetRoadmapAsync(id, ct)));
-        manager.MapPost("/projects/{id}/roadmap/tasks/{taskId:int}/complete", async (string id, int taskId, IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.CompleteTaskAsync(id, taskId, UserId(user), ct) ? Results.NoContent() : Results.NotFound());
+        // /manager/overdue-alerts and /projects/{id}/roadmap/tasks[/{taskId}/complete] are served by OverdueAlertEndpoints and
+        // ManagerRoadmapEndpoints since the merge with integrate/merge-all-branches (duplicate routes are ambiguous at runtime).
     }
 
     private static void MapChangeRequests(RouteGroupBuilder api)
@@ -122,14 +105,13 @@ public static class OperationsEndpoints
 
     private static void MapPayments(RouteGroupBuilder api)
     {
-        api.MapGet("/projects/{id}/payments", async (string id, IPaymentRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)))
-            .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
+        // GET /projects/{id}/payments is served by ManagerPaymentEndpoints (M-14 page); a second GET was ambiguous at runtime.
         api.MapPost("/projects/{id}/payments", async (string id, [FromForm] string type, [FromForm] decimal amount, [FromForm] string method, [FromForm] DateOnly paidDate,
             IFormFile? receipt, IPaymentRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
         {
             if (receipt is { Length: > 10 * 1024 * 1024 }) return Results.BadRequest(new { message = "Chỉ chấp nhận tệp JPG, PNG hoặc PDF, tối đa 10 MB (MSG17)." });
             var bytes = receipt is { Length: > 0 } ? await ReadAsync(receipt, ct) : null;
-            return OkOrNotFound(await repo.RecordAsync(id, UserId(user), new RecordPaymentCommand(type, amount, method, paidDate, bytes, receipt?.FileName), ct));
+            return OkOrNotFound(await repo.RecordAsync(id, UserId(user), new RecordPaymentLineCommand(type, amount, method, paidDate, bytes, receipt?.FileName), ct));
         }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
         api.MapPost("/projects/{id}/payments/settlement-receipt", async (string id, IPaymentRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.IssueSettlementReceiptAsync(id, UserId(user), ct)))
