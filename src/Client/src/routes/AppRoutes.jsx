@@ -39,6 +39,7 @@ import ProjectHub from "../pages/manager/ProjectHub";
 import Specification from "../pages/manager/Specification";
 import ManagerRoadmap from "../pages/manager/Roadmap";
 import ManagerChangeRequests from "../pages/manager/ChangeRequests";
+import ManagerCreateChangeRequest from "../pages/manager/CreateChangeRequest";
 import ManagerChangeRequestDetail from "../pages/manager/ChangeRequestDetail";
 import CostImpact from "../pages/manager/CostImpact";
 import Beo from "../pages/manager/Beo";
@@ -86,7 +87,7 @@ export default function AppRoutes() {
 
       <Route element={<RequireRole><RoleLayout /></RequireRole>}>
         <Route path="/profile" element={<Profile />} />
-        <Route path="/notifications" element={<RequireRole roles={[ROLES.MANAGER, ROLES.CUSTOMER]}><Notifications /></RequireRole>} />
+        <Route path="/notifications" element={<RequireRole roles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.CUSTOMER]}><Notifications /></RequireRole>} />
         <Route path="/403" element={<Forbidden />} />
       </Route>
 
@@ -121,6 +122,7 @@ export default function AppRoutes() {
           <Route path="specification" element={<Specification />} />
           <Route path="roadmap" element={<ManagerRoadmap />} />
           <Route path="change-requests" element={<ManagerChangeRequests />} />
+          <Route path="change-requests/new" element={<ManagerCreateChangeRequest />} />
           <Route path="change-requests/:crCode" element={<ManagerChangeRequestDetail />} />
           <Route path="change-requests/:crCode/cost-impact" element={<CostImpact />} />
           <Route path="beo" element={<Beo />} />

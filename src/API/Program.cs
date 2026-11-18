@@ -56,14 +56,19 @@ builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository
 builder.Services.AddScoped<IManagerRoadmapRepository, ManagerRoadmapRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
+builder.Services.AddScoped<IChangeRequestRepository, ChangeRequestRepository>();
+builder.Services.AddScoped<IResourceCalendarRepository, ResourceCalendarRepository>();
+builder.Services.AddScoped<IComplaintRatingRepository, ComplaintRatingRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<PhotoLinks>();
 // Report 4 use cases added on 2026-11-05 (docs/explain/sds-gaps.md).
 builder.Services.AddSingleton<IPdfGenerator, Infrastructure.Pdf.QuestPdfGenerator>();
+builder.Services.AddScoped<IOperationsNotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IManagerWorkRepository, ManagerWorkRepository>();
-builder.Services.AddScoped<IChangeRequestRepository, ChangeRequestRepository>();
+builder.Services.AddScoped<IOperationsChangeRequestRepository, OperationsChangeRequestRepository>();
 builder.Services.AddScoped<IBeoRepository, BeoRepository>();
+builder.Services.AddScoped<IOperationsBeoRepository, OperationsBeoRepository>();
 builder.Services.AddScoped<IDayOfRepository, DayOfRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
@@ -113,6 +118,7 @@ builder.Services.AddScoped<IEmailOutbox, EmailOutbox>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
 builder.Services.AddScoped<EmailDispatchJob>();
+builder.Services.AddScoped<BeoCompilationJob>();
 builder.Services.AddScoped<IRoadmapReminderService, RoadmapReminderService>();
 builder.Services.AddScoped<SendRoadmapMilestoneRemindersJob>();
 builder.Services.AddScoped<IT30PaymentRequestService, T30PaymentRequestService>();
@@ -220,11 +226,7 @@ if (backgroundJobsEnabled)
         job => job.RunAsync(CancellationToken.None),
         "0 7 * * *",
         new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
-    recurringJobs.AddOrUpdate<FinalSettlementJob>(
-        "job-06-final-settlement",
-        job => job.RunAsync(CancellationToken.None),
-        "0 1 * * *",
-        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<BeoCompilationJob>("job-03-compile-beo-draft", job => job.RunAsync(CancellationToken.None), "0 7 * * *");
     recurringJobs.AddOrUpdate<LoadDayOfTimelineJob>(
         "job-04-load-day-of-timeline",
         job => job.ExecuteAsync(),
@@ -234,6 +236,11 @@ if (backgroundJobsEnabled)
         "job-05-detect-overdue-tasks",
         job => job.RunAsync(CancellationToken.None),
         "*/1 * * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<FinalSettlementJob>(
+        "job-06-final-settlement",
+        job => job.RunAsync(CancellationToken.None),
+        "0 1 * * *",
         new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
 }
 

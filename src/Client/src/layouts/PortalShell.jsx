@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   AppBar, Avatar, Badge, Box, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText,
@@ -51,15 +51,29 @@ export default function PortalShell({ brand, sections, header }) {
       <Box component="nav" aria-label="Điều hướng chính" sx={{ flex: 1, overflowY: "auto" }}>
         {sections.map((section, index) => (
           <List key={section.title ?? index} subheader={section.title && <ListSubheader sx={{ bgcolor: "transparent" }}>{section.title}</ListSubheader>}>
-            {section.items.map(({ label, icon: Icon, to, end }) => {
+            {section.items.map(({ label, icon: Icon, to, end, exclude, isActive: customIsActive }) => {
               const isNotificationItem = to === PATHS.notifications;
+              const currentPath = location.pathname.endsWith("/") && location.pathname.length > 1
+                ? location.pathname.slice(0, -1)
+                : location.pathname;
+              const isExcluded = () => {
+                if (!exclude) return false;
+                if (typeof exclude === "function") return exclude(currentPath);
+                if (Array.isArray(exclude)) return exclude.some((prefix) => currentPath.startsWith(prefix));
+                if (typeof exclude === "string") return currentPath.startsWith(exclude);
+                return false;
+              };
+              const active = customIsActive
+                ? customIsActive(currentPath)
+                : !isExcluded() && (end ? currentPath === to : currentPath === to || currentPath.startsWith(to + "/"));
+
               return (
                 <ListItemButton
                   key={to}
-                  component={NavLink}
+                  component={Link}
                   to={to}
-                  end={end}
                   onClick={() => setMobileOpen(false)}
+                  className={active ? "active" : ""}
                   sx={{ mx: 1, borderRadius: 2, "&.active": { bgcolor: "primary.main", color: "primary.contrastText", "& .MuiListItemIcon-root": { color: "inherit" } } }}
                 >
                   <ListItemIcon sx={{ minWidth: 40 }}>

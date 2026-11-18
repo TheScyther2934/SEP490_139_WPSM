@@ -17,6 +17,34 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
 public sealed record ResolveComplaintRequest(string Decision);
 public sealed record ExceptionDecisionRequest(bool Approve, string Note);
+
+// FE-05: C-06 ticket body and the M-08 negotiation bodies.
+public sealed record CrSaveRequest(string Type, string Description, IReadOnlyList<CrLineCommand>? Items, bool Submit = false);
+public sealed record CrCounterRequest(IReadOnlyList<CrLineCommand>? Items, string? Note = null);
+public sealed record CrApproveRequest(string? Note = null);
+public sealed record CrRejectRequest(string Reason);
+public sealed record CrExceptionRequest(string Note);
+
+// FE-07: M-21 allocation dialog and the M-22 exception request.
+public sealed record ResourceAllocationRequest(int ResourceId, int ProjectId, DateTime StartTime, DateTime EndTime, int Quantity,
+    bool RequestException = false, string? ExceptionNote = null);
+public sealed record ResourceExceptionRequest(string Note);
+
+// Iteration 2 (FE-06): Change Requests, Cost Impact & Addendum (C-06, C-07, C-08, M-09)
+public sealed record CreateCustomerCrRequest(string? ProjectCode, string Type, string Description, IReadOnlyList<CreateCrItemInput> Items);
+public sealed record CustomerCrDecisionRequest(string Action, string? Note = null);
+public sealed record GenerateAddendumRequest(Guid? SignedFileId = null, string? Note = null);
+public sealed record AttachSignedAddendumRequest(Guid FileId);
+
+// Iteration 3 (FE-04): BEO & Department Sheets (M-10, M-11, M-12)
+public sealed record SaveBeoRequest(string? Notes = null);
+
+// Iteration 4 (FE-11): Post-event Ratings & Complaints (C-12..C-16, M-18..M-20)
+public sealed record SubmitRatingsRequest(string? ProjectCode, IReadOnlyList<ModuleRatingInput> Ratings);
+public sealed record CreateComplaintRequest(string? ProjectCode, int? BeoId, string Description);
+public sealed record ManagerComplaintActionRequest(string Action, string Note);
+
+// longtb: Manager task completion with proof photos.
 public sealed record CompleteManagerTaskRequest(IReadOnlyList<string>? ProofPhotoPaths = null);
 public sealed record AccountRequest(string FullName, string Email, string? Phone, string Role);
 public sealed record AccountStatusRequest(bool Active);

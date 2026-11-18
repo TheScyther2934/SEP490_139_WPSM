@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace Infrastructure.Persistence.Entities;
@@ -10,6 +10,8 @@ public partial class Critem
     public int Crid { get; set; }
 
     public int TargetSpecItemId { get; set; }
+
+    public int? CatalogItemId { get; set; }
 
     public int OldQuantity { get; set; }
 
@@ -24,4 +26,6 @@ public partial class Critem
     public virtual ChangeRequest Cr { get; set; } = null!;
 
     public virtual SpecItem TargetSpecItem { get; set; } = null!;
+
+    public virtual ServiceCatalogItem? CatalogItem { get; set; }
 }

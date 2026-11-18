@@ -60,7 +60,7 @@ public sealed class OperationsJobsTests : IDisposable
     {
         // The job paths never touch files or PDFs; those dependencies stay unset.
         var outbox = new EmailOutbox(_db);
-        return new OperationsJobs(_db, new BeoRepository(_db, null!, null!), new DayOfRepository(_db, null!),
+        return new OperationsJobs(_db, new OperationsBeoRepository(_db, null!, null!), new DayOfRepository(_db, null!),
             new PaymentRepository(_db, null!, null!, outbox), outbox, NullLogger<OperationsJobs>.Instance);
     }
 

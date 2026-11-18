@@ -47,14 +47,14 @@ public static class OperationsSupport
             .OrderByDescending(x => x.EffectiveFrom).Select(x => (decimal?)x.RatePercent).FirstOrDefaultAsync(cancellationToken) ?? fallback;
 
     /// <summary>GBR-03: price delta, T-day penalty on |delta|, total impact. Deterministic; rounding midpoint away from zero.</summary>
-    public static CrCostView Cost(IEnumerable<(int OldQuantity, decimal OldUnitPrice, int NewQuantity, decimal NewUnitPrice)> items, DateOnly eventDate,
+    public static OpCrCostView Cost(IEnumerable<(int OldQuantity, decimal OldUnitPrice, int NewQuantity, decimal NewUnitPrice)> items, DateOnly eventDate,
         DateOnly onDate, IReadOnlyList<PolicyConfig> rules, bool waived, decimal currentTotal)
     {
         var delta = items.Sum(x => x.NewQuantity * x.NewUnitPrice - x.OldQuantity * x.OldUnitPrice);
         var tDay = eventDate.DayNumber - onDate.DayNumber;
         var rate = rules.FirstOrDefault(x => (x.TdayMin ?? 0) <= tDay && tDay <= (x.TdayMax ?? int.MaxValue))?.RatePercent ?? 0m;
         var fee = waived ? 0m : Math.Round(Math.Abs(delta) * rate / 100m, 0, MidpointRounding.AwayFromZero);
-        return new CrCostView(delta, tDay, rate, fee, waived, delta + fee, currentTotal, currentTotal + delta + fee);
+        return new OpCrCostView(delta, tDay, rate, fee, waived, delta + fee, currentTotal, currentTotal + delta + fee);
     }
 
     /// <summary>SDS IV.4.3: day-of deadlines as minutes before the slot start; used by the BEO timeline and JOB-04.</summary>

@@ -24,8 +24,9 @@ const PAYMENT = {
   Upcoming: { label: "Chưa đến hạn", color: "default" },
   Overdue: { label: "Quá hạn", color: "error" },
 };
-const CR = {
-  Draft: { label: "Nháp", color: "default" },
+// FE-05: CR tickets (C-05, C-07, M-07, M-08).
+const CHANGE_REQUEST = {
+  Draft: { label: "Bản nháp", color: "default" },
   Negotiating: { label: "Đang thương lượng", color: "warning" },
   Approved: { label: "Đã duyệt", color: "success" },
   Rejected: { label: "Đã từ chối", color: "error" },
@@ -41,12 +42,14 @@ const COMPLAINT = {
   Escalated: { label: "Đã chuyển Admin", color: "error" },
   Resolved: { label: "Đã giải quyết", color: "success" },
 };
+// FE-07: resource allocations (M-21, M-22).
 const ALLOCATION = {
-  Reserved: { label: "Đã giữ chỗ", color: "primary" },
-  "Exception Approved": { label: "Ngoại lệ được duyệt", color: "success" },
-  Released: { label: "Đã giải phóng", color: "default" },
+  Reserved: { label: "Đã giữ", color: "success" },
+  PendingException: { label: "Chờ Admin ngoại lệ", color: "warning" },
+  "Exception Approved": { label: "Ngoại lệ đã duyệt", color: "info" },
+  Released: { label: "Đã thu hồi", color: "default" },
 };
-const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT, cr: CR, beo: BEO, complaint: COMPLAINT, allocation: ALLOCATION };
+const KINDS = { project: PROJECT, task: TASK, exception: EXCEPTION, payment: PAYMENT, cr: CHANGE_REQUEST, beo: BEO, complaint: COMPLAINT, allocation: ALLOCATION };
 
 export const statusLabel = (kind, status) => KINDS[kind]?.[status]?.label ?? status;
 

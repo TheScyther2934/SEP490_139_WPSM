@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence.Entities;
 
 namespace Infrastructure.Persistence;
@@ -53,6 +53,7 @@ public partial class WpsmDbContext
             entity.HasOne(d => d.Cr).WithMany().HasForeignKey(d => d.Crid).OnDelete(DeleteBehavior.ClientSetNull);
             entity.HasOne(d => d.Allocation).WithMany().HasForeignKey(d => d.AllocationId).OnDelete(DeleteBehavior.ClientSetNull);
             entity.HasOne(d => d.RequestedByNavigation).WithMany().HasForeignKey(d => d.RequestedBy).OnDelete(DeleteBehavior.ClientSetNull);
+            entity.HasOne(d => d.DecisionByNavigation).WithMany().HasForeignKey(d => d.DecisionBy).OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<StoredFile>(entity =>

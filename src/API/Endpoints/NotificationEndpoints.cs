@@ -10,7 +10,7 @@ public static class NotificationEndpoints
     public static RouteGroupBuilder MapNotificationEndpoints(this RouteGroupBuilder api)
     {
         var notifications = api.MapGroup("/notifications")
-            .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
+            .RequireAuthorization(policy => policy.RequireRole("Admin", "Manager", "Customer"));
 
         // GET /api/wpsm/notifications?filter=All&page=1&pageSize=20
         notifications.MapGet("", async (

@@ -14,8 +14,8 @@ const SECTIONS = [
     title: "Điều hành vận hành",
     items: [
       { label: "Tổng quan", icon: DashboardIcon, to: M.dashboard },
-      // `end` is false so the item stays active inside a project.
-      { label: "Dự án", icon: FolderSpecialIcon, to: M.projects },
+      // `end` is false so the item stays active inside a project; exclude `M.newProject` so both aren't highlighted together.
+      { label: "Dự án", icon: FolderSpecialIcon, to: M.projects, exclude: M.newProject },
       { label: "Khởi tạo hợp đồng", icon: AddCircleIcon, to: M.newProject },
       { label: "Lịch tài nguyên", icon: CalendarMonthIcon, to: M.resourceCalendar },
       { label: "Cảnh báo quá hạn", icon: WarningIcon, to: M.overdueAlerts },

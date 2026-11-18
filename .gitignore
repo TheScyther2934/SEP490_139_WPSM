@@ -95,6 +95,10 @@ yarn-error.log*
 # Compiled CSS from Sass/Tailwind (uncomment if built in CI, keep tracked if not)
 # wwwroot/css/site.css
 # wwwroot/lib/
+# Built React client served by the API (src/Client -> src/API/wwwroot). Regenerate with `npm run build`;
+# only .gitkeep stays so the folder exists for a Development start (static web assets manifest).
+src/API/wwwroot/*
+!src/API/wwwroot/.gitkeep
 
 # --- Tools ---
 tools/tailwindcss*.exe

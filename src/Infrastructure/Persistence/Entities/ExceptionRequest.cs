@@ -35,4 +35,6 @@ public class ExceptionRequest
     public virtual ResourceAllocation? Allocation { get; set; }
 
     public virtual User RequestedByNavigation { get; set; } = null!;
+
+    public virtual User? DecisionByNavigation { get; set; }
 }

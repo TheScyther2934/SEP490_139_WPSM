@@ -77,6 +77,65 @@ public static class CustomerEndpoints
             })
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
+        // C-06, C-07, C-08: Customer CR list, Create CR, Cost Impact detail & Approve / Reject / Request Adjustment (UC-08, UC-09, UC-10)
+        api.MapGet("/customer/change-requests",
+            async (string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.GetProjectChangeRequestsAsync(projectCode, UserId(user), "Customer", ct) is { } crs ? Results.Ok(crs) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapGet("/customer/change-requests/creation-context",
+            async (string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.GetCrCreationContextAsync(projectCode, UserId(user), ct) is { } ctx ? Results.Ok(ctx) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapPost("/customer/change-requests",
+            async (CreateCustomerCrRequest request, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                Results.Created("/api/wpsm/customer/change-requests",
+                    await repo.CreateCustomerChangeRequestAsync(UserId(user), request.ProjectCode, request.Type, request.Description, request.Items, ct)))
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapGet("/customer/change-requests/{crCode}",
+            async (string crCode, string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.GetCostImpactAsync(projectCode, crCode, UserId(user), "Customer", ct) is { } cr ? Results.Ok(cr) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapPost("/customer/change-requests/{crCode}/decision",
+            async (string crCode, CustomerCrDecisionRequest request, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.DecideCustomerCrAsync(crCode, UserId(user), request.Action, request.Note, ct) is { } cr ? Results.Ok(cr) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        // C-12, C-13: Post-event summary & Rate Services (UC-14, GBR-10, MSG16/26)
+        api.MapGet("/customer/post-event",
+            async (string? projectCode, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.GetPostEventSummaryAsync(UserId(user), projectCode, ct) is { } summary ? Results.Ok(summary) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapPost("/customer/ratings",
+            async (SubmitRatingsRequest request, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.SubmitRatingsAsync(UserId(user), request.ProjectCode, request.Ratings, ct) is { } summary ? Results.Ok(summary) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        // C-14, C-15, C-16: Customer Complaints List, File Complaint, Complaint Status (UC-15, UC-16, MSG25)
+        api.MapGet("/customer/complaints",
+            async (string? projectCode, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                Results.Ok(await repo.GetCustomerComplaintsAsync(UserId(user), projectCode, ct)))
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapGet("/customer/complaints/beo-options",
+            async (string? projectCode, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                Results.Ok(await repo.GetCustomerBeoOptionsAsync(UserId(user), projectCode, ct)))
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapPost("/customer/complaints",
+            async (CreateComplaintRequest request, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                Results.Created("/api/wpsm/customer/complaints", await repo.CreateCustomerComplaintAsync(UserId(user), request.ProjectCode, request.BeoId, request.Description, ct)))
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
+        api.MapGet("/customer/complaints/{complaintCode}",
+            async (string complaintCode, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+                await repo.GetCustomerComplaintAsync(UserId(user), complaintCode, ct) is { } item ? Results.Ok(item) : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Customer"));
+
         return api;
     }
 
