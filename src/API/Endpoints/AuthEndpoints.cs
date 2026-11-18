@@ -1,7 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Application.Auth;
 using Application.Persistence;
@@ -10,9 +7,7 @@ using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
 
-// G-01, G-02, G-03: login, session and own profile.
-// /auth/token* serve the React client (JWT access token + rotating refresh cookie);
-// /auth/login and /auth/logout keep the Razor cookie session until WPSM.Web is retired.
+// Login, rotating refresh-token session and own profile for the React client.
 public static class AuthEndpoints
 {
     public const string SignInRateLimit = "sign-in";
@@ -63,42 +58,6 @@ public static class AuthEndpoints
                 ? Results.Ok(profile) : Results.BadRequest())
             .RequireAuthorization();
 
-        api.MapPost("/auth/login", async (LoginRequest request, IAccountProfileRepository repo, IPasswordHasher<User> hasher, HttpContext context, CancellationToken ct) =>
-        {
-            var account = await repo.FindAccountAsync(request.Email, ct);
-            if (account is null || account.Status != "Active" || VerifyPassword(hasher, account, request.Password) == PasswordVerificationResult.Failed)
-                return Results.Unauthorized();
-
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, account.UserId.ToString()),
-                new Claim(ClaimTypes.Name, account.Email),
-                new Claim(ClaimTypes.Role, account.Role),
-                new Claim("FullName", account.FullName),
-                new Claim("PasswordVersion", PasswordVersion(account.PasswordHash)),
-                new Claim("MustChangePassword", account.MustChangePassword.ToString())
-            };
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
-                new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
-            return Results.Ok(new { account.UserId, account.Email, account.FullName, account.Role, account.MustChangePassword });
-        }).RequireRateLimiting(SignInRateLimit);
-
-        api.MapPost("/auth/logout", async (HttpContext context) => { await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme); return Results.NoContent(); })
-            .RequireAuthorization();
-
-        api.MapGet("/auth/me", async (IAccountProfileRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-        {
-            var email = user.FindFirstValue(ClaimTypes.Name) ?? user.Identity?.Name;
-            if (string.IsNullOrWhiteSpace(email)) return Results.Unauthorized();
-            var account = await repo.FindAccountAsync(email, ct);
-            return account is null || account.Status != "Active" ? Results.Unauthorized() : Results.Ok(new
-            {
-                authenticated = true,
-                user = new { account.FullName, account.Email, Phone = account.Phone ?? "", account.Role },
-                mustChangePassword = account.MustChangePassword
-            });
-        }).RequireAuthorization();
-
         api.MapPost("/auth/change-password", async (ChangePasswordRequest request, IAccountProfileRepository repo, IPasswordHasher<User> hasher,
             ITokenService tokens, IRefreshTokenService refreshTokens, ClaimsPrincipal user, HttpContext context, CancellationToken ct) =>
         {
@@ -112,27 +71,10 @@ public static class AuthEndpoints
             var hash = hasher.HashPassword(new User { UserId = account.UserId, Email = account.Email }, request.NewPassword);
             if (!await repo.UpdatePasswordAsync(account.UserId, hash, ct)) return Results.Unauthorized();
             var refreshed = await repo.FindAccountAsync(account.Email, ct);
-            if (refreshed is not null && user.Identity?.AuthenticationType == JwtBearerDefaults.AuthenticationScheme)
-            {
-                // A new password ends every other session; this client continues with a fresh token pair.
-                await refreshTokens.RevokeAllAsync(refreshed.UserId, ct);
-                return await IssueTokensAsync(refreshed, tokens, refreshTokens, context, ct);
-            }
-            if (refreshed is not null)
-            {
-                var claims = new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, refreshed.UserId.ToString()),
-                    new Claim(ClaimTypes.Name, refreshed.Email),
-                    new Claim(ClaimTypes.Role, refreshed.Role),
-                    new Claim("FullName", refreshed.FullName),
-                    new Claim("PasswordVersion", PasswordVersion(refreshed.PasswordHash)),
-                    new Claim("MustChangePassword", refreshed.MustChangePassword.ToString())
-                };
-                await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
-                    new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
-            }
-            return Results.NoContent();
+            if (refreshed is null) return Results.Unauthorized();
+            // A new password ends every refresh-token session; this client continues with a fresh token pair.
+            await refreshTokens.RevokeAllAsync(refreshed.UserId, ct);
+            return await IssueTokensAsync(refreshed, tokens, refreshTokens, context, ct);
         }).RequireAuthorization();
 
         return api;

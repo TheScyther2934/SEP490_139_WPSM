@@ -1,0 +1,427 @@
+@page "/M06"
+@{ ViewData["Title"] = "WPSM Portal — Lộ trình & Nhiệm vụ Quản lý (M-06)"; }
+<div data-wpsm-screen="M06">
+
+@await Html.PartialAsync("/Areas/Manager/Pages/Shared/_ManagerNavigation.cshtml")
+
+<div class="ml-64 flex-1 flex flex-col min-h-screen bg-surface">
+
+<!-- ═══════ TOP BAR ═══════════════════════════════════════════════════════ -->
+<header class="sticky top-0 z-20 flex justify-between items-center w-full px-8 py-3.5 bg-surface-container-lowest border-b border-outline-variant/30 shadow-sm backdrop-blur-md">
+  <div class="flex items-center gap-4">
+    <nav class="flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant">
+      <a href="/M02" class="hover:text-primary transition-colors">Dự án</a>
+      <span class="text-outline-variant">/</span>
+      <a href="/M04" id="lnk-hub" class="hover:text-primary transition-colors">Tổng quan</a>
+      <span class="text-outline-variant">/</span>
+      <span class="font-semibold text-primary">Lộ trình &amp; Nhiệm vụ</span>
+    </nav>
+    <span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm uppercase font-semibold bg-primary/10 text-primary border border-primary/20">M-06</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-body-sm font-body-sm text-on-surface-variant" id="hdr-countdown">…</span>
+    <div class="h-4 w-px bg-outline-variant/40"></div>
+    <span class="text-title-sm font-title-sm font-semibold text-on-surface" id="hdr-project-code">…</span>
+  </div>
+</header>
+
+<!-- ═══════ LOADING STATE ════════════════════════════════════════════════ -->
+<div id="state-loading" class="flex-1 flex items-center justify-center py-24">
+  <div class="flex flex-col items-center gap-4 text-on-surface-variant">
+    <span class="material-symbols-outlined text-[48px] animate-spin text-primary">progress_activity</span>
+    <p class="text-body-md font-body-md">Đang tải lộ trình &amp; nhiệm vụ dự án…</p>
+  </div>
+</div>
+
+<!-- ═══════ ERROR STATE ════════════════════════════════════════════════ -->
+<div id="state-error" class="hidden flex-1 flex items-center justify-center py-24">
+  <div class="flex flex-col items-center gap-4 text-center max-w-md">
+    <span class="material-symbols-outlined text-[48px] text-error">cloud_off</span>
+    <p class="text-title-md font-title-md text-on-surface">Không thể tải lộ trình</p>
+    <p class="text-body-sm font-body-sm text-on-surface-variant" id="err-msg">Kiểm tra kết nối và thử lại.</p>
+    <button onclick="loadRoadmap()" class="px-4 py-2 rounded-lg bg-primary text-on-primary font-title-sm text-title-sm">Thử lại</button>
+  </div>
+</div>
+
+<!-- ═══════ MAIN CONTENT ═══════════════════════════════════════════════ -->
+<div id="state-content" class="hidden flex-1 px-8 py-6 space-y-6 max-w-7xl">
+
+  <!-- Project Header Card -->
+  <section class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-6 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div class="space-y-2">
+        <div class="flex items-center gap-3">
+          <span class="text-headline-sm font-headline-sm font-bold text-primary" id="prj-code">—</span>
+          <span class="text-outline-variant text-xl">·</span>
+          <h1 class="text-title-lg font-title-lg font-semibold text-on-surface" id="prj-couple">—</h1>
+        </div>
+        <div class="flex flex-wrap items-center gap-4 text-body-sm font-body-sm text-on-surface-variant">
+          <span class="inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base text-primary">store</span><span id="prj-hall">—</span></span>
+          <span class="inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base text-primary">schedule</span><span id="prj-slot">—</span></span>
+          <span class="inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base text-primary">event</span><span id="prj-date">—</span></span>
+        </div>
+      </div>
+
+      <div class="bg-primary/5 border border-primary/20 rounded-xl p-4 lg:min-w-[280px] text-right">
+        <p class="text-label-sm font-label-sm uppercase font-bold text-primary">Đếm ngược sự kiện</p>
+        <p class="text-headline-md font-headline-md font-serif text-on-surface my-1" id="prj-countdown">—</p>
+        <div class="flex items-center justify-between text-caption font-caption text-on-surface-variant mb-1">
+          <span>Tiến độ hoàn thành</span>
+          <span id="prj-prog-pct" class="font-bold text-primary">0%</span>
+        </div>
+        <div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full transition-all duration-700" id="prj-prog-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metric Summary Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm">
+      <p class="text-label-sm font-label-sm text-on-surface-variant uppercase font-semibold">Tổng số nhiệm vụ</p>
+      <p class="text-headline-sm font-headline-sm font-bold text-on-surface mt-1" id="stat-total">0</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm">
+      <p class="text-label-sm font-label-sm text-primary uppercase font-semibold">Quản lý phụ trách</p>
+      <p class="text-headline-sm font-headline-sm font-bold text-primary mt-1" id="stat-manager">0</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm">
+      <p class="text-label-sm font-label-sm text-secondary uppercase font-semibold">Khách hàng phụ trách</p>
+      <p class="text-headline-sm font-headline-sm font-bold text-secondary mt-1" id="stat-customer">0</p>
+    </div>
+    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm" id="box-overdue">
+      <p class="text-label-sm font-label-sm text-red-600 uppercase font-semibold">Quá hạn</p>
+      <p class="text-headline-sm font-headline-sm font-bold text-red-600 mt-1" id="stat-overdue">0</p>
+    </div>
+  </div>
+
+  <!-- Milestone Timeline Chips -->
+  <section class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-5 shadow-sm">
+    <h2 class="text-title-sm font-title-sm font-bold text-on-surface uppercase tracking-wider mb-3">4 Cột mốc vận hành (Lifecycle Milestones)</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="milestone-strip"></div>
+  </section>
+
+  <!-- Task Filters & Search -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+    <div>
+      <h2 class="text-title-lg font-title-lg font-semibold text-on-surface">Danh sách nhiệm vụ chi tiết</h2>
+      <p class="text-body-sm font-body-sm text-on-surface-variant" id="filtered-count-label">Hiển thị nhiệm vụ được sắp xếp theo hạn chót</p>
+    </div>
+
+    <!-- Owner filter segmented control -->
+    <div class="inline-flex p-1 bg-surface-container-low rounded-xl border border-outline-variant/40" id="owner-filter-group">
+      <button onclick="setFilter('All')" id="btn-filter-all"
+        class="px-3.5 py-1.5 rounded-lg text-body-sm font-body-sm font-medium transition-all bg-surface-container-lowest text-primary shadow-xs">
+        Tất cả
+      </button>
+      <button onclick="setFilter('Manager')" id="btn-filter-manager"
+        class="px-3.5 py-1.5 rounded-lg text-body-sm font-body-sm font-medium transition-all text-on-surface-variant hover:text-on-surface">
+        Quản lý
+      </button>
+      <button onclick="setFilter('Customer')" id="btn-filter-customer"
+        class="px-3.5 py-1.5 rounded-lg text-body-sm font-body-sm font-medium transition-all text-on-surface-variant hover:text-on-surface">
+        Khách hàng
+      </button>
+    </div>
+  </div>
+
+  <!-- Task Table -->
+  <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="border-b border-outline-variant/30 bg-surface-container-low/50 text-label-md font-label-md text-on-surface-variant">
+            <th class="py-3.5 px-4 font-semibold w-28">Cột mốc</th>
+            <th class="py-3.5 px-4 font-semibold">Nhiệm vụ</th>
+            <th class="py-3.5 px-4 font-semibold w-36">Phụ trách</th>
+            <th class="py-3.5 px-4 font-semibold w-32">Hạn chót</th>
+            <th class="py-3.5 px-4 font-semibold w-36">Trạng thái</th>
+            <th class="py-3.5 px-4 font-semibold w-40 text-right">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="task-table-body" class="divide-y divide-outline-variant/20 text-body-sm font-body-sm"></tbody>
+      </table>
+    </div>
+
+    <!-- Empty state -->
+    <div id="table-empty" class="hidden py-16 text-center text-on-surface-variant">
+      <span class="material-symbols-outlined text-[48px] text-outline-variant mb-2">fact_check</span>
+      <p class="text-title-sm font-title-sm text-on-surface">Không có nhiệm vụ nào phù hợp</p>
+      <p class="text-body-sm font-body-sm text-on-surface-variant">Thử đổi bộ lọc người phụ trách hoặc kiểm tra lại dự án.</p>
+    </div>
+  </div>
+
+</div><!-- end state-content -->
+
+<!-- ═══════ CONFIRMATION DIALOG FOR COMPLETE TASK ═════════════════════════ -->
+<div id="dlg-confirm" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest rounded-2xl shadow-2xl w-full max-w-md border border-outline-variant/30 overflow-hidden">
+    <div class="p-6">
+      <div class="flex items-center gap-3 text-primary mb-3">
+        <span class="material-symbols-outlined text-[28px]">task_alt</span>
+        <h3 class="text-title-lg font-title-lg font-semibold text-on-surface">Xác nhận hoàn thành</h3>
+      </div>
+      <p class="text-body-md font-body-md text-on-surface-variant mb-4">
+        Bạn có chắc chắn muốn xác nhận đã hoàn thành nhiệm vụ này không?
+      </p>
+      <div class="p-3.5 bg-surface-container-low rounded-xl border border-outline-variant/30 space-y-1">
+        <p class="text-title-sm font-title-sm font-semibold text-on-surface" id="dlg-task-title">—</p>
+        <p class="text-body-sm font-body-sm text-on-surface-variant" id="dlg-task-meta">—</p>
+      </div>
+    </div>
+    <div class="p-4 bg-surface-container-low/40 border-t border-outline-variant/20 flex justify-end gap-3">
+      <button onclick="closeConfirmDialog()" class="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container font-title-sm text-sm">
+        Hủy
+      </button>
+      <button id="btn-submit-complete" onclick="submitCompleteTask()" class="px-5 py-2 rounded-lg bg-primary text-on-primary font-title-sm text-sm hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-[18px]">done</span>
+        <span>Xác nhận xong</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end ml-64 -->
+</div><!-- end data-wpsm-screen -->
+
+<script>
+(function() {
+  'use strict';
+
+  let _projectId = new URLSearchParams(window.location.search).get('id') || '';
+  let _filter = 'All';
+  let _roadmapData = null;
+  let _activeTaskId = null;
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const parts = String(d).split('T')[0].split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  window.setFilter = function(filter) {
+    _filter = filter;
+    ['all', 'manager', 'customer'].forEach(k => {
+      const btn = document.getElementById(`btn-filter-${k}`);
+      if (btn) {
+        if (k.toLowerCase() === filter.toLowerCase()) {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-body-sm font-body-sm font-medium transition-all bg-surface-container-lowest text-primary shadow-xs';
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-body-sm font-body-sm font-medium transition-all text-on-surface-variant hover:text-on-surface';
+        }
+      }
+    });
+    renderTasks();
+  };
+
+  async function loadRoadmap() {
+    document.getElementById('state-loading').classList.remove('hidden');
+    document.getElementById('state-error').classList.add('hidden');
+    document.getElementById('state-content').classList.add('hidden');
+
+    try {
+      if (!_projectId) {
+        // Fetch manager's projects and select the first
+        const projectsRes = await fetch('/api/wpsm/projects');
+        if (!projectsRes.ok) throw new Error('Không thể tải danh sách dự án');
+        const projects = await projectsRes.json();
+        if (!projects || projects.length === 0) throw new Error('Chưa có dự án nào được phân công.');
+        _projectId = projects[0].id;
+        window.history.replaceState({}, '', `/M06?id=${encodeURIComponent(_projectId)}`);
+      }
+
+      document.getElementById('lnk-hub').href = `/M04?id=${encodeURIComponent(_projectId)}`;
+
+      const res = await fetch(`/api/wpsm/manager/projects/${encodeURIComponent(_projectId)}/roadmap?owner=All`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.message || 'Không thể tải lộ trình dự án.');
+      }
+
+      _roadmapData = await res.json();
+      renderAll();
+
+      document.getElementById('state-loading').classList.add('hidden');
+      document.getElementById('state-content').classList.remove('hidden');
+    } catch (err) {
+      document.getElementById('err-msg').textContent = err.message || 'Lỗi kết nối';
+      document.getElementById('state-loading').classList.add('hidden');
+      document.getElementById('state-error').classList.remove('hidden');
+    }
+  }
+  window.loadRoadmap = loadRoadmap;
+
+  function renderAll() {
+    if (!_roadmapData) return;
+    const d = _roadmapData;
+
+    document.getElementById('hdr-project-code').textContent = d.projectCode;
+    document.getElementById('hdr-countdown').textContent = d.countdownDays === 0 ? 'Hôm nay — Ngày cưới!' : `Còn ${d.countdownDays} ngày`;
+
+    document.getElementById('prj-code').textContent = d.projectCode;
+    document.getElementById('prj-couple').textContent = d.customerName || 'Dự án tiệc cưới';
+    document.getElementById('prj-hall').textContent = d.hall || 'Chưa phân sảnh';
+    document.getElementById('prj-slot').textContent = d.slot || 'Chưa phân ca';
+    document.getElementById('prj-date').textContent = fmtDate(d.eventDate);
+    document.getElementById('prj-countdown').textContent = d.countdownDays === 0 ? 'Hôm nay' : `T-${d.countdownDays} ngày`;
+
+    document.getElementById('prj-prog-pct').textContent = `${d.progressPercent}%`;
+    document.getElementById('prj-prog-bar').style.width = `${d.progressPercent}%`;
+
+    document.getElementById('stat-total').textContent = d.totalTasks;
+    document.getElementById('stat-manager').textContent = d.managerTasksCount;
+    document.getElementById('stat-customer').textContent = d.customerTasksCount;
+    document.getElementById('stat-overdue').textContent = d.overdueTasks;
+
+    // Render milestone strip
+    const strip = document.getElementById('milestone-strip');
+    strip.innerHTML = (d.milestoneGroups || []).map(g => {
+      const isDone = g.totalCount > 0 && g.doneCount === g.totalCount;
+      return `
+        <div class="p-3 rounded-xl border ${isDone ? 'border-emerald-200 bg-emerald-50/50' : 'border-outline-variant/30 bg-surface-container-low/40'} flex items-center justify-between">
+          <div>
+            <span class="text-title-sm font-title-sm font-bold ${isDone ? 'text-emerald-800' : 'text-on-surface'}">${g.milestone}</span>
+            <p class="text-caption font-caption text-on-surface-variant">${fmtDate(g.milestoneDate)}</p>
+          </div>
+          <span class="text-label-sm font-label-sm font-bold ${isDone ? 'text-emerald-700' : 'text-on-surface-variant'}">${g.doneCount}/${g.totalCount}</span>
+        </div>
+      `;
+    }).join('');
+
+    renderTasks();
+  }
+
+  function renderTasks() {
+    if (!_roadmapData) return;
+    const tbody = document.getElementById('task-table-body');
+    const emptyState = document.getElementById('table-empty');
+    tbody.innerHTML = '';
+
+    const all = _roadmapData.tasks || [];
+    const filtered = all.filter(t => {
+      if (_filter === 'Manager') return t.assigneeRole === 'Manager';
+      if (_filter === 'Customer') return t.assigneeRole === 'Customer';
+      return true;
+    });
+
+    document.getElementById('filtered-count-label').textContent = `Hiển thị ${filtered.length} / ${all.length} nhiệm vụ`;
+
+    if (filtered.length === 0) {
+      emptyState.classList.remove('hidden');
+      return;
+    }
+    emptyState.classList.add('hidden');
+
+    filtered.forEach(t => {
+      const isManager = t.assigneeRole === 'Manager';
+      const isDone = t.status === 'Done';
+      const isOverdue = t.status === 'Overdue';
+
+      const statusBadge = isDone
+        ? `<span class="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-label-sm"><span class="material-symbols-outlined text-[14px]">task_alt</span>Đã hoàn thành</span>`
+        : isOverdue
+        ? `<span class="inline-flex items-center gap-1 text-red-700 font-semibold bg-red-50 border border-red-200 px-2 py-0.5 rounded-full text-label-sm"><span class="material-symbols-outlined text-[14px]">warning</span>Quá hạn</span>`
+        : `<span class="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-label-sm"><span class="material-symbols-outlined text-[14px]">hourglass_empty</span>Chờ thực hiện</span>`;
+
+      const roleBadge = isManager
+        ? `<span class="px-2 py-0.5 rounded-md text-label-sm font-medium bg-blue-50 text-blue-700 border border-blue-200">Quản lý</span>`
+        : `<span class="px-2 py-0.5 rounded-md text-label-sm font-medium bg-purple-50 text-purple-700 border border-purple-200">Khách hàng</span>`;
+
+      let actionHtml = '';
+      if (isDone) {
+        actionHtml = `<span class="text-caption font-caption text-emerald-700 font-medium inline-flex items-center gap-1"><span class="material-symbols-outlined text-sm">check_circle</span>Đã xong</span>`;
+      } else if (isManager) {
+        actionHtml = `<button onclick="openConfirmDialog(${t.taskId}, '${escapeAttr(t.title)}', '${t.milestone}', '${t.dueDate}')" class="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-on-primary text-label-sm font-semibold transition-colors active:scale-95">Xác nhận xong</button>`;
+      } else {
+        actionHtml = `<span class="text-caption font-caption text-on-surface-variant italic">Khách hàng thực hiện</span>`;
+      }
+
+      const tr = document.createElement('tr');
+      tr.className = `hover:bg-surface-container-low/40 transition-colors ${isOverdue ? 'bg-red-50/30' : ''}`;
+      tr.innerHTML = `
+        <td class="py-3 px-4 font-semibold text-primary">${t.milestone}</td>
+        <td class="py-3 px-4">
+          <p class="font-medium text-on-surface">${escapeHtml(t.title)}</p>
+          ${isDone && t.completedAt ? `<p class="text-caption text-emerald-700">Hoàn thành lúc: ${fmtDateTime(t.completedAt)}</p>` : ''}
+        </td>
+        <td class="py-3 px-4">${roleBadge}</td>
+        <td class="py-3 px-4 ${isOverdue ? 'text-red-700 font-semibold' : 'text-on-surface'}">${fmtDate(t.dueDate)}</td>
+        <td class="py-3 px-4">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">${actionHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.openConfirmDialog = function(taskId, title, milestone, dueDate) {
+    _activeTaskId = taskId;
+    document.getElementById('dlg-task-title').textContent = title;
+    document.getElementById('dlg-task-meta').textContent = `Cột mốc: ${milestone} · Hạn chót: ${fmtDate(dueDate)}`;
+    document.getElementById('dlg-confirm').classList.remove('hidden');
+    document.getElementById('dlg-confirm').classList.add('flex');
+  };
+
+  window.closeConfirmDialog = function() {
+    document.getElementById('dlg-confirm').classList.add('hidden');
+    document.getElementById('dlg-confirm').classList.remove('flex');
+    _activeTaskId = null;
+  };
+
+  window.submitCompleteTask = async function() {
+    if (!_activeTaskId || !_projectId) return;
+    const btn = document.getElementById('btn-submit-complete');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Đang lưu...`;
+
+    try {
+      const res = await fetch(`/api/wpsm/manager/projects/${encodeURIComponent(_projectId)}/roadmap/tasks/${_activeTaskId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Lỗi khi xác nhận hoàn thành');
+
+      // Live update task in state without full reload
+      if (_roadmapData && _roadmapData.tasks) {
+        const found = _roadmapData.tasks.find(x => x.taskId === _activeTaskId);
+        if (found) {
+          found.status = 'Done';
+          found.completedAt = new Date().toISOString();
+        }
+        _roadmapData.doneTasks = _roadmapData.tasks.filter(x => x.status === 'Done').length;
+        _roadmapData.overdueTasks = _roadmapData.tasks.filter(x => x.status === 'Overdue').length;
+        _roadmapData.progressPercent = Math.round((_roadmapData.doneTasks / _roadmapData.totalTasks) * 100);
+      }
+
+      closeConfirmDialog();
+      renderAll();
+    } catch (err) {
+      alert(err.message || 'Có lỗi xảy ra.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<span class="material-symbols-outlined text-[18px]">done</span><span>Xác nhận xong</span>`;
+    }
+  };
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function escapeAttr(str) {
+    return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  }
+
+  // Initial load
+  loadRoadmap();
+})();
+</script>

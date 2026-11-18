@@ -1,20 +1,20 @@
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Infrastructure.Persistence;
+using Infrastructure.Persistence.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Implements <see cref="ICustomerRoadmapRepository"/> for C-03 (UC-05, UC-06).
 /// Responsible for:
-///   - Verifying Customer→Project ownership before any data access.
+///   - Verifying Customer->Project ownership before any data access.
 ///   - Resolving Overdue status in Vietnam UTC+7 time.
 ///   - Grouping tasks by canonical milestone order.
 ///   - Completing Customer-owned tasks with server-side timestamp.
 /// </summary>
 public sealed class CustomerRoadmapRepository(WpsmDbContext db) : ICustomerRoadmapRepository
 {
-    // ── Timezone (cross-platform) ────────────────────────────────────────────
     private static readonly TimeZoneInfo VnTz = GetVietnamTimeZone();
 
     private static TimeZoneInfo GetVietnamTimeZone()
@@ -28,7 +28,7 @@ public sealed class CustomerRoadmapRepository(WpsmDbContext db) : ICustomerRoadm
     private static readonly IReadOnlyList<string> MilestoneOrder =
         new[] { "T-90", "T-30", "T-7", "Event Day" };
 
-    // ── UC-05: View roadmap ───────────────────────────────────────────────────
+    // ── UC-05: View roadmap ──────────────────────────────────────────────────
     public async Task<CustomerRoadmapView?> GetRoadmapAsync(
         int customerId,
         string projectCode,
@@ -142,6 +142,18 @@ public sealed class CustomerRoadmapRepository(WpsmDbContext db) : ICustomerRoadm
         // Mark done — server-side timestamp, not client-provided
         task.Status = "Done";
         task.CompletedAt = DateTime.UtcNow;
+
+        // G-04: Notify the manager that the customer completed this task
+        db.Notifications.Add(new Notification
+        {
+            RecipientId = project.ManagerId,
+            Type = "Roadmap reminder",
+            Message = $"Khách hàng đã hoàn thành nhiệm vụ '{task.Title}' thuộc dự án {project.ProjectCode}.",
+            LinkUrl = $"/manager/projects/{project.ProjectCode}/roadmap",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+
         await db.SaveChangesAsync(cancellationToken);
 
         var todayVn = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VnTz));
@@ -151,11 +163,9 @@ public sealed class CustomerRoadmapRepository(WpsmDbContext db) : ICustomerRoadm
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static CustomerRoadmapTaskView MapTask(
-        Entities.RoadmapTask task,
+        RoadmapTask task,
         DateOnly today)
     {
-        // Overdue rule: task not Done AND DueDate strictly before today
-        // Event Day tasks: DueDate == EventDate; they become Overdue the day after
         var status = task.Status == "Done" ? "Done"
             : task.DueDate < today ? "Overdue"
             : "Pending";

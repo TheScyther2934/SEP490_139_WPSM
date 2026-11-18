@@ -1,9 +1,10 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, Button } from "@mui/material";
+import { Box, Button, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
-import ManagerKpis, { summarize } from "./components/ManagerKpis";
+import ManagerKpis from "./components/ManagerKpis";
 import UpcomingEvents from "./components/UpcomingEvents";
 import AlertPanel from "./components/AlertPanel";
 import MyTasks from "./components/MyTasks";
@@ -20,8 +21,31 @@ export default function ManagerDashboard() {
   const summary = projects ? summarize(projects) : null;
   return (
     <>
-      <PageHeader code="M-01" title="Tổng quan vận hành"
-        actions={<Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to={PATHS.manager.newProject}>Khởi tạo hợp đồng</Button>} />
+      <PageHeader
+        code="M-01"
+        title="Tổng quan vận hành"
+        subtitle="Theo dõi tiến độ các dự án tiệc cưới được phân công, công việc trong ngày và cảnh báo vận hành."
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => reload()}
+              disabled={loading}
+            >
+              Làm mới
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              component={RouterLink}
+              to={PATHS.manager.newProject}
+            >
+              Khởi tạo hợp đồng
+            </Button>
+          </Stack>
+        }
+      />
       <DataState loading={loading} error={error} onRetry={reload}>
         {summary && work && (
           <>

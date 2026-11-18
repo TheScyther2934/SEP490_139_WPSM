@@ -17,6 +17,7 @@ public sealed record LoginRequest(string Email, string Password);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
 public sealed record ResolveComplaintRequest(string Decision);
 public sealed record ExceptionDecisionRequest(bool Approve, string Note);
+public sealed record CompleteManagerTaskRequest(IReadOnlyList<string>? ProofPhotoPaths = null);
 public sealed record AccountRequest(string FullName, string Email, string? Phone, string Role);
 public sealed record AccountStatusRequest(bool Active);
 public sealed record AccountCredentialResponse(UserAccountView Account, string? TemporaryPassword, bool EmailQueued = true);

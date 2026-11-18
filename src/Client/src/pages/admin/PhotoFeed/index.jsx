@@ -11,16 +11,28 @@ import { isoDate } from "../../../utils/format";
 
 const unique = (values) => [...new Set(values.filter(Boolean))].sort();
 
-// A-13: photos of one day, filtered on the client; refreshed every 30 s.
+// A-13: photos of event-day operations; refreshed every 30 s.
 export default function PhotoFeed() {
   const [params, setParams] = useSearchParams();
+  const projectCodeParam = params.get("projectCode") || "";
+  const dateParam = params.get("date");
+
   const filters = {
-    date: params.get("date") || isoDate(new Date()),
-    projectCode: params.get("projectCode") || "",
+    date: dateParam !== null ? dateParam : (projectCodeParam ? "" : isoDate(new Date())),
+    projectCode: projectCodeParam,
     hall: params.get("hall") || "",
     status: params.get("status") || "",
   };
-  const { data, loading, error, reload } = useAsync(() => adminService.getPhotos(filters.date), [filters.date]);
+
+  const { data, loading, error, reload } = useAsync(
+    () => adminService.getPhotos({
+      date: filters.date || undefined,
+      projectCode: filters.projectCode || undefined,
+      taskStatus: filters.status || undefined,
+    }),
+    [filters.date, filters.projectCode, filters.status]
+  );
+
   usePolling(() => reload({ silent: true }));
 
   const change = (key, value) => {

@@ -4,7 +4,6 @@ export const ENDPOINTS = {
     token: "/auth/token",
     refresh: "/auth/token/refresh",
     revoke: "/auth/token/revoke",
-    me: "/auth/me",
     changePassword: "/auth/change-password",
   },
   profile: "/profile",
@@ -21,6 +20,13 @@ export const ENDPOINTS = {
   priceFrames: "/price-frames",
   priceFrame: (id) => `/price-frames/${encodeURIComponent(id)}`,
   policies: "/policies",
+  notifications: {
+    list: (filter = "All", page = 1, pageSize = 20) =>
+      `/notifications?filter=${encodeURIComponent(filter)}&page=${page}&pageSize=${pageSize}`,
+    unreadCount: "/notifications/unread-count",
+    markAsRead: (id) => `/notifications/${encodeURIComponent(id)}/read`,
+    markAllAsRead: "/notifications/read-all",
+  },
   admin: {
     dashboard: "/admin/dashboard",
     reports: "/admin/reports",
@@ -36,10 +42,37 @@ export const ENDPOINTS = {
     accountStatus: (id) => `/admin/accounts/${id}/status`,
     accountResetPassword: (id) => `/admin/accounts/${id}/reset-password`,
   },
+  overdueAlerts: "/overdue-alerts",
+  manager: {
+    dashboard: "/manager/dashboard",
+    overdueAlerts: "/manager/overdue-alerts",
+    roadmap: (code) => `/manager/projects/${encodeURIComponent(code)}/roadmap`,
+    completeTask: (code, taskId) => `/manager/projects/${encodeURIComponent(code)}/roadmap/tasks/${taskId}/complete`,
+    dayOfTasks: (code) => `/projects/${encodeURIComponent(code)}/day-of-tasks`,
+    completeDayOfTask: (code, taskId) => `/projects/${encodeURIComponent(code)}/day-of-tasks/${taskId}/complete`,
+    completeDayOfTaskDirect: (taskId) => `/day-of-tasks/${taskId}/complete`,
+  },
+  managerPayments: {
+    getPayments: (code) => `/projects/${encodeURIComponent(code)}/payments`,
+    recordPayment: (code) => `/projects/${encodeURIComponent(code)}/payments/record`,
+    getSettlement: (code) => `/projects/${encodeURIComponent(code)}/settlement`,
+    generateReceipt: (code) => `/projects/${encodeURIComponent(code)}/settlement/receipt`,
+    getReceiptFile: (code) => `/projects/${encodeURIComponent(code)}/settlement/receipt`,
+    downloadPaymentReceipt: (code, paymentType) => `/projects/${encodeURIComponent(code)}/payments/${encodeURIComponent(paymentType)}/receipt`,
+  },
   customer: {
     dashboard: "/customer/dashboard",
     roadmap: "/customer/roadmap",
     completeTask: (projectCode, taskId) => `/customer/projects/${encodeURIComponent(projectCode)}/roadmap/tasks/${taskId}/complete`,
+  },
+  customerPayments: {
+    overview: (projectCode) => `/customer/payments${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    summary: (projectCode) => `/customer/payments/summary${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    milestones: (projectCode) => `/customer/payments/milestones${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    receipt: (paymentType, projectCode) =>
+      `/customer/payments/${encodeURIComponent(paymentType)}/receipt${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
+    finalReceipt: (projectCode) =>
+      `/customer/payments/final-receipt${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
   },
   file: (id) => `/files/${encodeURIComponent(id)}`,
 };

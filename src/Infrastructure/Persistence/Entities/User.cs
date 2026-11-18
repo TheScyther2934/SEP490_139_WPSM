@@ -23,10 +23,6 @@ public partial class User
 
     public DateTime CreatedAt { get; set; }
 
-    public string? RefreshToken { get; set; }
-
-    public DateTime? RefreshTokenExpiryTime { get; set; }
-
     public virtual ICollection<Beo> Beos { get; set; } = new List<Beo>();
 
     public virtual ICollection<ChangeRequest> ChangeRequests { get; set; } = new List<ChangeRequest>();

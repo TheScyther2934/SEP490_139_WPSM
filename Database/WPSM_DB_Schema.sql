@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- WPSM_DB (Wedding Planning and Service Management) - SEP490_G139
 -- Target: Microsoft SQL Server 2022
 -- Source of truth: Report 3 (SRS) - section I.3 (Conceptual Data Model, 23 entities),
@@ -33,13 +33,6 @@ CREATE TABLE dbo.Users (
     CONSTRAINT CK_Users_Status CHECK (Status IN ('Active','Inactive')),
     CONSTRAINT CK_Users_Phone  CHECK (Phone IS NULL OR (Phone NOT LIKE '%[^0-9]%' AND LEN(Phone) BETWEEN 9 AND 11))
 );
-GO
-
--- Keep existing databases compatible with the account model when re-running this script.
-IF COL_LENGTH(N'dbo.Users', N'RefreshToken') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshToken NVARCHAR(255) NULL;
-IF COL_LENGTH(N'dbo.Users', N'RefreshTokenExpiryTime') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshTokenExpiryTime DATETIME2(0) NULL;
 GO
 
 -- 2. Hall
@@ -351,13 +344,16 @@ GO
 -- 19. Day-of Task (late completion stays recorded: CompletedAt > DeadlineTime)
 IF OBJECT_ID(N'dbo.DayOfTasks', N'U') IS NULL
 CREATE TABLE dbo.DayOfTasks (
-    DayOfTaskId   INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
-    ProjectId     INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
-    TaskName      NVARCHAR(200) NOT NULL,
-    DeadlineTime  DATETIME2(0)  NOT NULL,
-    CompletedAt   DATETIME2(0)  NULL,
-    Status        NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
-    PhotoRequired BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    DayOfTaskId      INT IDENTITY(1,1) CONSTRAINT PK_DayOfTasks PRIMARY KEY,
+    ProjectId        INT           NOT NULL CONSTRAINT FK_DayOf_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    TaskName         NVARCHAR(200) NOT NULL,
+    DeadlineTime     DATETIME2(0)  NOT NULL,
+    CompletedAt      DATETIME2(0)  NULL,
+    CompletedBy      INT           NULL CONSTRAINT FK_DayOf_CompletedBy REFERENCES dbo.Users(UserId),
+    OverdueFlaggedAt DATETIME2(0)  NULL,
+    Status           NVARCHAR(20)  NOT NULL CONSTRAINT DF_DayOf_Status DEFAULT 'Pending',
+    PhotoRequired    BIT           NOT NULL CONSTRAINT DF_DayOf_PhotoRequired DEFAULT 0,
+    RowVersion       ROWVERSION    NOT NULL,
     CONSTRAINT CK_DayOf_Status    CHECK (Status IN ('Pending','Done','Overdue')),
     CONSTRAINT CK_DayOf_Completed CHECK (Status <> 'Done' OR CompletedAt IS NOT NULL)
 );
@@ -457,6 +453,10 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_CRHistory_CR' AND object
     CREATE INDEX IX_CRHistory_CR ON dbo.CRHistories(CRId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOf_Project_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
     CREATE INDEX IX_DayOf_Project_Deadline ON dbo.DayOfTasks(ProjectId, DeadlineTime, Status);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOfTasks_Status_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
+    CREATE INDEX IX_DayOfTasks_Status_Deadline ON dbo.DayOfTasks(Status, DeadlineTime);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WeddingProjects_Manager_Status' AND object_id=OBJECT_ID('dbo.WeddingProjects'))
+    CREATE INDEX IX_WeddingProjects_Manager_Status ON dbo.WeddingProjects(ManagerId, Status);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Photo_Task' AND object_id=OBJECT_ID('dbo.ExecutionPhotos'))
     CREATE INDEX IX_Photo_Task ON dbo.ExecutionPhotos(DayOfTaskId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Notifications_Recipient' AND object_id=OBJECT_ID('dbo.Notifications'))
@@ -510,10 +510,6 @@ IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') 
     ALTER TABLE dbo.Payments ALTER COLUMN RecordedBy INT NULL;
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.Payments') AND name=N'PaidDate' AND is_nullable=0)
     ALTER TABLE dbo.Payments ALTER COLUMN PaidDate DATE NULL;
-IF COL_LENGTH(N'dbo.Users', N'RefreshToken') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshToken NVARCHAR(255) NULL;
-IF COL_LENGTH(N'dbo.Users', N'RefreshTokenExpiryTime') IS NULL
-    ALTER TABLE dbo.Users ADD RefreshTokenExpiryTime DATETIME2(0) NULL;
 IF COL_LENGTH(N'dbo.Payments', N'ReceiptContent') IS NULL
     ALTER TABLE dbo.Payments ADD ReceiptContent VARBINARY(MAX) NULL;
 IF COL_LENGTH(N'dbo.Payments', N'ReceiptFileName') IS NULL

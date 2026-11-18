@@ -1,8 +1,6 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using Hangfire;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
@@ -13,7 +11,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using API;
 using API.Endpoints;
-using static API.Endpoints.EndpointHelpers;
 using Application.Auth;
 using Application.Persistence;
 using Infrastructure.Email;
@@ -23,6 +20,21 @@ using Infrastructure.Jobs;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
 using Infrastructure.Persistence.Repositories;
+using Domain.Enums;
+using Domain.Services;
+using Application.Roadmap;
+using Infrastructure.Roadmap;
+using Application.Payments;
+using Infrastructure.Payments;
+using Application.Dashboard;
+using Application.DayOfTasks;
+using Application.OverdueAlerts;
+using Application.Events;
+using Domain.Events;
+using Infrastructure.Events;
+using Infrastructure.Dashboard;
+using Infrastructure.DayOfTasks;
+using Infrastructure.OverdueAlerts;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("WpsmDb");
@@ -38,7 +50,11 @@ builder.Services.AddScoped<IWpsmPortalSnapshotReader, WpsmPortalSnapshotReader>(
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
+builder.Services.AddScoped<ICustomerPaymentRepository, CustomerPaymentRepository>();
+builder.Services.AddScoped<IManagerPaymentRepository, ManagerPaymentRepository>();
 builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
+builder.Services.AddScoped<IManagerRoadmapRepository, ManagerRoadmapRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -90,8 +106,7 @@ builder.Services.AddSingleton(new EmailOptions
     From = builder.Configuration["Smtp:From"] ?? builder.Configuration["Smtp:User"] ?? "no-reply@wpsm.local",
     PickupDirectory = builder.Configuration["Smtp:PickupDirectory"] ?? (builder.Environment.IsDevelopment() ? Path.Combine(appDataPath, "mail") : null),
     WebhookSecret = builder.Configuration["Smtp:WebhookSecret"],
-    // Links in emails open the React client, which the API serves (port 5128 in Development).
-    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5128"
+    PublicBaseUrl = builder.Configuration["Wpsm:PublicBaseUrl"] ?? "http://localhost:5173"
 });
 builder.Services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
 builder.Services.AddScoped<IFileService, FileService>();
@@ -99,6 +114,21 @@ builder.Services.AddScoped<IEmailOutbox, EmailOutbox>();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
 builder.Services.AddScoped<EmailDispatchJob>();
+builder.Services.AddScoped<IRoadmapReminderService, RoadmapReminderService>();
+builder.Services.AddScoped<SendRoadmapMilestoneRemindersJob>();
+builder.Services.AddScoped<IT30PaymentRequestService, T30PaymentRequestService>();
+builder.Services.AddScoped<IssueT30PaymentRequestJob>();
+builder.Services.AddScoped<IFinalSettlementService, FinalSettlementService>();
+builder.Services.AddScoped<FinalSettlementJob>();
+builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+builder.Services.AddScoped<IDomainEventHandler<DayOfTaskOverdueEvent>, DayOfTaskOverdueEventHandler>();
+builder.Services.AddScoped<ILoadDayOfTimelineService, LoadDayOfTimelineService>();
+builder.Services.AddScoped<LoadDayOfTimelineJob>();
+builder.Services.AddScoped<IDetectOverdueTasksService, DetectOverdueTasksService>();
+builder.Services.AddScoped<DetectOverdueTasksJob>();
+builder.Services.AddScoped<IManagerOverdueAlertService, ManagerOverdueAlertService>();
+builder.Services.AddScoped<IManagerDashboardService, ManagerDashboardService>();
+builder.Services.AddScoped<IDayOfTaskService, DayOfTaskService>();
 
 var backgroundJobsEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true) && !string.IsNullOrWhiteSpace(connectionString);
 if (backgroundJobsEnabled)
@@ -108,12 +138,8 @@ if (backgroundJobsEnabled)
     builder.Services.AddHangfireServer(options => options.WorkerCount = 2);
 }
 
-// Bearer requests (React client) use JWT; everything else keeps the Razor cookie until WPSM.Web is retired.
-const string AuthSelector = "WpsmBearerOrCookie";
-builder.Services.AddAuthentication(AuthSelector)
-.AddPolicyScheme(AuthSelector, "JWT or cookie", options => options.ForwardDefaultSelector = context =>
-    context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-        ? JwtBearerDefaults.AuthenticationScheme : CookieAuthenticationDefaults.AuthenticationScheme)
+// React uses JWT access tokens and an HttpOnly rotating refresh-token cookie.
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 .AddJwtBearer(options =>
 {
     options.MapInboundClaims = false;
@@ -142,29 +168,6 @@ builder.Services.AddAuthentication(AuthSelector)
             return Task.CompletedTask;
         }
     };
-})
-.AddCookie(options =>
-{
-    options.Cookie.Name = "WPSM.Auth";
-    options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-    options.SlidingExpiration = true;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    options.Events.OnValidatePrincipal = async context =>
-    {
-        var account = await context.HttpContext.RequestServices.GetRequiredService<IAccountProfileRepository>()
-            .FindAccountAsync(context.Principal?.Identity?.Name ?? "", context.HttpContext.RequestAborted);
-        if (account is null || account.Status != "Active" ||
-            context.Principal?.FindFirstValue("PasswordVersion") != PasswordVersion(account.PasswordHash) ||
-            context.Principal?.FindFirstValue(ClaimTypes.Role) != account.Role)
-        {
-            context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        }
-    };
-    options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
-    options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
 });
 builder.Services.AddAuthorization();
 // SDS III.1.1: at most 5 sign-in attempts per minute per client.
@@ -181,7 +184,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5000", "https://localhost:5001", "http://localhost:5030", "https://localhost:7030", "http://localhost:5231")
+        policy.WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -206,17 +209,33 @@ if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Wps
 }
 if (backgroundJobsEnabled)
 {
-    app.Services.GetRequiredService<IRecurringJobManager>()
-        .AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
-    // Report 4 IV.3: recurring jobs run on Vietnam time.
-    var vietnam = OperationsSupport.VnTz;
-    var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
-    jobs.AddOrUpdate<OperationsJobs>("job-01-roadmap-reminders", job => job.RoadmapRemindersAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
-    jobs.AddOrUpdate<OperationsJobs>("job-02-t30-payment", job => job.T30PaymentsAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
-    jobs.AddOrUpdate<OperationsJobs>("job-03-beo-draft", job => job.BeoDraftsAsync(CancellationToken.None), "0 7 * * *", new RecurringJobOptions { TimeZone = vietnam });
-    jobs.AddOrUpdate<OperationsJobs>("job-04-load-day-of", job => job.LoadDayOfTimelineAsync(CancellationToken.None), "0 0 * * *", new RecurringJobOptions { TimeZone = vietnam });
-    jobs.AddOrUpdate<OperationsJobs>("job-05-overdue", job => job.OverdueDetectionAsync(CancellationToken.None), "* * * * *", new RecurringJobOptions { TimeZone = vietnam });
-    jobs.AddOrUpdate<OperationsJobs>("job-06-final-settlement", job => job.FinalSettlementAsync(CancellationToken.None), "0 1 * * *", new RecurringJobOptions { TimeZone = vietnam });
+    var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
+    recurringJobs.AddOrUpdate<SendRoadmapMilestoneRemindersJob>(
+        "job-01-roadmap-milestone-reminders",
+        job => job.RunAsync(CancellationToken.None),
+        "0 7 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<IssueT30PaymentRequestJob>(
+        "job-02-t30-payment-request",
+        job => job.RunAsync(CancellationToken.None),
+        "0 7 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<FinalSettlementJob>(
+        "job-06-final-settlement",
+        job => job.RunAsync(CancellationToken.None),
+        "0 1 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<LoadDayOfTimelineJob>(
+        "job-04-load-day-of-timeline",
+        job => job.ExecuteAsync(),
+        "0 6 * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<DetectOverdueTasksJob>(
+        "job-05-detect-overdue-tasks",
+        job => job.RunAsync(CancellationToken.None),
+        "*/1 * * * *",
+        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
 }
 
 app.UseCors();
@@ -247,7 +266,7 @@ app.Use(async (context, next) =>
     }
 });
 app.UseHttpsRedirection();
-// Built React client (src/Client → wwwroot) is served from the same origin as the API.
+// Built React client (src/Client -> wwwroot) is served from the same origin as the API.
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
