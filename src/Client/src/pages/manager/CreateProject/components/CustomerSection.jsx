@@ -14,7 +14,7 @@ export default function CustomerSection({ form, errors, onChange, disabled }) {
           {field("coupleName", "Họ và tên đại diện")}
           {field("customerEmail", "Email", { type: "email" })}
           {field("customerPhone", "Số điện thoại", { inputMode: "tel" })}
-          <Alert severity="info">Hệ thống tạo tài khoản Khách hàng và gửi mật khẩu tạm qua email sau khi khởi tạo.</Alert>
+          <Alert severity="info">Khách mới được tạo tài khoản và nhận mật khẩu tạm qua email. Khách cũ đặt thêm sự kiện: nhập đúng email cũ, hệ thống dùng lại tài khoản.</Alert>
         </Stack>
       </CardContent>
     </Card>

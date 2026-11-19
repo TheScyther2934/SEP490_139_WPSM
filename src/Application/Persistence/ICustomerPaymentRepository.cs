@@ -5,7 +5,7 @@ public sealed record CustomerPaymentSummaryView(
     string ProjectCode,
     string ProjectStatus,
     decimal BaseContractValue,
-    decimal TotalApprovedCrVariance,
+    decimal ConfirmedAddonTotal,
     decimal CurrentProjectTotal,
     decimal TotalAmountPaid,
     decimal OutstandingBalance,
@@ -34,7 +34,10 @@ public sealed record FinalSettlementReceiptInfo(
 public sealed record CustomerPaymentsOverviewView(
     CustomerPaymentSummaryView Summary,
     IReadOnlyList<CustomerPaymentMilestoneView> Milestones,
-    FinalSettlementReceiptInfo FinalReceipt);
+    FinalSettlementReceiptInfo FinalReceipt)
+{
+    public SettlementInvoiceView? Invoice { get; init; }
+}
 
 public sealed record FileContentResultModel(
     byte[] Content,

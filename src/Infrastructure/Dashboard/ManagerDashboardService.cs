@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Application.Dashboard;
 using Application.Persistence;
@@ -12,185 +7,94 @@ using Infrastructure.Persistence;
 namespace Infrastructure.Dashboard;
 
 /// <summary>
-/// M-01 Manager Dashboard Service implementation (FE-03, FE-09, SRS §3.3).
-/// Returns real operational metrics, my tasks, alert panels (Overdue day-of tasks &amp; Stale BEOs),
-/// and upcoming project milestones strictly scoped to the authenticated manager.
+/// Manager dashboard: KPIs, the next actions of each event derived from its stage (lock soon, supplier evidence missing,
+/// addon contracts waiting for the customer, settlement to collect), overdue day-of tasks and stale coordination sheets.
+/// Scoped to the events the manager operates (Primary or co-manager).
 /// </summary>
 public sealed class ManagerDashboardService(WpsmDbContext db) : IManagerDashboardService
 {
-    private static readonly string[] ActiveStatuses = ["Active Baseline", "Baseline Frozen", "Event Completed"];
+    private static readonly string[] ActiveStatuses = [EventStatus.Adjusting, EventStatus.Locked, EventStatus.Completed];
 
-    public async Task<ManagerDashboardResponse> GetDashboardAsync(
-        int managerId,
-        CancellationToken cancellationToken = default)
+    public async Task<ManagerDashboardResponse> GetDashboardAsync(int managerId, CancellationToken cancellationToken = default)
     {
-        var today = RoadmapRules.GetVietnamToday();
+        var today = VietnamTime.GetVietnamToday();
         var nowUtc = DateTime.UtcNow;
+        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
 
-        // 1. Projects scoped strictly to the manager
-        var projects = await db.WeddingProjects
-            .AsNoTracking()
-            .Include(p => p.Customer)
-            .Include(p => p.Hall)
-            .Include(p => p.Slot)
-            .Include(p => p.ChangeRequests)
+        var projects = await db.WeddingProjects.AsNoTracking().AsSplitQuery()
+            .Include(p => p.Customer).Include(p => p.Hall)
             .Include(p => p.Beos)
-            .Where(p => p.ManagerId == managerId)
+            .Include(p => p.AddonContracts)
+            .Include(p => p.SpecItems).ThenInclude(s => s.CatalogItem)
+            .Include(p => p.SupplierEvidences)
+            .Include(p => p.Payments)
+            .Where(p => p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null))
             .ToListAsync(cancellationToken);
+        var active = projects.Where(p => ActiveStatuses.Contains(p.Status)).ToList();
+        var activeIds = active.Select(p => p.ProjectId).ToList();
 
-        var activeProjects = projects.Where(p => ActiveStatuses.Contains(p.Status)).ToList();
-        var activeProjectIds = activeProjects.Select(p => p.ProjectId).ToList();
-
-        // Stale BEOs check: latest BEO version per project is Stale
-        var staleBeoAlerts = new List<StaleBeoAlertView>();
-        int staleBeoCount = 0;
-        foreach (var p in activeProjects)
+        var staleBeos = new List<StaleBeoAlertView>();
+        foreach (var p in active)
         {
-            var latestBeo = p.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
-            if (latestBeo != null && string.Equals(latestBeo.Status, "Stale", StringComparison.OrdinalIgnoreCase))
-            {
-                staleBeoCount++;
-                var crCode = p.ChangeRequests
-                    .Where(c => c.Status == "Approved")
-                    .OrderByDescending(c => c.CreatedAt)
-                    .Select(c => c.Crcode)
-                    .FirstOrDefault();
-
-                staleBeoAlerts.Add(new StaleBeoAlertView(
-                    BeoId: latestBeo.Beoid,
-                    ProjectCode: p.ProjectCode,
-                    HallName: p.Hall?.Name ?? "",
-                    EventDate: p.EventDate,
-                    Version: latestBeo.Version,
-                    Status: "Stale",
-                    Notes: latestBeo.Notes,
-                    ApprovedCrCode: crCode));
-            }
+            var latest = p.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
+            if (latest?.Status != "Stale") continue;
+            var addon = p.AddonContracts.Where(a => a.Status == "Confirmed").OrderByDescending(a => a.ConfirmedAt).Select(a => a.AddonCode).FirstOrDefault();
+            staleBeos.Add(new StaleBeoAlertView(latest.Beoid, p.ProjectCode, p.Hall?.Name ?? "", p.EventDate, latest.Version, "Stale", latest.Notes, addon));
         }
 
-        // Active overdue tasks for this manager
-        var overdueTasks = await db.DayOfTasks
-            .AsNoTracking()
-            .Where(t => activeProjectIds.Contains(t.ProjectId) && t.Status == "Overdue" && t.CompletedAt == null)
+        var overdue = await db.DayOfTasks.AsNoTracking()
+            .Where(t => activeIds.Contains(t.ProjectId) && t.Status == "Overdue" && t.CompletedAt == null)
             .OrderBy(t => t.DeadlineTime)
-            .Select(t => new
+            .Select(t => new { t.DayOfTaskId, t.Project.ProjectCode, t.TaskName, t.DeadlineTime, Hall = t.Project.Hall.Name, t.Project.EventDate, Customer = t.Project.Customer.FullName })
+            .ToListAsync(cancellationToken);
+        var overdueViews = overdue.Select(t => new OverdueAlertView(t.DayOfTaskId, t.ProjectCode, t.TaskName, DateTime.SpecifyKind(t.DeadlineTime, DateTimeKind.Utc),
+            Math.Max(0, (int)(nowUtc - t.DeadlineTime).TotalMinutes), "Overdue", t.Hall, t.EventDate, t.Customer, null)).ToList();
+
+        // Next actions per event, derived from its stage (no stored task list).
+        var tasks = new List<ManagerTaskItemView>();
+        var upcoming = new List<UpcomingMilestoneView>();
+        var taskId = 0;
+        foreach (var p in active.OrderBy(p => p.EventDate))
+        {
+            var lockDate = EventStageRules.LockDate(p.EventDate, policy);
+            var supplierDeadline = EventStageRules.SupplierDeadline(p.EventDate, policy);
+            var missingSuppliers = p.SpecItems.Count(s => s.CatalogItem.RequiresSupplier && p.SupplierEvidences.All(e => e.SpecItemId != s.SpecItemId));
+            var pendingAddons = p.AddonContracts.Where(a => a.Status == "PendingCustomer").ToList();
+            void Add(string title, string stage, DateOnly due, string type) =>
+                tasks.Add(new ManagerTaskItemView(++taskId, p.ProjectCode, title, stage, due, due < today ? "Overdue" : "Pending", false, type));
+
+            if (p.Status == EventStatus.Adjusting && lockDate.DayNumber - today.DayNumber <= 7)
+                Add($"Rà soát dịch vụ với khách trước khi khóa ({lockDate:dd/MM})", EventStageRules.StageTitle(EventStageRules.Adjusting), lockDate.AddDays(-1), "Lock");
+            if (p.Status == EventStatus.Locked && missingSuppliers > 0)
+                Add($"Đặt nhà cung cấp và tải minh chứng ({missingSuppliers} dịch vụ còn thiếu)", EventStageRules.StageTitle(EventStageRules.Locked), supplierDeadline, "Supplier");
+            foreach (var addon in pendingAddons)
+                Add($"Nhắc khách xác nhận hợp đồng phát sinh {addon.AddonCode}", "Hợp đồng phát sinh", today, "Addon");
+            if (p.Status == EventStatus.Completed && p.Payments.All(x => x.PaymentType != PaymentKinds.Settlement || x.Status != "Paid"))
+                Add("Thu tất toán theo hóa đơn cuối", EventStageRules.StageTitle(EventStageRules.Settlement), EventStageRules.SettlementDueDate(p.EventDate, policy), "Settlement");
+
+            if (p.EventDate < today || upcoming.Count >= 8) continue;
+            var stage = EventStageRules.CurrentStage(p.Status, p.EventDate, today);
+            var (next, due) = stage switch
             {
-                t.DayOfTaskId,
-                t.Project.ProjectCode,
-                t.TaskName,
-                t.DeadlineTime,
-                Hall = t.Project.Hall.Name,
-                t.Project.EventDate,
-                CustomerName = t.Project.Customer.FullName
-            })
-            .ToListAsync(cancellationToken);
-
-        var overdueAlertViews = overdueTasks.Select(t => new OverdueAlertView(
-            TaskId: t.DayOfTaskId,
-            ProjectCode: t.ProjectCode,
-            TaskName: t.TaskName,
-            Deadline: DateTime.SpecifyKind(t.DeadlineTime, DateTimeKind.Utc),
-            OverdueMinutes: Math.Max(0, (int)(nowUtc - t.DeadlineTime).TotalMinutes),
-            Status: "Overdue",
-            Hall: t.Hall,
-            EventDate: t.EventDate,
-            CustomerName: t.CustomerName,
-            ManagerName: null)).ToList();
-
-        // Tasks due today count (Roadmap tasks for manager + DayOfTasks on today's events)
-        var roadmapTasksDueToday = await db.RoadmapTasks
-            .AsNoTracking()
-            .CountAsync(t => activeProjectIds.Contains(t.ProjectId)
-                          && t.AssigneeRole == "Manager"
-                          && t.Status != "Done"
-                          && t.DueDate == today, cancellationToken);
-
-        var dayOfTasksDueToday = await db.DayOfTasks
-            .AsNoTracking()
-            .CountAsync(t => activeProjectIds.Contains(t.ProjectId)
-                          && t.Project.EventDate == today
-                          && t.Status != "Done", cancellationToken);
-
-        int tasksDueToday = roadmapTasksDueToday + dayOfTasksDueToday;
-
-        // 2. KPI calculation: 5 SRS §3.3 KPIs
-        var kpis = new ManagerKpiSummary(
-            ActiveProjects: activeProjects.Count,
-            TasksDueToday: tasksDueToday,
-            OpenChangeRequests: activeProjects.Sum(p => p.ChangeRequests.Count(c => c.Status is "Draft" or "Negotiating" or "Submitted")),
-            StaleBeos: staleBeoCount,
-            OverdueTasksCount: overdueAlertViews.Count,
-            DraftingProjects: activeProjects.Count(p => p.Status == "Active Baseline"),
-            EventsIn7Days: activeProjects.Count(p => p.EventDate >= today && p.EventDate <= today.AddDays(7)));
-
-        // 3. My Tasks: Manager-assigned roadmap tasks that are Pending or Overdue
-        var managerRoadmapTasks = await db.RoadmapTasks
-            .AsNoTracking()
-            .Include(t => t.Project)
-            .Where(t => activeProjectIds.Contains(t.ProjectId)
-                     && t.AssigneeRole == "Manager"
-                     && t.Status != "Done")
-            .OrderBy(t => t.DueDate)
-            .ThenBy(t => t.TaskId)
-            .Take(20)
-            .ToListAsync(cancellationToken);
-
-        var myTasks = managerRoadmapTasks.Select(t =>
-        {
-            var calculatedStatus = RoadmapRules.CalculateStatus(t.Status, t.DueDate, today);
-            var reqProof = RoadmapRules.RequiresProof(t.Milestone, t.Title);
-            return new ManagerTaskItemView(
-                TaskId: t.TaskId,
-                ProjectCode: t.Project.ProjectCode,
-                Title: t.Title,
-                Milestone: t.Milestone,
-                DueDate: t.DueDate,
-                Status: calculatedStatus,
-                RequiresProof: reqProof,
-                TaskType: "Roadmap");
-        }).ToList();
-
-        // 4. Upcoming Milestones & Events
-        var upcomingMilestones = new List<UpcomingMilestoneView>();
-        var upcomingProjects = activeProjects
-            .Where(p => p.EventDate >= today)
-            .OrderBy(p => p.EventDate)
-            .Take(8)
-            .ToList();
-
-        foreach (var p in upcomingProjects)
-        {
-            var allTasks = await db.RoadmapTasks
-                .AsNoTracking()
-                .Where(t => t.ProjectId == p.ProjectId)
-                .ToListAsync(cancellationToken);
-
-            var totalCount = allTasks.Count;
-            var doneCount = allTasks.Count(t => t.Status == "Done");
-
-            // Find current active milestone
-            var pendingTask = allTasks.Where(t => t.Status != "Done").OrderBy(t => t.DueDate).FirstOrDefault();
-            var activeMilestone = pendingTask?.Milestone ?? "Event Day";
-            var milestoneDueDate = pendingTask?.DueDate ?? p.EventDate;
-            var daysRemaining = RoadmapRules.CalculateCountdown(p.EventDate, today);
-
-            upcomingMilestones.Add(new UpcomingMilestoneView(
-                ProjectCode: p.ProjectCode,
-                CoupleName: p.Customer?.FullName ?? "",
-                HallName: p.Hall?.Name ?? "",
-                EventDate: p.EventDate,
-                Milestone: activeMilestone,
-                DueDate: milestoneDueDate,
-                DaysRemaining: daysRemaining,
-                TotalTasks: totalCount,
-                CompletedTasks: doneCount));
+                EventStageRules.Adjusting => ("Khóa dịch vụ", lockDate),
+                EventStageRules.Locked when missingSuppliers > 0 && today <= supplierDeadline => ("Hạn đặt nhà cung cấp", supplierDeadline),
+                _ => ("Ngày cưới", p.EventDate)
+            };
+            upcoming.Add(new UpcomingMilestoneView(p.ProjectCode, p.Customer?.FullName ?? "", p.Hall?.Name ?? "", p.EventDate, stage,
+                EventStageRules.StageTitle(stage), next, due, VietnamTime.CalculateCountdown(due, today), missingSuppliers, pendingAddons.Count));
         }
 
-        return new ManagerDashboardResponse(
-            Kpis: kpis,
-            MyTasks: myTasks,
-            UpcomingMilestones: upcomingMilestones,
-            OverdueTasks: overdueAlertViews,
-            StaleBeos: staleBeoAlerts);
+        var dayOfToday = await db.DayOfTasks.AsNoTracking()
+            .CountAsync(t => activeIds.Contains(t.ProjectId) && t.Project.EventDate == today && t.Status != "Done", cancellationToken);
+        var kpis = new ManagerKpiSummary(
+            ActiveProjects: active.Count,
+            TasksDueToday: tasks.Count(t => t.DueDate <= today) + dayOfToday,
+            PendingAddons: active.Sum(p => p.AddonContracts.Count(a => a.Status == "PendingCustomer")),
+            StaleBeos: staleBeos.Count,
+            OverdueTasksCount: overdueViews.Count,
+            DraftingProjects: active.Count(p => p.Status == EventStatus.Adjusting),
+            EventsIn7Days: active.Count(p => p.EventDate >= today && p.EventDate <= today.AddDays(7)));
+
+        return new ManagerDashboardResponse(kpis, tasks.OrderBy(t => t.DueDate).Take(20).ToList(), upcoming, overdueViews, staleBeos);
     }
 }

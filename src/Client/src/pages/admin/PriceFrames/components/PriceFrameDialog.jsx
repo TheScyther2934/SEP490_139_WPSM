@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import { isoDate, moneyInput } from "../../../../utils/format";
 
-// A-05. SRS 10.3: min ≥ 0, min ≤ max (MSG24), effective from today or later.
+// A-05. SRS 10.3: min ≥ 0, min ≤ max, effective from today or later.
 export function validatePriceFrame({ minPrice, maxPrice, effectiveFrom }) {
   const errors = {};
   const min = moneyInput(minPrice);

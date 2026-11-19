@@ -3,11 +3,11 @@ import { projectService } from "../services/projectService";
 import { errorMessage } from "../utils/format";
 
 // Manager project currently opened under /manager/projects/:projectCode.
-// The snapshot carries the project, its roadmap, the catalog and the PriceFrames (M-04, M-05).
+// The snapshot carries the event, the catalog and the price frames.
 export const loadProject = createAsyncThunk("project/load", async (projectCode, { rejectWithValue }) => {
   try {
     const snapshot = await projectService.getSnapshot(projectCode);
-    if (!snapshot.project || snapshot.project.id !== projectCode) return rejectWithValue("Không tìm thấy dự án hoặc dự án không thuộc phạm vi của bạn.");
+    if (!snapshot.project || snapshot.project.id !== projectCode) return rejectWithValue("Không tìm thấy sự kiện hoặc sự kiện không thuộc phạm vi của bạn.");
     return snapshot;
   } catch (error) {
     return rejectWithValue(errorMessage(error));
@@ -39,7 +39,7 @@ const projectSlice = createSlice({
       .addCase(loadProject.rejected, (state, { payload, meta }) => {
         if (state.code !== meta.arg) return;
         state.status = "error";
-        state.error = payload ?? "Không tải được dự án.";
+        state.error = payload ?? "Không tải được sự kiện.";
       });
   },
 });

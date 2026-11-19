@@ -1,417 +1,136 @@
-import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams, Link as RouterLink } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  Stack,
-  Typography,
-} from "@mui/material";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import CloseIcon from "@mui/icons-material/Close";
+import { useCallback, useEffect, useState } from "react";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
+import { Alert, Box, Button, Card, CardContent, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
+import TaskCard from "./components/TaskCard";
+import ProofUploadDialog from "./components/ProofUploadDialog";
+import PhotoViewer from "./components/PhotoViewer";
 import { useAsync } from "../../../hooks/useAsync";
-import { managerService } from "../../../services/managerService";
+import { useAction } from "../../../hooks/useAction";
+import { useProject } from "../../../hooks/useProject";
+import { dayOfService } from "../../../services/operationsService";
 import { PATHS } from "../../../routes/paths";
-import { dateTimeVi } from "../../../utils/format";
+import { dateVi } from "../../../utils/format";
 
-// M-16: Day-of Board & M-17: Task Completion with Proof
+const FILTERS = {
+  all: { label: "Tất cả", test: () => true },
+  todo: { label: "Chưa xong", test: (t) => t.status !== "Done" },
+  missing: { label: "Thiếu ảnh", test: (t) => t.missingProof },
+  done: { label: "Đã xong", test: (t) => t.status === "Done" },
+};
+
+function Summary({ tasks }) {
+  const done = tasks.filter((t) => t.status === "Done").length;
+  const overdue = tasks.filter((t) => t.status === "Overdue").length;
+  const missing = tasks.filter((t) => t.missingProof).length;
+  const photos = tasks.reduce((n, t) => n + t.photos.length, 0);
+  const items = [
+    { label: "Công việc đã xong", value: `${done}/${tasks.length}`, color: done === tasks.length ? "success.main" : "text.primary" },
+    { label: "Đang quá hạn", value: overdue, color: overdue ? "error.main" : "text.primary" },
+    { label: "Đã xong nhưng thiếu ảnh", value: missing, color: missing ? "warning.main" : "text.primary" },
+    { label: "Ảnh minh chứng", value: photos, color: "text.primary" },
+  ];
+  return (
+    <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, mb: 2 }}>
+      {items.map((i) => (
+        <Card key={i.label}><CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+          <Typography variant="caption" color="text.secondary">{i.label}</Typography>
+          <Typography variant="h5" sx={{ color: i.color, fontWeight: 700 }}>{i.value}</Typography>
+        </CardContent></Card>
+      ))}
+    </Box>
+  );
+}
+
+// Event-day board: the timeline of tasks, completing them with proof photos, adding photos to tasks finished without them.
 export default function DayOfBoard() {
-  const { projectCode } = useParams();
+  const { project } = useProject();
+  const code = project.id;
   const [searchParams] = useSearchParams();
   const targetTaskId = Number(searchParams.get("taskId"));
+  const board = useAsync(() => dayOfService.get(code), [code]);
+  const { busy, run } = useAction();
+  const [dialog, setDialog] = useState(null);   // { task, mode: "complete" | "add" }
+  const [viewer, setViewer] = useState(null);   // { title, photos, index }
+  const [filter, setFilter] = useState("all");
 
-  const { data, loading, error, reload } = useAsync(
-    () => managerService.getDayOfTasks(projectCode),
-    [projectCode]
-  );
+  const data = board.data;
+  const tasks = data?.tasks ?? [];
+  const shown = tasks.filter(FILTERS[filter].test);
+  const missing = tasks.filter((t) => t.missingProof).length;
 
-  const [activeTask, setActiveTask] = useState(null);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [submitError, setSubmitError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
-
-  const taskRefs = useRef({});
-
-  // Auto-scroll to target task if passed via ?taskId= query param
   useEffect(() => {
-    if (targetTaskId && data && taskRefs.current[targetTaskId]) {
-      setTimeout(() => {
-        taskRefs.current[targetTaskId].scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }, 300);
-    }
+    if (!targetTaskId || !data) return;
+    const timer = setTimeout(() => document.getElementById(`task-${targetTaskId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+    return () => clearTimeout(timer);
   }, [targetTaskId, data]);
 
-  const handleOpenCompleteDialog = (task) => {
-    setActiveTask(task);
-    setSelectedFiles([]);
-    setSubmitError("");
+  const submit = async (files) => {
+    const { task, mode } = dialog;
+    const result = mode === "add"
+      ? await run(() => dayOfService.addPhotos(code, task.taskId, files), `Đã tải ${files.length} ảnh minh chứng cho "${task.taskName}".`)
+      : await run(() => dayOfService.complete(code, task.taskId, files), `Đã hoàn thành "${task.taskName}".`);
+    if (result) { setDialog(null); board.reload({ silent: true }); }
   };
-
-  const handleCloseDialog = () => {
-    setActiveTask(null);
-    setSelectedFiles([]);
-    setSubmitError("");
+  const loadTimeline = async () => {
+    if (await run(() => dayOfService.load(code), "Đã tải lịch trình ngày cưới.")) board.reload({ silent: true });
   };
-
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    if (selectedFiles.length + files.length > 3) {
-      setSubmitError("Nhiệm vụ này chỉ cho phép tải lên tối đa 3 ảnh minh chứng.");
-      return;
-    }
-
-    const invalid = files.find(
-      (f) =>
-        f.size > 10 * 1024 * 1024 ||
-        !["image/jpeg", "image/png", "image/jpg"].includes(f.type)
-    );
-
-    if (invalid) {
-      setSubmitError(
-        "Ảnh không hợp lệ. Chỉ chấp nhận định dạng JPG/PNG dung lượng tối đa 10 MB mỗi ảnh (MSG17)."
-      );
-      return;
-    }
-
-    setSubmitError("");
-    setSelectedFiles((prev) => [...prev, ...files]);
-  };
-
-  const handleRemoveFile = (index) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmitComplete = async () => {
-    if (!activeTask) return;
-
-    if (activeTask.photoRequired && selectedFiles.length < 1) {
-      setSubmitError("Nhiệm vụ này yêu cầu từ 1 đến 3 ảnh minh chứng (MSG10).");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError("");
-
-    try {
-      const formData = new FormData();
-      selectedFiles.forEach((file) => {
-        formData.append("photos", file);
-      });
-
-      await managerService.completeDayOfTask(projectCode, activeTask.taskId, formData);
-      setSuccessMsg(`Nhiệm vụ "${activeTask.taskName}" đã được hoàn thành thành công.`);
-      handleCloseDialog();
-      reload();
-    } catch (err) {
-      const msg = err.response?.data?.message || err.message || "Lỗi khi hoàn thành nhiệm vụ.";
-      setSubmitError(msg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const tasks = data ?? [];
+  const moveViewer = useCallback((index) => setViewer((v) => (v ? { ...v, index } : v)), []);
 
   return (
     <>
-      <PageHeader
-        code="M-16"
-        title="Bảng điều phối ngày sự kiện"
-        subtitle={`Theo dõi các nhiệm vụ vận hành trực tiếp trong ngày tiệc của dự án ${projectCode}.`}
-        actions={
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackIcon />}
-              component={RouterLink}
-              to={PATHS.manager.project(projectCode)}
-            >
-              Về dự án
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => reload()}
-              disabled={loading}
-            >
-              Làm mới
-            </Button>
-          </Stack>
-        }
-      />
+      <PageHeader title="Công việc ngày cưới"
+        subtitle={data ? `${data.coupleName} · ${dateVi(data.eventDate)} · ca ${data.slotTime}` : `Sự kiện ${code}`}
+        actions={<>
+          <Button component={RouterLink} to={PATHS.manager.project(code)}>Về sự kiện</Button>
+          <Button startIcon={<RefreshIcon />} onClick={() => board.reload()} disabled={board.loading}>Làm mới</Button>
+        </>} />
 
-      {successMsg && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMsg("")}>
-          {successMsg}
-        </Alert>
-      )}
-
-      <DataState
-        loading={loading}
-        error={error}
-        onRetry={reload}
-        empty={!tasks.length}
-        emptyMessage="Chưa có nhiệm vụ ngày sự kiện nào được tạo cho dự án này."
-      >
-        <Stack spacing={2}>
-          {tasks.map((task) => {
-            const isTarget = task.taskId === targetTaskId;
-            const isOverdue = task.status === "Overdue";
-            const isDone = task.status === "Done";
-
-            return (
-              <Card
-                key={task.taskId}
-                id={`task-${task.taskId}`}
-                ref={(el) => (taskRefs.current[task.taskId] = el)}
-                sx={{
-                  border: isTarget
-                    ? "2px solid #d32f2f"
-                    : isOverdue
-                    ? "1px solid #ef5350"
-                    : undefined,
-                  boxShadow: isTarget ? "0 0 12px rgba(211, 47, 47, 0.3)" : undefined,
-                  transition: "all 0.3s ease",
-                  backgroundColor: isTarget ? "#fff8f8" : "inherit",
-                }}
-              >
-                <CardContent>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", sm: "center" }}
-                    spacing={1}
-                    sx={{ mb: 1.5 }}
-                  >
-                    <Box>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                          {task.taskName}
-                        </Typography>
-                        {isTarget && (
-                          <Chip label="Đang chọn" color="error" size="small" variant="outlined" />
-                        )}
-                      </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        Hạn chót: <strong>{dateTimeVi(task.deadlineTime)}</strong>
-                      </Typography>
-                    </Box>
-
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {isOverdue && (
-                        <Chip
-                          icon={<WarningAmberIcon />}
-                          label={`Quá hạn ${task.overdueMinutes} phút`}
-                          color="error"
-                          sx={{ fontWeight: "bold" }}
-                        />
-                      )}
-                      {isDone ? (
-                        <>
-                          <Chip
-                            icon={<CheckCircleIcon />}
-                            label="Đã hoàn thành"
-                            color="success"
-                            sx={{ fontWeight: "bold" }}
-                          />
-                          {task.isLate && (
-                            <Chip
-                              label="Hoàn thành muộn"
-                              color="warning"
-                              size="small"
-                              variant="outlined"
-                            />
-                          )}
-                        </>
-                      ) : (
-                        !isOverdue && (
-                          <Chip
-                            icon={<AccessTimeIcon />}
-                            label="Chờ thực hiện"
-                            color="default"
-                          />
-                        )
-                      )}
-                    </Stack>
-                  </Stack>
-
-                  <Divider sx={{ my: 1.5 }} />
-
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: "flex-start", sm: "center" }}
-                    spacing={1}
-                  >
-                    <Box>
-                      <Chip
-                        icon={<PhotoCameraIcon fontSize="small" />}
-                        label={
-                          task.photoRequired
-                            ? "Yêu cầu 1–3 ảnh minh chứng (Proof)"
-                            : "Không yêu cầu ảnh"
-                        }
-                        size="small"
-                        color={task.photoRequired ? "info" : "default"}
-                        variant="outlined"
-                      />
-                      {isDone && task.completedAt && (
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Hoàn thành lúc: {dateTimeVi(task.completedAt)}
-                        </Typography>
-                      )}
-                    </Box>
-
-                    {!isDone && (
-                      <Button
-                        variant="contained"
-                        color={isOverdue ? "error" : "primary"}
-                        startIcon={<CheckCircleIcon />}
-                        onClick={() => handleOpenCompleteDialog(task)}
-                      >
-                        Hoàn thành nhiệm vụ
-                      </Button>
-                    )}
-                  </Stack>
-
-                  {/* Render uploaded proof photos if available */}
-                  {task.photos && task.photos.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: "bold", display: "block", mb: 0.5 }}>
-                        Ảnh minh chứng đã tải lên ({task.photos.length}):
-                      </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {task.photos.map((photo) => (
-                          <Box
-                            key={photo.photoId}
-                            component="img"
-                            src={photo.imageUrl}
-                            alt="Minh chứng"
-                            sx={{
-                              width: 80,
-                              height: 80,
-                              borderRadius: 1,
-                              objectFit: "cover",
-                              border: "1px solid",
-                              borderColor: "divider",
-                            }}
-                          />
-                        ))}
-                      </Stack>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Stack>
+      <DataState loading={board.loading} error={board.error} onRetry={board.reload}>
+        {data && (
+          <>
+            {data.canAddPhotos && missing > 0 && (
+              <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" onClick={() => setFilter("missing")}>Xem</Button>}>
+                Có {missing} công việc đã đánh dấu xong nhưng chưa có ảnh chứng minh kết quả. Hãy bổ sung ảnh trước khi tất toán với khách.
+              </Alert>
+            )}
+            {!data.canAddPhotos && data.projectStatus !== "Settled" && data.projectStatus !== "Closed" && (
+              <Alert severity="info" sx={{ mb: 2 }}>Chỉ hoàn thành công việc và tải ảnh minh chứng từ ngày cưới ({dateVi(data.eventDate)}).</Alert>
+            )}
+            {tasks.length === 0 ? (
+              <Card><CardContent>
+                <Typography sx={{ mb: 2 }}>Chưa có công việc ngày cưới. Lịch trình được tải tự động vào sáng ngày cưới, hoặc tải trước từ một ngày trước tiệc.</Typography>
+                <Button variant="contained" startIcon={<PlaylistAddIcon />} disabled={busy || data.projectStatus !== "Locked"} onClick={loadTimeline}>Tải lịch trình ngày cưới</Button>
+              </CardContent></Card>
+            ) : (
+              <>
+                <Summary tasks={tasks} />
+                <ToggleButtonGroup size="small" exclusive value={filter} onChange={(_, v) => v && setFilter(v)} sx={{ mb: 2, flexWrap: "wrap" }}>
+                  {Object.entries(FILTERS).map(([key, f]) => (
+                    <ToggleButton key={key} value={key}>{f.label} ({tasks.filter(f.test).length})</ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+                <Stack spacing={2}>
+                  {shown.map((task) => (
+                    <TaskCard key={task.taskId} task={task} canAddPhotos={data.canAddPhotos} maxPhotos={data.maxPhotosPerTask}
+                      onComplete={(t) => setDialog({ task: t, mode: "complete" })}
+                      onAddPhotos={(t) => setDialog({ task: t, mode: "add" })}
+                      onOpenPhoto={(t, index) => setViewer({ title: t.taskName, photos: t.photos, index })} />
+                  ))}
+                  {shown.length === 0 && <Typography color="text.secondary">Không có công việc nào trong mục này.</Typography>}
+                </Stack>
+              </>
+            )}
+          </>
+        )}
       </DataState>
 
-      {/* ── M-17: Modal Hoàn thành nhiệm vụ & Upload ảnh minh chứng ──── */}
-      <Dialog open={Boolean(activeTask)} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ m: 0, p: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography variant="h6">Hoàn thành nhiệm vụ (M-17)</Typography>
-          <IconButton onClick={handleCloseDialog} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers>
-          {activeTask && (
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  {activeTask.taskName}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Hạn chót: {dateTimeVi(activeTask.deadlineTime)}
-                </Typography>
-                {activeTask.status === "Overdue" && (
-                  <Typography variant="body2" color="error.main" sx={{ fontWeight: "bold", mt: 0.5 }}>
-                    ⚠️ Nhiệm vụ này đang quá hạn {activeTask.overdueMinutes} phút. Khi hoàn thành, hệ thống sẽ ghi nhận trạng thái hoàn thành muộn.
-                  </Typography>
-                )}
-              </Box>
-
-              {activeTask.photoRequired && (
-                <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                    Ảnh minh chứng (Yêu cầu 1–3 ảnh, JPG/PNG, tối đa 10 MB mỗi ảnh):
-                  </Typography>
-
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    startIcon={<PhotoCameraIcon />}
-                    disabled={selectedFiles.length >= 3}
-                  >
-                    Chọn ảnh minh chứng
-                    <input
-                      type="file"
-                      data-field="proofPhotos"
-                      hidden
-                      multiple
-                      accept="image/png, image/jpeg, image/jpg"
-                      onChange={handleFileChange}
-                    />
-                  </Button>
-
-                  {selectedFiles.length > 0 && (
-                    <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: "wrap" }}>
-                      {selectedFiles.map((file, idx) => (
-                        <Chip
-                          key={idx}
-                          label={`${file.name} (${Math.round(file.size / 1024)} KB)`}
-                          onDelete={() => handleRemoveFile(idx)}
-                          variant="outlined"
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                </Box>
-              )}
-
-              {submitError && (
-                <Alert severity="error">{submitError}</Alert>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseDialog} color="inherit">
-            Hủy
-          </Button>
-          <Button
-            onClick={handleSubmitComplete}
-            variant="contained"
-            color="primary"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Đang xử lý..." : "Xác nhận hoàn thành"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ProofUploadDialog task={dialog?.task} mode={dialog?.mode} maxPhotos={data?.maxPhotosPerTask ?? 6} busy={busy}
+        onClose={() => setDialog(null)} onSubmit={submit} />
+      <PhotoViewer viewer={viewer} onClose={() => setViewer(null)} onMove={moveViewer} />
     </>
   );
 }

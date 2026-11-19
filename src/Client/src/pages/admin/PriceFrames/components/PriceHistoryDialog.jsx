@@ -4,7 +4,7 @@ import { useAsync } from "../../../../hooks/useAsync";
 import { configurationAdminService } from "../../../../services/operationsService";
 import { dateTimeVi, dateVi, money } from "../../../../utils/format";
 
-// A-04 "Review price history" (UC-38): every version with its effective date; past versions stay for old contracts (GBR-14).
+// A-04 "Review price history" (UC-38): every version with its effective date; past versions stay for old contracts.
 export default function PriceHistoryDialog({ frame, onClose }) {
   const { data, loading, error } = useAsync(
     () => (frame ? configurationAdminService.priceFrameHistory(frame.catalogItemId) : Promise.resolve([])), [frame?.catalogItemId]);

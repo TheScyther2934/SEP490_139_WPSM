@@ -85,32 +85,32 @@ public sealed class Job04AndJob05TimezoneTests : IDisposable
     }
 
     [Fact]
-    public void RoadmapRules_VietnamTimezoneConversions_AreAccurateAndPreserveExactMoments()
+    public void VietnamTime_VietnamTimezoneConversions_AreAccurateAndPreserveExactMoments()
     {
         // 11:00 AM on 2026-11-10 in Vietnam (UTC+7) is 04:00 AM UTC on 2026-11-10
         var vnDate = new DateOnly(2026, 11, 10);
         var vnTime = new TimeOnly(11, 0);
 
-        var utcTime = RoadmapRules.ConvertVietnamToUtc(vnDate, vnTime);
+        var utcTime = VietnamTime.ConvertVietnamToUtc(vnDate, vnTime);
         Assert.Equal(DateTimeKind.Utc, utcTime.Kind);
         Assert.Equal(new DateTime(2026, 11, 10, 4, 0, 0, DateTimeKind.Utc), utcTime);
 
         // Convert back to Vietnam time
-        var backToVn = RoadmapRules.ConvertUtcToVietnam(utcTime);
+        var backToVn = VietnamTime.ConvertUtcToVietnam(utcTime);
         Assert.Equal(new DateTime(2026, 11, 10, 11, 0, 0), backToVn);
     }
 
     [Fact]
-    public void RoadmapRules_MidnightRollover_ConvertsCorrectly()
+    public void VietnamTime_MidnightRollover_ConvertsCorrectly()
     {
         // 02:00 AM on 2026-11-10 in Vietnam (UTC+7) is 19:00 PM UTC on the PREVIOUS day (2026-11-09)
         var vnDate = new DateOnly(2026, 11, 10);
         var vnTime = new TimeOnly(2, 0);
 
-        var utcTime = RoadmapRules.ConvertVietnamToUtc(vnDate, vnTime);
+        var utcTime = VietnamTime.ConvertVietnamToUtc(vnDate, vnTime);
         Assert.Equal(new DateTime(2026, 11, 9, 19, 0, 0, DateTimeKind.Utc), utcTime);
 
-        var backToVn = RoadmapRules.ConvertUtcToVietnam(utcTime);
+        var backToVn = VietnamTime.ConvertUtcToVietnam(utcTime);
         Assert.Equal(new DateTime(2026, 11, 10, 2, 0, 0), backToVn);
     }
 
@@ -130,15 +130,15 @@ public sealed class Job04AndJob05TimezoneTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = todayVn,
             BaseContractValue = 100_000_000,
-            Nrdamount = 30_000_000,
+            DepositAmount = 30_000_000,
             CurrentTotal = 100_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
         _db.WeddingProjects.Add(project);
 
         // Task deadline: 10:00 AM Vietnam time = 03:00 UTC
-        var deadlineUtc = RoadmapRules.ConvertVietnamToUtc(todayVn, new TimeOnly(10, 0));
+        var deadlineUtc = VietnamTime.ConvertVietnamToUtc(todayVn, new TimeOnly(10, 0));
 
         var task = new DayOfTask
         {
@@ -153,7 +153,7 @@ public sealed class Job04AndJob05TimezoneTests : IDisposable
         await _db.SaveChangesAsync();
 
         // 1. Current time is 09:55 AM Vietnam time (02:55 UTC) -> NOT overdue
-        var beforeDeadlineUtc = RoadmapRules.ConvertVietnamToUtc(todayVn, new TimeOnly(9, 55));
+        var beforeDeadlineUtc = VietnamTime.ConvertVietnamToUtc(todayVn, new TimeOnly(9, 55));
         var resultBefore = await _job05Service.DetectOverdueTasksAsync(
             new DetectOverdueTasksCommand(TargetDate: todayVn, CurrentUtc: beforeDeadlineUtc));
 
@@ -162,7 +162,7 @@ public sealed class Job04AndJob05TimezoneTests : IDisposable
         Assert.Equal("Pending", taskCheck1!.Status);
 
         // 2. Current time is 10:02 AM Vietnam time (03:02 UTC) -> IMMEDIATELY Overdue (no 7h lag!)
-        var afterDeadlineUtc = RoadmapRules.ConvertVietnamToUtc(todayVn, new TimeOnly(10, 2));
+        var afterDeadlineUtc = VietnamTime.ConvertVietnamToUtc(todayVn, new TimeOnly(10, 2));
         var resultAfter = await _job05Service.DetectOverdueTasksAsync(
             new DetectOverdueTasksCommand(TargetDate: todayVn, CurrentUtc: afterDeadlineUtc));
 
@@ -187,9 +187,9 @@ public sealed class Job04AndJob05TimezoneTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = targetDate,
             BaseContractValue = 120_000_000,
-            Nrdamount = 36_000_000,
+            DepositAmount = 36_000_000,
             CurrentTotal = 120_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow,
             Beos =
             {

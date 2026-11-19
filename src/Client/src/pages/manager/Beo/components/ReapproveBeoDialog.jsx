@@ -23,15 +23,15 @@ export default function ReapproveBeoDialog({ open, beo, initialNotes, submitting
     <Dialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         {isStale
-          ? `M-12 · Duyệt lại BEO từ trạng thái Stale → Phiên bản v${nextVersion}`
-          : `M-10 · Phê duyệt & Đóng băng BEO (Frozen v${nextVersion})`}
+          ? `Duyệt lại phiếu điều phối → phiên bản v${nextVersion}`
+          : `Chốt phiếu điều phối (v${nextVersion})`}
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
           <Alert severity={isStale ? "warning" : "info"}>
             {isStale
-              ? `BEO v${beo.version} đang ở trạng thái Stale do phát sinh phụ lục hợp đồng mới (GBR-05 / MSG22). Khi xác nhận, hệ thống sẽ phát hành BEO v${nextVersion} ở trạng thái Frozen và cập nhật đồng bộ 4 phiếu bộ phận (Kitchen, Service, Decor, Tech-MC).`
-              : `Khi đóng băng BEO v${nextVersion}, kế hoạch vận hành sẽ được khóa chuẩn và tự động sinh 4 phiếu điều phối bộ phận (Kitchen, Service, Decor, Tech-MC).`}
+              ? `Phiếu điều phối v${beo.version} đang cần duyệt lại do khách vừa xác nhận hợp đồng phát sinh. Khi xác nhận, hệ thống sẽ phát hành BEO v${nextVersion} đã chốt và cập nhật đồng bộ 4 phiếu bộ phận (Kitchen, Service, Decor, Tech-MC).`
+              : `Khi chốt phiếu điều phối v${nextVersion}, kế hoạch vận hành sẽ được khóa chuẩn và tự động sinh 4 phiếu điều phối bộ phận (Kitchen, Service, Decor, Tech-MC).`}
           </Alert>
 
           <TextField
@@ -60,7 +60,7 @@ export default function ReapproveBeoDialog({ open, beo, initialNotes, submitting
             ? "Đang phê duyệt..."
             : isStale
             ? `Xác nhận duyệt lại BEO v${nextVersion}`
-            : `Đóng băng BEO v${nextVersion}`}
+            : `Chốt phiếu điều phối v${nextVersion}`}
         </Button>
       </DialogActions>
     </Dialog>

@@ -77,9 +77,9 @@ public sealed class DayOfTaskServiceTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = DateOnly.FromDateTime(DateTime.Today),
             BaseContractValue = 100_000_000,
-            Nrdamount = 30_000_000,
+            DepositAmount = 30_000_000,
             CurrentTotal = 100_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
 

@@ -44,9 +44,9 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
             SlotId = slot.SlotId,
             EventDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(45)),
             BaseContractValue = 100_000_000m,
-            Nrdamount = 20_000_000m,
+            DepositAmount = 20_000_000m,
             CurrentTotal = 105_000_000m,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -60,7 +60,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
         {
             PaymentId = 1,
             ProjectId = _project.ProjectId,
-            PaymentType = "NRD",
+            PaymentType = "Deposit",
             Status = "Paid",
             Amount = 20_000_000m,
             DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
@@ -69,71 +69,32 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
             ReceiptContent = new byte[] { 1, 2, 3, 4, 5 }
         });
 
-        // Add Approved CR: 5M
-        _db.ChangeRequests.Add(new ChangeRequest
-        {
-            Crid = 1,
-            Crcode = "CR-001",
-            ProjectId = _project.ProjectId,
-            CreatedBy = _customer.UserId,
-            Type = "Scope",
-            Description = "Them mon an",
-            CostImpact = 5_000_000m,
-            PenaltyFee = 0m,
-            TotalVariance = 5_000_000m,
-            Status = "Approved",
-            CreatedAt = DateTime.UtcNow
-        });
-
-        // Add Draft CR: 10M (should NOT be counted in variance)
-        _db.ChangeRequests.Add(new ChangeRequest
-        {
-            Crid = 2,
-            Crcode = "CR-002",
-            ProjectId = _project.ProjectId,
-            CreatedBy = _customer.UserId,
-            Type = "Scope",
-            Description = "Ban go tuy chon",
-            CostImpact = 10_000_000m,
-            PenaltyFee = 0m,
-            TotalVariance = 10_000_000m,
-            Status = "Draft",
-            CreatedAt = DateTime.UtcNow
-        });
+        // Confirmed addon contract: 5M (counted); one waiting for the customer: 10M (not counted).
+        _db.AddonContracts.Add(Addon(1, "PS-1", "Confirmed", 5_000_000m));
+        _db.AddonContracts.Add(Addon(2, "PS-2", "PendingCustomer", 10_000_000m));
 
         _db.SaveChanges();
     }
 
     public void Dispose() => _db.Dispose();
 
-    [Fact]
-    public void PaymentCalculator_CalculatesCorrectFinancialMetrics()
+    private AddonContract Addon(int id, string code, string status, decimal amount)
     {
-        var baseValue = 100_000_000m;
-        var crList = new (string Status, decimal? TotalVariance, decimal CostImpact, decimal PenaltyFee)[]
-        {
-            ("Approved", 5_000_000m, 5_000_000m, 0m),
-            ("CustomerApproved", 3_000_000m, 3_000_000m, 0m),
-            ("Draft", 10_000_000m, 10_000_000m, 0m),
-            ("Rejected", 2_000_000m, 2_000_000m, 0m)
-        };
+        var addon = new AddonContract { AddonId = id, AddonCode = code, ProjectId = _project.ProjectId, Title = code, Status = status,
+            CreatedBy = _manager.UserId, CreatedAt = DateTime.UtcNow, ConfirmedAt = status == "Confirmed" ? DateTime.UtcNow : null };
+        addon.Items.Add(new AddonContractItem { Description = code, Quantity = 1, UnitPrice = amount });
+        return addon;
+    }
 
-        var crVariance = PaymentCalculator.CalculateApprovedCrVariance(crList);
-        Assert.Equal(8_000_000m, crVariance);
-
-        var currentTotal = PaymentCalculator.CalculateCurrentTotal(baseValue, crVariance);
-        Assert.Equal(108_000_000m, currentTotal);
-
-        var payments = new (string Status, decimal? Amount)[]
-        {
-            ("Paid", 20_000_000m),
-            ("Due", 50_000_000m)
-        };
-        var totalPaid = PaymentCalculator.CalculateTotalPaid(payments);
+    [Fact]
+    public void PaymentCalculator_SettlementIsContractPlusConfirmedAddonsMinusDeposit()
+    {
+        Assert.Equal(115_000_000m, PaymentCalculator.CalculateGrandTotal(105_000_000m, 10_000_000m));
+        Assert.Equal(85_000_000m, PaymentCalculator.CalculateSettlementAmount(105_000_000m, 10_000_000m, 30_000_000m));
+        Assert.Equal(0m, PaymentCalculator.CalculateSettlementAmount(10_000_000m, 0m, 30_000_000m));
+        var totalPaid = PaymentCalculator.CalculateTotalPaid(new (string Status, decimal? Amount)[] { ("Paid", 20_000_000m), ("Due", 50_000_000m) });
         Assert.Equal(20_000_000m, totalPaid);
-
-        var balance = PaymentCalculator.CalculateOutstandingBalance(currentTotal, totalPaid);
-        Assert.Equal(88_000_000m, balance);
+        Assert.Equal(95_000_000m, PaymentCalculator.CalculateOutstandingBalance(115_000_000m, totalPaid));
     }
 
     [Fact]
@@ -146,11 +107,11 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
 
         Assert.NotNull(summary);
         Assert.Equal(_project.ProjectCode, summary.ProjectCode);
-        Assert.Equal(100_000_000m, summary.BaseContractValue);
-        Assert.Equal(5_000_000m, summary.TotalApprovedCrVariance);
-        Assert.Equal(105_000_000m, summary.CurrentProjectTotal);
+        Assert.Equal(105_000_000m, summary.BaseContractValue);   // contract total after adjustments
+        Assert.Equal(5_000_000m, summary.ConfirmedAddonTotal);
+        Assert.Equal(110_000_000m, summary.CurrentProjectTotal);
         Assert.Equal(20_000_000m, summary.TotalAmountPaid);
-        Assert.Equal(85_000_000m, summary.OutstandingBalance);
+        Assert.Equal(90_000_000m, summary.OutstandingBalance);
     }
 
     [Fact]
@@ -165,7 +126,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetPaymentMilestonesAsync_GeneratesThreeMilestones()
+    public async Task GetPaymentMilestonesAsync_HasOnlyDepositAndSettlement()
     {
         var dummyStorage = new DummyFileStorage();
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
@@ -173,18 +134,17 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
         var milestones = await repo.GetPaymentMilestonesAsync(_customer.UserId);
 
         Assert.NotNull(milestones);
-        Assert.Equal(3, milestones.Count);
+        Assert.Equal(2, milestones.Count);
 
-        var nrd = milestones.First(m => m.PaymentType == "NRD");
+        var nrd = milestones.First(m => m.PaymentType == "Deposit");
         Assert.Equal("Paid", nrd.Status);
         Assert.Equal(20_000_000m, nrd.PaidAmount);
         Assert.True(nrd.ReceiptAvailable);
 
-        var t30 = milestones.First(m => m.PaymentType == "T30");
-        Assert.NotNull(t30);
-
-        var final = milestones.First(m => m.PaymentType == "FINAL");
-        Assert.NotNull(final);
+        var settlement = milestones.Single(m => m.PaymentType == "Settlement");
+        Assert.Equal(90_000_000m, settlement.Amount);   // 105M + 5M confirmed addon - 20M deposit
+        Assert.Equal("Upcoming", settlement.Status);
+        Assert.Equal(_project.EventDate.AddDays(7), settlement.DueDate);
     }
 
     [Fact]
@@ -193,7 +153,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
         var dummyStorage = new DummyFileStorage();
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
-        var receipt = await repo.GetPaymentReceiptAsync(_customer.UserId, paymentType: "NRD");
+        var receipt = await repo.GetPaymentReceiptAsync(_customer.UserId, paymentType: "Deposit");
 
         Assert.NotNull(receipt);
         Assert.Equal(5, receipt.Content.Length);
@@ -206,7 +166,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
         var dummyStorage = new DummyFileStorage();
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
-        // Project status is "Baseline Frozen", not "Settled" -> throws InvalidOperationException
+        // Project status is "Locked", not "Settled" -> throws InvalidOperationException
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             repo.GetFinalSettlementReceiptAsync(_customer.UserId));
     }

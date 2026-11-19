@@ -29,7 +29,7 @@ export default function UsageDialog({ open, lane, date, onClose, onAllocate }) {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Dự án</TableCell>
+                <TableCell>Sự kiện</TableCell>
                 <TableCell>Khung giờ</TableCell>
                 <TableCell align="center">Số lượng</TableCell>
                 <TableCell align="center">Trạng thái</TableCell>

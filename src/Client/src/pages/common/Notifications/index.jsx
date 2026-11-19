@@ -291,7 +291,7 @@ export default function Notifications() {
           <Typography variant="body2" color="text.disabled">
             {activeTab === "Unread"
               ? "Tất cả các thông báo của bạn đã được đánh dấu là đã đọc."
-              : "Các thông báo về tiến độ dự án, thanh toán và sự kiện sẽ hiển thị tại đây."}
+              : "Các thông báo về tiến độ sự kiện, thanh toán và sự kiện sẽ hiển thị tại đây."}
           </Typography>
         </Card>
       )}

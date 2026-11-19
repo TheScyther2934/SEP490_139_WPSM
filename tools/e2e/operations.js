@@ -138,22 +138,24 @@ function moveEvent(projectCode, offset) {
   {
     const { ctx, page } = await signIn(browser, customerEmail, customerPw, errors);
     await page.goto(`${BASE}/customer/change-requests/new`, { waitUntil: "networkidle2" });
+    // C-06 (merged form): type select, one spec row in a table, reason text; errors show in an alert above the form.
     await clickButton(page, "Gửi yêu cầu");
-    check("C-06 requires type, item and reason", await waitText(page, "Trường Loại thay đổi là bắt buộc.") && await waitText(page, "Trường Lý do là bắt buộc."));
-    await chooseById(page, "crType", "Đổi số bàn");
-    await chooseById(page, "crSpecItem-0", catering.name);
-    await typeInto(page, 'input[data-field="newQuantity"]', "20");
-    await page.type('textarea[data-field="crReason"]', "Tăng số bàn do thêm khách");
-    check("C-06 shows the live cost preview", await waitText(page, "Ước tính chi phí"));
+    check("C-06 requires a reason", await waitText(page, "Vui lòng nhập lý do và mô tả chi tiết yêu cầu thay đổi."), await visibleAlerts(page));
+    await (await page.waitForSelector('table tbody tr:first-child [role="combobox"]', { visible: true, timeout: 10000 })).click();
+    await (await page.waitForSelector(`::-p-xpath(//li[@role="option"][contains(normalize-space(.), "${catering.name}")])`, { visible: true, timeout: 10000 })).click();
+    await page.waitForFunction(() => !document.querySelector('[role="listbox"]'), { timeout: 8000 });
+    await typeInto(page, 'table tbody tr:first-child input[type="number"]', "20");
+    await page.type("form textarea:not([aria-hidden])", "Tăng số bàn do thêm khách");
+    check("C-06 shows the live cost preview", await waitText(page, "Tạm tính Tác động Chi phí"));
     await clickButton(page, "Gửi yêu cầu");
-    const opened = await page.waitForFunction(() => /\/customer\/change-requests\/CR-/.test(location.pathname), { timeout: 10000 }).then(() => true).catch(() => false);
+    const opened = await page.waitForFunction(() => /\/customer\/change-requests\/(?!new$)[^/]+$/.test(location.pathname), { timeout: 10000 }).then(() => true).catch(() => false);
     crCode = opened ? decodeURIComponent(page.url().split("/").pop()) : null;
     check("C-06 submits and opens C-07", opened && !!crCode, page.url());
-    check("C-07 shows the negotiation history", await waitText(page, "Gửi thương lượng"));
+    check("C-07 shows the negotiation history", await waitText(page, "Khởi tạo yêu cầu thay đổi"));
     await ctx.close();
   }
   check("CR is Negotiating with a history entry (UC-07)", sql(`select Status from ChangeRequests where CRCode='${crCode}'`) === "Negotiating"
-    && Number(sql(`select count(*) from CRHistories h join ChangeRequests c on c.CRId=h.CRId where c.CRCode='${crCode}'`)) >= 2);
+    && Number(sql(`select count(*) from CRHistories h join ChangeRequests c on c.CRId=h.CRId where c.CRCode='${crCode}'`)) >= 1);
   check("manager notified of the new CR", Number(sql(`select count(*) from Notifications n join WeddingProjects w on w.ManagerId=n.RecipientId where w.ProjectCode='${code}' and n.Type='CR update' and n.Message like N'%${crCode}%'`)) >= 1);
 
   {
@@ -171,15 +173,14 @@ function moveEvent(projectCode, offset) {
     check("M-08 records the Manager approval (MSG20)", await waitText(page, "Đã ghi nhận quyết định"));
     await ctx.close();
   }
-  check("CR stays Negotiating with one approval (GBR-04)", sql(`select Status from ChangeRequests where CRCode='${crCode}'`) === "Negotiating");
+  // Merged flow: submitting the CR is the Customer's agreement, so the Manager approval completes GBR-04 (both parties).
+  check("CR is Approved once both parties agreed (GBR-04)", sql(`select Status from ChangeRequests where CRCode='${crCode}'`) === "Approved");
 
   {
     const { ctx, page } = await signIn(browser, customerEmail, customerPw, errors);
     await page.goto(`${BASE}/customer/change-requests/${crCode}`, { waitUntil: "networkidle2" });
-    await clickButton(page, "Duyệt");
-    await confirmDialog(page, "Duyệt");
-    check("C-08 approval closes the CR", await waitText(page, "Đã duyệt"));
-    check("C-07 links the generated addendum", await waitText(page, "Xem phụ lục ADD-"));
+    check("C-07 shows both approvals", await waitText(page, "Đã duyệt"));
+    check("C-07 links the generated addendum", await waitText(page, "Xem phụ lục"));
     await ctx.close();
   }
   const approved = sql(`select concat(c.Status,'|',cast(c.CostImpact as bigint),'|',cast(c.PenaltyFee as bigint),'|',cast(w.CurrentTotal as bigint)) from ChangeRequests c join WeddingProjects w on w.ProjectId=c.ProjectId where c.CRCode='${crCode}'`).split("|");

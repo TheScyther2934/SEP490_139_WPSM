@@ -5,8 +5,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { frameFor, lineError } from "../rules";
 import { money, moneyInput } from "../../../../utils/format";
 
-// Editable specification rows; when `readOnly` (baseline frozen) every input is disabled (GBR-01).
-export default function SpecTable({ rows, priceFrames, catalog, readOnly, onChange, onRemove, total }) {
+// Editable service lines; when `readOnly` (services locked) every input is disabled.
+export default function SpecTable({ rows, priceFrames, catalog, readOnly, onChange, onRemove, total, isNew = () => true }) {
   return (
     <Card>
       <TableContainer>
@@ -19,10 +19,10 @@ export default function SpecTable({ rows, priceFrames, catalog, readOnly, onChan
           </TableHead>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}>Chưa có hạng mục. Thêm dịch vụ từ Catalog để bắt đầu.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}>Chưa có dịch vụ.</TableCell></TableRow>
             ) : rows.map((row, index) => {
               const frame = frameFor(priceFrames, row.catalogItemId);
-              const error = lineError(row, priceFrames, catalog);
+              const error = readOnly ? null : lineError(row, priceFrames, catalog, isNew(row.catalogItemId));
               return (
                 <TableRow key={row.catalogItemId} data-spec-item-id={row.catalogItemId} sx={{ verticalAlign: "top" }}>
                   <TableCell>{index + 1}</TableCell>
@@ -48,7 +48,7 @@ export default function SpecTable({ rows, priceFrames, catalog, readOnly, onChan
                   <TableCell align="right" sx={{ whiteSpace: "nowrap", fontWeight: 600 }}>{money(Number(row.quantity) * Number(row.unitPrice))}</TableCell>
                   <TableCell sx={{ minWidth: 170 }}>
                     <Typography variant="caption" color={error ? "error" : "success.main"} data-price-status>
-                      {error ?? `${money(frame.minPrice)} – ${money(frame.maxPrice)}`}
+                      {error ?? (frame ? `${money(frame.minPrice)} – ${money(frame.maxPrice)}` : "—")}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -60,7 +60,7 @@ export default function SpecTable({ rows, priceFrames, catalog, readOnly, onChan
           </TableBody>
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={5} align="right"><b>Tổng cộng đặc tả</b></TableCell>
+              <TableCell colSpan={5} align="right"><b>Tổng cộng</b></TableCell>
               <TableCell align="right" id="specTableTotal"><b>{money(total)}</b></TableCell>
               <TableCell colSpan={2} />
             </TableRow>

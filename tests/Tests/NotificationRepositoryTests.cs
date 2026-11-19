@@ -58,7 +58,7 @@ public sealed class NotificationRepositoryTests : IDisposable
     {
         // Arrange
         _db.Notifications.AddRange(
-            new Notification { RecipientId = 1, Type = NotificationTypes.RoadmapReminder, Message = "Msg 1 for User 1", IsRead = false, CreatedAt = DateTime.UtcNow },
+            new Notification { RecipientId = 1, Type = NotificationTypes.StageReminder, Message = "Msg 1 for User 1", IsRead = false, CreatedAt = DateTime.UtcNow },
             new Notification { RecipientId = 1, Type = NotificationTypes.Payment, Message = "Msg 2 for User 1", IsRead = true, CreatedAt = DateTime.UtcNow },
             new Notification { RecipientId = 2, Type = NotificationTypes.Complaint, Message = "Msg for User 2", IsRead = false, CreatedAt = DateTime.UtcNow }
         );
@@ -77,9 +77,9 @@ public sealed class NotificationRepositoryTests : IDisposable
     {
         // Arrange
         _db.Notifications.AddRange(
-            new Notification { RecipientId = 1, Type = NotificationTypes.RoadmapReminder, Message = "Unread 1", IsRead = false, CreatedAt = DateTime.UtcNow },
+            new Notification { RecipientId = 1, Type = NotificationTypes.StageReminder, Message = "Unread 1", IsRead = false, CreatedAt = DateTime.UtcNow },
             new Notification { RecipientId = 1, Type = NotificationTypes.Payment, Message = "Read 1", IsRead = true, CreatedAt = DateTime.UtcNow },
-            new Notification { RecipientId = 1, Type = NotificationTypes.CrUpdate, Message = "Unread 2", IsRead = false, CreatedAt = DateTime.UtcNow }
+            new Notification { RecipientId = 1, Type = NotificationTypes.AddonContract, Message = "Unread 2", IsRead = false, CreatedAt = DateTime.UtcNow }
         );
         await _db.SaveChangesAsync();
 
@@ -103,7 +103,7 @@ public sealed class NotificationRepositoryTests : IDisposable
         var t2 = DateTime.UtcNow;
 
         _db.Notifications.AddRange(
-            new Notification { RecipientId = 1, Type = NotificationTypes.RoadmapReminder, Message = "Oldest", IsRead = false, CreatedAt = t0 },
+            new Notification { RecipientId = 1, Type = NotificationTypes.StageReminder, Message = "Oldest", IsRead = false, CreatedAt = t0 },
             new Notification { RecipientId = 1, Type = NotificationTypes.Payment, Message = "Newest", IsRead = false, CreatedAt = t2 },
             new Notification { RecipientId = 1, Type = NotificationTypes.Beo, Message = "Middle", IsRead = false, CreatedAt = t1 }
         );
@@ -126,7 +126,7 @@ public sealed class NotificationRepositoryTests : IDisposable
         var n = new Notification
         {
             RecipientId = 1,
-            Type = NotificationTypes.RoadmapReminder,
+            Type = NotificationTypes.StageReminder,
             Message = "Msg",
             IsRead = false,
             CreatedAt = DateTime.UtcNow
@@ -154,7 +154,7 @@ public sealed class NotificationRepositoryTests : IDisposable
     {
         // Arrange
         _db.Notifications.AddRange(
-            new Notification { RecipientId = 1, Type = NotificationTypes.RoadmapReminder, Message = "User 1 Unread 1", IsRead = false, CreatedAt = DateTime.UtcNow },
+            new Notification { RecipientId = 1, Type = NotificationTypes.StageReminder, Message = "User 1 Unread 1", IsRead = false, CreatedAt = DateTime.UtcNow },
             new Notification { RecipientId = 1, Type = NotificationTypes.Payment, Message = "User 1 Unread 2", IsRead = false, CreatedAt = DateTime.UtcNow },
             new Notification { RecipientId = 1, Type = NotificationTypes.Beo, Message = "User 1 Already Read", IsRead = true, CreatedAt = DateTime.UtcNow },
             new Notification { RecipientId = 2, Type = NotificationTypes.Complaint, Message = "User 2 Unread", IsRead = false, CreatedAt = DateTime.UtcNow }
@@ -183,7 +183,7 @@ public sealed class NotificationRepositoryTests : IDisposable
         // Act
         var created = await _repo.CreateNotificationAsync(
             1,
-            "ROADMAP REMINDER",
+            "STAGE REMINDER",
             longMessage,
             "/customer/roadmap"
         );
@@ -191,7 +191,7 @@ public sealed class NotificationRepositoryTests : IDisposable
         // Assert
         Assert.True(created.Message.Length <= 300);
         Assert.EndsWith("...", created.Message);
-        Assert.Equal(NotificationTypes.RoadmapReminder, created.Type);
-        Assert.Equal("Roadmap", created.RelatedEntityType);
+        Assert.Equal(NotificationTypes.StageReminder, created.Type);
+        Assert.Equal("Stage", created.RelatedEntityType);
     }
 }

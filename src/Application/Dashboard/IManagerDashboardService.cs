@@ -9,7 +9,7 @@ namespace Application.Dashboard;
 public sealed record ManagerKpiSummary(
     int ActiveProjects,
     int TasksDueToday,
-    int OpenChangeRequests,
+    int PendingAddons,
     int StaleBeos,
     int OverdueTasksCount,
     int DraftingProjects = 0,
@@ -23,19 +23,22 @@ public sealed record ManagerTaskItemView(
     DateOnly DueDate,
     string Status,
     bool RequiresProof,
-    string TaskType = "Roadmap",
+    string TaskType = "Stage",
     DateTime? DeadlineTime = null);
 
+/// <summary>Next stage deadline of an active event: the lock date while adjusting, the supplier deadline / event day once locked.</summary>
 public sealed record UpcomingMilestoneView(
     string ProjectCode,
     string CoupleName,
     string HallName,
     DateOnly EventDate,
-    string Milestone,
+    int Stage,
+    string StageTitle,
+    string NextStep,
     DateOnly DueDate,
     int DaysRemaining,
-    int TotalTasks,
-    int CompletedTasks);
+    int MissingSuppliers,
+    int PendingAddons);
 
 public sealed record StaleBeoAlertView(
     int BeoId,
@@ -45,7 +48,7 @@ public sealed record StaleBeoAlertView(
     int Version,
     string Status,
     string? Notes = null,
-    string? ApprovedCrCode = null);
+    string? AddonCode = null);
 
 public sealed record ManagerDashboardResponse(
     ManagerKpiSummary Kpis,

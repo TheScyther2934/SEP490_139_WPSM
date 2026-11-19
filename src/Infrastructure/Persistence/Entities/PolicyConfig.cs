@@ -9,11 +9,8 @@ public partial class PolicyConfig
 
     public string PolicyType { get; set; } = null!;
 
-    public int? TdayMin { get; set; }
-
-    public int? TdayMax { get; set; }
-
-    public decimal RatePercent { get; set; }
+    /// <summary>A percentage for *_RATIO policies, a number of days for the others.</summary>
+    public decimal Value { get; set; }
 
     public DateOnly EffectiveFrom { get; set; }
 

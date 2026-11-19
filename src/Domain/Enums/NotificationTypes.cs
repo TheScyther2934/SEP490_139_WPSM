@@ -5,21 +5,26 @@ namespace Domain.Enums;
 /// </summary>
 public static class NotificationTypes
 {
-    public const string RoadmapReminder = "Roadmap reminder";
+    /// <summary>Stage deadlines: lock date reached, supplier evidence missing, settlement due.</summary>
+    public const string StageReminder = "Stage reminder";
     public const string Payment = "Payment";
-    public const string CrUpdate = "CR update";
+    /// <summary>An addon contract waits for / got the customer confirmation.</summary>
+    public const string AddonContract = "Addon contract";
     public const string Beo = "BEO";
     public const string OverdueAlert = "Overdue alert";
     public const string Complaint = "Complaint";
+    /// <summary>A Manager was added to / removed from the operators of a project.</summary>
+    public const string Delegation = "Delegation";
 
     public static readonly string[] All =
     [
-        RoadmapReminder,
+        StageReminder,
         Payment,
-        CrUpdate,
+        AddonContract,
         Beo,
         OverdueAlert,
-        Complaint
+        Complaint,
+        Delegation
     ];
 
     public static bool IsValid(string? type) =>

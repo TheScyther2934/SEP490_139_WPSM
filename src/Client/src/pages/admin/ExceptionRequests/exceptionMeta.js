@@ -1,17 +1,12 @@
-import { money } from "../../../utils/format";
+// A-18 helpers: special requests escalated to Admin (resource conflicts that cannot be solved inside the venue's capacity).
 
-// A-18 helpers: the queue mixes CR penalty waivers (FE-05/FE-06) and resource conflicts (FE-07).
-
-export const SOURCE_CR = "CrPenaltyWaiver";
 export const SOURCE_RESOURCE = "ResourceConflict";
 
-export const sourceLabel = (sourceType) => (sourceType === SOURCE_CR ? "Miễn phí phạt CR" : "Xung đột tài nguyên");
+export const sourceLabel = () => "Trùng lịch thiết bị";
 
-export const sourceDescription = (sourceType) => (sourceType === SOURCE_CR
-    ? "Quản lý đề nghị bỏ phí phạt T-day cho một yêu cầu thay đổi."
-    : "Quản lý đề nghị giữ chỗ thiết bị/nhân sự vượt công suất.");
+export const sourceDescription = () => "Người phụ trách đề nghị giữ thiết bị, nhân sự vượt công suất.";
 
-export const sourceColor = (sourceType) => (sourceType === SOURCE_CR ? "secondary" : "info");
+export const sourceColor = () => "info";
 
 export const STATUS_ORDER = ["Pending", "Approved", "Rejected"];
 
@@ -27,10 +22,9 @@ export const waitingLabel = (createdAt) => {
     return `Chờ ${Math.floor(hours / 24)} ngày`;
 };
 
-/** Short amount/shortage line shown on the queue card. */
-export const impactLabel = (request) => (request.cr
-    ? `Đề xuất miễn: ${money(request.cr.penaltyFee)}`
-    : `Thiếu ${request.resource?.shortage ?? 0}/${request.resource?.totalQuantity ?? 0} ${request.resource?.resourceTypeLabel ?? ""}`);
+/** Short shortage line shown on the queue card. */
+export const impactLabel = (request) =>
+    `Thiếu ${request.resource?.shortage ?? 0}/${request.resource?.totalQuantity ?? 0} ${request.resource?.resourceTypeLabel ?? ""}`;
 
 export const searchText = (request) => [
     request.code,
@@ -38,7 +32,6 @@ export const searchText = (request) => [
     request.projectCouple,
     request.requestedByName,
     request.note,
-    request.cr?.crCode,
     request.resource?.resourceName,
 ]
     .filter(Boolean)

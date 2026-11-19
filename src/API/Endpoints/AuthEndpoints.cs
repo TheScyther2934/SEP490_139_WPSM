@@ -17,12 +17,13 @@ public static class AuthEndpoints
     public static RouteGroupBuilder MapAuthEndpoints(this RouteGroupBuilder api)
     {
         api.MapPost("/auth/token", async (LoginRequest request, IAccountProfileRepository repo, IPasswordHasher<User> hasher,
-            ITokenService tokens, IRefreshTokenService refreshTokens, HttpContext context, CancellationToken ct) =>
+            ITokenService tokens, IRefreshTokenService refreshTokens, IAuditLogRepository audit, HttpContext context, CancellationToken ct) =>
         {
             var account = await repo.FindAccountAsync(request.Email ?? "", ct);
             // GBR-11: one generic answer whether the email, the password or the account status is wrong.
             if (account is null || account.Status != "Active" || VerifyPassword(hasher, account, request.Password ?? "") == PasswordVerificationResult.Failed)
                 return Results.Json(new { message = "Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại." }, statusCode: StatusCodes.Status401Unauthorized);
+            await audit.LogLoginAsync(new LoginAuditCommand(account.UserId, account.FullName, account.Email, account.Role, ClientIp(context)), ct);
             return await IssueTokensAsync(account, tokens, refreshTokens, context, ct);
         }).RequireRateLimiting(SignInRateLimit);
 

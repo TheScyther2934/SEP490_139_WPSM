@@ -5,30 +5,30 @@ import { PATHS } from "../../../../routes/paths";
 export default function ManagerKpis({ kpis }) {
   if (!kpis) return null;
 
-  // 5 KPIs required by SRS §3.3
   const cards = [
     {
-      label: "Dự án đang phụ trách",
+      label: "Sự kiện đang phụ trách",
       value: kpis.activeProjects ?? 0,
       to: PATHS.manager.projects,
     },
     {
-      label: "Nhiệm vụ đến hạn hôm nay",
+      label: "Việc đến hạn hôm nay",
       value: kpis.tasksDueToday ?? 0,
       tone: (kpis.tasksDueToday ?? 0) > 0 ? "warning" : "primary",
     },
     {
-      label: "Yêu cầu thay đổi (CR)",
-      value: kpis.openChangeRequests ?? 0,
+      label: "Phát sinh chờ khách xác nhận",
+      value: kpis.pendingAddons ?? 0,
+      tone: (kpis.pendingAddons ?? 0) > 0 ? "warning" : "primary",
       to: PATHS.manager.projects,
     },
     {
-      label: "BEO lỗi thời",
+      label: "Phiếu điều phối cần duyệt lại",
       value: kpis.staleBeos ?? 0,
       tone: (kpis.staleBeos ?? 0) > 0 ? "warning" : "primary",
     },
     {
-      label: "Cảnh báo quá hạn",
+      label: "Việc trễ hạn",
       value: kpis.overdueTasksCount ?? 0,
       tone: (kpis.overdueTasksCount ?? 0) > 0 ? "error" : "primary",
       to: PATHS.manager.overdueAlerts,

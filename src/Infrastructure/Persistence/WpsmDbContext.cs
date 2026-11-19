@@ -16,15 +16,7 @@ public partial class WpsmDbContext : DbContext
 
     public virtual DbSet<BeodepartmentSheet> BeodepartmentSheets { get; set; }
 
-    public virtual DbSet<ChangeRequest> ChangeRequests { get; set; }
-
     public virtual DbSet<Complaint> Complaints { get; set; }
-
-    public virtual DbSet<ContractAddendum> ContractAddenda { get; set; }
-
-    public virtual DbSet<Crhistory> Crhistories { get; set; }
-
-    public virtual DbSet<Critem> Critems { get; set; }
 
     public virtual DbSet<DayOfTask> DayOfTasks { get; set; }
 
@@ -35,8 +27,6 @@ public partial class WpsmDbContext : DbContext
     public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<Payment> Payments { get; set; }
-    public DbSet<EmailDelivery> EmailDeliveries { get; set; }
-
     public virtual DbSet<PolicyConfig> PolicyConfigs { get; set; }
 
     public virtual DbSet<PriceFrame> PriceFrames { get; set; }
@@ -46,8 +36,6 @@ public partial class WpsmDbContext : DbContext
     public virtual DbSet<Resource> Resources { get; set; }
 
     public virtual DbSet<ResourceAllocation> ResourceAllocations { get; set; }
-
-    public virtual DbSet<RoadmapTask> RoadmapTasks { get; set; }
 
     public virtual DbSet<ServiceCatalogItem> ServiceCatalogItems { get; set; }
 
@@ -108,46 +96,6 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Sheet_BEO");
         });
 
-        modelBuilder.Entity<ChangeRequest>(entity =>
-        {
-            entity.HasKey(e => e.Crid);
-
-            entity.HasIndex(e => new { e.ProjectId, e.Status }, "IX_CR_Project_Status");
-
-            entity.HasIndex(e => e.Crcode, "UQ_CR_Code").IsUnique();
-
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.CostImpact).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Crcode)
-                .HasMaxLength(30)
-                .HasColumnName("CRCode");
-            entity.Property(e => e.CreatedAt)
-                .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.CustomerApprovedAt).HasPrecision(0);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.ManagerApprovedAt).HasPrecision(0);
-            entity.Property(e => e.PenaltyFee).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.PenaltyRate).HasColumnType("decimal(5, 2)");
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Draft");
-            entity.Property(e => e.TotalVariance)
-                .HasComputedColumnSql("([CostImpact]+[PenaltyFee])", true)
-                .HasColumnType("decimal(19, 2)");
-            entity.Property(e => e.Type).HasMaxLength(30);
-
-            entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.ChangeRequests)
-                .HasForeignKey(d => d.CreatedBy)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CR_CreatedBy");
-
-            entity.HasOne(d => d.Project).WithMany(p => p.ChangeRequests)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CR_Project");
-        });
-
         modelBuilder.Entity<Complaint>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.Status }, "IX_Complaint_Project");
@@ -178,86 +126,6 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => new { d.Beoid, d.ProjectId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Complaint_BEO");
-        });
-
-        modelBuilder.Entity<ContractAddendum>(entity =>
-        {
-            entity.HasKey(e => e.AddendumId);
-
-            entity.HasIndex(e => e.Crid, "UQ_Addenda_CR").IsUnique();
-
-            entity.HasIndex(e => e.AddendumCode, "UQ_Addenda_Code").IsUnique();
-
-            entity.Property(e => e.AddendumCode).HasMaxLength(30);
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.FilePath).HasMaxLength(500);
-            entity.Property(e => e.SignedAt).HasPrecision(0);
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Generated");
-            entity.Property(e => e.TotalVariance).HasColumnType("decimal(18, 2)");
-
-            entity.HasOne(d => d.Cr).WithOne(p => p.ContractAddendum)
-                .HasForeignKey<ContractAddendum>(d => d.Crid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Addenda_CR");
-
-            entity.HasOne(d => d.Project).WithMany(p => p.ContractAddenda)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Addenda_Project");
-        });
-
-        modelBuilder.Entity<Crhistory>(entity =>
-        {
-            entity.HasKey(e => e.HistoryId);
-
-            entity.ToTable("CRHistories");
-
-            entity.HasIndex(e => e.Crid, "IX_CRHistory_CR");
-
-            entity.Property(e => e.Action).HasMaxLength(50);
-            entity.Property(e => e.CreatedAt)
-                .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.Note).HasMaxLength(500);
-
-            entity.HasOne(d => d.Actor).WithMany(p => p.Crhistories)
-                .HasForeignKey(d => d.ActorId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRHistory_Actor");
-
-            entity.HasOne(d => d.Cr).WithMany(p => p.Crhistories)
-                .HasForeignKey(d => d.Crid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRHistory_CR");
-        });
-
-        modelBuilder.Entity<Critem>(entity =>
-        {
-            entity.ToTable("CRItems");
-
-            entity.HasIndex(e => new { e.Crid, e.TargetSpecItemId }, "UQ_CRItems_CR_SpecItem").IsUnique();
-
-            entity.Property(e => e.CritemId).HasColumnName("CRItemId");
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.CatalogItemId).HasColumnName("CatalogItemId");
-            entity.Property(e => e.DeltaAmount)
-                .HasComputedColumnSql("([NewUnitPrice]*[NewQuantity]-[OldUnitPrice]*[OldQuantity])", true)
-                .HasColumnType("decimal(30, 2)");
-            entity.Property(e => e.NewUnitPrice).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.OldUnitPrice).HasColumnType("decimal(18, 2)");
-
-            entity.HasOne(d => d.Cr).WithMany(p => p.Critems)
-                .HasForeignKey(d => d.Crid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRItems_CR");
-
-            entity.HasOne(d => d.TargetSpecItem).WithMany(p => p.Critems)
-                .HasForeignKey(d => d.TargetSpecItemId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRItems_SpecItem");
         });
 
         modelBuilder.Entity<DayOfTask>(entity =>
@@ -335,15 +203,6 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Notifications_Recipient");
         });
 
-        modelBuilder.Entity<EmailDelivery>(entity =>
-        {
-            entity.ToTable("EmailDeliveries");
-            entity.HasKey(e => e.EmailDeliveryId);
-            entity.Property(e => e.Recipient).HasMaxLength(100);
-            entity.Property(e => e.Status).HasMaxLength(20);
-            entity.HasIndex(e => e.ProjectId).IsUnique();
-            entity.HasOne<WeddingProject>().WithMany().HasForeignKey(e => e.ProjectId).OnDelete(DeleteBehavior.NoAction);
-        });
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.PaymentType }, "UQ_Payment_Project_Type").IsUnique();
@@ -372,12 +231,10 @@ public partial class WpsmDbContext : DbContext
         {
             entity.HasKey(e => e.PolicyId);
 
-            entity.HasIndex(e => new { e.PolicyType, e.TdayMin, e.TdayMax, e.EffectiveFrom }, "UQ_Policy_Type_Range_Effective").IsUnique();
+            entity.HasIndex(e => new { e.PolicyType, e.EffectiveFrom }, "UQ_Policy_Type_Effective").IsUnique();
 
-            entity.Property(e => e.PolicyType).HasMaxLength(20);
-            entity.Property(e => e.RatePercent).HasColumnType("decimal(5, 2)");
-            entity.Property(e => e.TdayMax).HasColumnName("TDayMax");
-            entity.Property(e => e.TdayMin).HasColumnName("TDayMin");
+            entity.Property(e => e.PolicyType).HasMaxLength(30);
+            entity.Property(e => e.Value).HasColumnType("decimal(5, 2)");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(0)
                 .HasDefaultValueSql("(sysutcdatetime())");
@@ -469,27 +326,6 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Alloc_Resource");
         });
 
-        modelBuilder.Entity<RoadmapTask>(entity =>
-        {
-            entity.HasKey(e => e.TaskId);
-
-            entity.HasIndex(e => new { e.ProjectId, e.Milestone }, "IX_Roadmap_Project_Milestone");
-
-            entity.Property(e => e.AssigneeRole).HasMaxLength(20);
-            entity.Property(e => e.CompletedAt).HasPrecision(0);
-            entity.Property(e => e.Milestone).HasMaxLength(20);
-            entity.Property(e => e.RemindedAt).HasPrecision(0);
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Pending");
-            entity.Property(e => e.Title).HasMaxLength(200);
-
-            entity.HasOne(d => d.Project).WithMany(p => p.RoadmapTasks)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Roadmap_Project");
-        });
-
         modelBuilder.Entity<ServiceCatalogItem>(entity =>
         {
             entity.HasKey(e => e.ItemId);
@@ -523,15 +359,13 @@ public partial class WpsmDbContext : DbContext
 
         modelBuilder.Entity<SpecItem>(entity =>
         {
-            entity.HasIndex(e => new { e.ProjectId, e.CatalogItemId, e.Version }, "UQ_Spec_Project_Item_Version").IsUnique();
+            entity.HasIndex(e => e.ProjectId, "IX_Spec_Project");
 
             entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.IsBaseline).HasDefaultValue(true);
             entity.Property(e => e.LineTotal)
                 .HasComputedColumnSql("([Quantity]*[UnitPrice])", true)
                 .HasColumnType("decimal(29, 2)");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Version).HasDefaultValue(1);
 
             entity.HasOne(d => d.CatalogItem).WithMany(p => p.SpecItems)
                 .HasForeignKey(d => d.CatalogItemId)
@@ -575,21 +409,21 @@ public partial class WpsmDbContext : DbContext
 
             entity.HasIndex(e => e.ProjectCode, "UQ_Projects_Code").IsUnique();
 
-            entity.HasIndex(e => new { e.HallId, e.SlotId, e.EventDate }, "UQ_Projects_Hall_Slot_Date").IsUnique();
+            entity.HasIndex(e => new { e.HallId, e.SlotId, e.EventDate }, "UX_Projects_HallSlotDate_Active").IsUnique().HasFilter("([Status]<>'Cancelled')");
 
             entity.Property(e => e.BaseContractValue).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.BaselineFrozenAt).HasPrecision(0);
+            entity.Property(e => e.LockedAt).HasPrecision(0);
+            entity.Property(e => e.CancelledAt).HasPrecision(0);
+            entity.Property(e => e.CancelReason).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
                 .HasDefaultValueSql("(sysutcdatetime())");
             entity.Property(e => e.CurrentTotal).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Nrdamount)
-                .HasColumnType("decimal(18, 2)")
-                .HasColumnName("NRDAmount");
+            entity.Property(e => e.DepositAmount).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.ProjectCode).HasMaxLength(30);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
-                .HasDefaultValue("Active Baseline");
+                .HasDefaultValue("Adjusting");
 
             entity.HasOne(d => d.Customer).WithMany(p => p.WeddingProjectCustomers)
                 .HasForeignKey(d => d.CustomerId)
@@ -605,6 +439,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.ManagerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Projects_Manager");
+
+            entity.HasOne(d => d.CreatedByNavigation).WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Projects_CreatedBy");
 
             entity.HasOne(d => d.Slot).WithMany(p => p.WeddingProjects)
                 .HasPrincipalKey(p => new { p.SlotId, p.HallId })

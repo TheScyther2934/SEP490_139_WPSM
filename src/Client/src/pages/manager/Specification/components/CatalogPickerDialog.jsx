@@ -16,7 +16,7 @@ export default function CatalogPickerDialog({ open, catalog, priceFrames, select
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>Chọn dịch vụ từ Catalog</DialogTitle>
+      <DialogTitle>Chọn dịch vụ từ bảng dịch vụ</DialogTitle>
       <DialogContent>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ my: 1 }}>
           <TextField id="catalogSearch" size="small" label="Tìm dịch vụ" value={query} onChange={(e) => setQuery(e.target.value)} sx={{ flex: 1 }} />

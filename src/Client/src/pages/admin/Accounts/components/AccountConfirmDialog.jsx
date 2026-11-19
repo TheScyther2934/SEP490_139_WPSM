@@ -8,7 +8,7 @@ export default function AccountConfirmDialog({ confirm, busy, onClose, onConfirm
   const text = confirm?.kind === "reset"
     ? `Mật khẩu hiện tại của ${account?.email} sẽ mất hiệu lực. Hệ thống gửi mật khẩu tạm mới qua email và đăng xuất người dùng khỏi mọi thiết bị.`
     : lock
-      ? `${account?.email} sẽ không đăng nhập được nữa và bị đăng xuất khỏi mọi thiết bị. Dữ liệu dự án vẫn được giữ nguyên.`
+      ? `${account?.email} sẽ không đăng nhập được nữa và bị đăng xuất khỏi mọi thiết bị. Dữ liệu sự kiện vẫn được giữ nguyên.`
       : `${account?.email} sẽ đăng nhập lại được bằng mật khẩu hiện có.`;
   return (
     <Dialog open={!!confirm} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>

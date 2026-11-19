@@ -25,10 +25,6 @@ public partial class User
 
     public virtual ICollection<Beo> Beos { get; set; } = new List<Beo>();
 
-    public virtual ICollection<ChangeRequest> ChangeRequests { get; set; } = new List<ChangeRequest>();
-
-    public virtual ICollection<Crhistory> Crhistories { get; set; } = new List<Crhistory>();
-
     public virtual ICollection<ExecutionPhoto> ExecutionPhotos { get; set; } = new List<ExecutionPhoto>();
 
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();

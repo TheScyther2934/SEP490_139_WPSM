@@ -3,9 +3,9 @@ import { PATHS } from "../../../routes/paths";
 // Notifications written before the React client keep Razor links (/C03, /M04?id=...); map them to React routes.
 const LEGACY = {
   C01: () => PATHS.customer.overview,
-  C02: () => PATHS.customer.contract,
-  C03: () => PATHS.customer.roadmap,
-  C09: () => PATHS.customer.addenda,
+  C02: () => PATHS.customer.event,
+  C03: () => PATHS.customer.event,
+  C09: () => PATHS.customer.event,
   C10: () => PATHS.customer.payments,
   C11: () => PATHS.customer.livePhotos,
   M01: () => PATHS.manager.dashboard,
@@ -22,10 +22,11 @@ export function notificationTarget(link) {
 }
 
 export const NOTIFICATION_TYPES = {
-  "Roadmap reminder": { label: "Nhắc lộ trình", color: "info" },
+  "Stage reminder": { label: "Nhắc giai đoạn", color: "info" },
   Payment: { label: "Thanh toán", color: "success" },
-  "CR update": { label: "Thay đổi", color: "primary" },
-  BEO: { label: "BEO", color: "secondary" },
+  "Addon contract": { label: "Hợp đồng phát sinh", color: "primary" },
+  BEO: { label: "Phiếu điều phối", color: "secondary" },
+  Delegation: { label: "Ủy quyền", color: "default" },
   "Overdue alert": { label: "Quá hạn", color: "error" },
   Complaint: { label: "Khiếu nại", color: "warning" },
 };

@@ -3,7 +3,6 @@ import {
   Card,
   CardContent,
   Chip,
-  LinearProgress,
   List,
   ListItemButton,
   ListItemText,
@@ -20,7 +19,7 @@ export default function UpcomingEvents({ milestones = [] }) {
       <CardContent>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
           <EventIcon color="primary" fontSize="small" />
-          <Typography variant="h6">Sự kiện &amp; Mốc chuẩn bị sắp tới</Typography>
+          <Typography variant="h6">Sự kiện sắp tới</Typography>
         </Stack>
 
         {milestones.length === 0 ? (
@@ -28,8 +27,6 @@ export default function UpcomingEvents({ milestones = [] }) {
         ) : (
           <List dense disablePadding>
             {milestones.map((p) => {
-              const progress =
-                p.totalTasks > 0 ? Math.round((p.completedTasks * 100) / p.totalTasks) : 0;
               return (
                 <ListItemButton
                   key={p.projectCode}
@@ -49,17 +46,11 @@ export default function UpcomingEvents({ milestones = [] }) {
                     />
                   </Stack>
                   <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
-                    {p.hallName} · Ngày cưới: {dateVi(p.eventDate)} · Giai đoạn hiện tại: <strong>{p.milestone}</strong> (Đến hạn {dateVi(p.dueDate)})
+                    {p.hallName} · Ngày cưới: {dateVi(p.eventDate)} · Giai đoạn {p.stage}: <strong>{p.stageTitle}</strong> · Tiếp theo: {p.nextStep} ({dateVi(p.dueDate)})
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <LinearProgress
-                      variant="determinate"
-                      value={progress}
-                      sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {progress}% ({p.completedTasks}/{p.totalTasks})
-                    </Typography>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                    {p.missingSuppliers > 0 && <Chip size="small" color="warning" label={`Thiếu minh chứng ${p.missingSuppliers} dịch vụ`} />}
+                    {p.pendingAddons > 0 && <Chip size="small" color="info" label={`${p.pendingAddons} phát sinh chờ khách`} />}
                   </Stack>
                 </ListItemButton>
               );

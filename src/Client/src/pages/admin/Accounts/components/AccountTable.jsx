@@ -12,7 +12,7 @@ export default function AccountTable({ items, total, page, pages, pageSize, onPa
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 64 }}>Mã</TableCell><TableCell>Họ tên</TableCell><TableCell>Email</TableCell><TableCell>Điện thoại</TableCell>
-              <TableCell>Vai trò</TableCell><TableCell align="center">Dự án đang mở</TableCell><TableCell>Ngày tạo</TableCell>
+              <TableCell>Vai trò</TableCell><TableCell align="center">Sự kiện đang mở</TableCell><TableCell>Ngày tạo</TableCell>
               <TableCell align="center">Trạng thái</TableCell><TableCell align="right">Thao tác</TableCell>
             </TableRow>
           </TableHead>

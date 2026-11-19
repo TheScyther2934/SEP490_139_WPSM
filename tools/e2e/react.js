@@ -86,7 +86,7 @@ const login = async (page, email, password) => {
     // ADMIN-UI: one horizontal bar instead of the sidebar on desktop; the drawer only opens from the menu button.
     await page.setViewport({ width: 1440, height: 900 });
     const nav = await page.$$eval('header nav[aria-label="Điều hướng chính"] a', (links) => links.map((a) => ({ text: a.innerText.trim(), active: a.classList.contains("active") })));
-    check("admin top bar lists the 10 admin screens", nav.length === 10, JSON.stringify(nav.map((n) => n.text)));
+    check("admin top bar lists the 11 admin screens (Dự án, Nhật ký; no photo feed)", nav.length === 11 && nav.some((n) => n.text === "Dự án") && nav.some((n) => n.text === "Nhật ký") && !nav.some((n) => n.text === "Ảnh minh chứng"), JSON.stringify(nav.map((n) => n.text)));
     check("top bar marks the current screen", nav.find((n) => n.active)?.text === "Tổng quan", JSON.stringify(nav.filter((n) => n.active)));
     check("admin has no permanent sidebar", !(await page.$(".MuiDrawer-docked")));
     check("A-01 has six KPI cards and the overdue strip", await page.$$eval("#a01Kpis > *", (c) => c.length) === 6 && !!(await page.$("#a01Overdue")));

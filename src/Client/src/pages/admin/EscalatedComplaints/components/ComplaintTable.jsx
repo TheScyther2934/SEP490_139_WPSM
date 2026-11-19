@@ -8,7 +8,7 @@ export default function ComplaintTable({ complaints, selectedId, onOpen }) {
         <Table id="a16Table">
           <TableHead>
             <TableRow>
-              <TableCell>Mã</TableCell><TableCell>Dự án</TableCell><TableCell>Nội dung</TableCell><TableCell>Chuyển cấp</TableCell><TableCell />
+              <TableCell>Mã</TableCell><TableCell>Sự kiện</TableCell><TableCell>Nội dung</TableCell><TableCell>Chuyển cấp</TableCell><TableCell />
             </TableRow>
           </TableHead>
           <TableBody>

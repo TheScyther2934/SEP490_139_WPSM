@@ -81,7 +81,7 @@ export default function ManagerComplaints() {
                 <TableRow>
                   <TableCell>Mã khiếu nại</TableCell>
                   <TableCell>Khách hàng</TableCell>
-                  <TableCell>BEO đối chiếu</TableCell>
+                  <TableCell>Phiếu điều phối đối chiếu</TableCell>
                   <TableCell>Nội dung khiếu nại</TableCell>
                   <TableCell>Ngày tiếp nhận</TableCell>
                   <TableCell>Trạng thái</TableCell>
@@ -94,7 +94,7 @@ export default function ManagerComplaints() {
                     <TableCell sx={{ fontWeight: 800 }}>{item.complaintCode}</TableCell>
                     <TableCell>{item.coupleName}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={`BEO v${item.beoVersion}`} variant="outlined" />
+                      <Chip size="small" label={`Phiếu điều phối v${item.beoVersion}`} variant="outlined" />
                     </TableCell>
                     <TableCell sx={{ maxWidth: 380 }}>
                       <Typography variant="body2" noWrap title={item.description}>
@@ -113,7 +113,7 @@ export default function ManagerComplaints() {
                         component={RouterLink}
                         to={PATHS.manager.complaint(projectCode, item.complaintCode)}
                       >
-                        {item.status === "Open" ? "Xử lý (M-19)" : "Xem chi tiết"}
+                        {item.status === "Open" ? "Xử lý" : "Xem chi tiết"}
                       </Button>
                     </TableCell>
                   </TableRow>

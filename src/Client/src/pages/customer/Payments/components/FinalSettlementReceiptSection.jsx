@@ -22,11 +22,11 @@ export default function FinalSettlementReceiptSection({ finalReceipt, onDownload
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
               <ReceiptLongIcon color="primary" />
               <Typography variant="h6" component="h3">
-                Biên nhận quyết toán hợp đồng
+                Biên nhận tất toán hợp đồng
               </Typography>
             </Stack>
             <Typography variant="body2" color="text.secondary">
-              Tài liệu xác nhận quyết toán tài chính cuối cùng giữa khách hàng và Ban quản lý tiệc cưới.
+              Tài liệu xác nhận tất toán tài chính cuối cùng giữa khách hàng và Ban quản lý tiệc cưới.
             </Typography>
           </Box>
 
@@ -39,7 +39,7 @@ export default function FinalSettlementReceiptSection({ finalReceipt, onDownload
               onClick={onDownload}
               sx={{ whiteSpace: "nowrap", alignSelf: { xs: "stretch", sm: "auto" } }}
             >
-              Tải biên nhận quyết toán
+              Tải biên nhận tất toán
             </Button>
           )}
         </Stack>
@@ -47,12 +47,12 @@ export default function FinalSettlementReceiptSection({ finalReceipt, onDownload
         <Box sx={{ mt: 2 }}>
           {finalReceipt.isAvailable ? (
             <Alert severity="success" variant="outlined">
-              {finalReceipt.message || "Biên nhận quyết toán chính thức đã sẵn sàng để tải về."}
+              {finalReceipt.message || "Biên nhận tất toán chính thức đã sẵn sàng để tải về."}
             </Alert>
           ) : (
             <Alert severity="info" variant="outlined">
               {finalReceipt.message ||
-                "Biên nhận quyết toán sẽ được Ban điều phối phát hành sau khi tiệc cưới hoàn tất và dự án được xác nhận quyết toán (Settled)."}
+                "Biên nhận tất toán sẽ được Ban điều phối phát hành sau khi tiệc cưới hoàn tất và sự kiện được xác nhận tất toán (Settled)."}
             </Alert>
           )}
         </Box>

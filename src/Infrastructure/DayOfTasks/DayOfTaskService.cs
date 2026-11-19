@@ -127,7 +127,7 @@ public sealed class DayOfTaskService(
         if (string.Equals(command.UserRole, "Manager", StringComparison.OrdinalIgnoreCase) &&
             task.Project.ManagerId != command.UserId)
         {
-            return new CompleteDayOfTaskResult(false, "Bạn không có quyền thực hiện nhiệm vụ của dự án này.");
+            return new CompleteDayOfTaskResult(false, "Bạn không có quyền thực hiện nhiệm vụ của sự kiện này.");
         }
 
         // Must not already be completed

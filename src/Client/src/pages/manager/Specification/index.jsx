@@ -1,40 +1,52 @@
 import { useEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { Alert, Button, Chip, Stack, Typography } from "@mui/material";
+import {
+  Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography,
+} from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
-import LockIcon from "@mui/icons-material/Lock";
+import UndoIcon from "@mui/icons-material/Undo";
 import SpecSummary from "./components/SpecSummary";
 import SpecTable from "./components/SpecTable";
 import CatalogPickerDialog from "./components/CatalogPickerDialog";
-import FreezeDialog from "./components/FreezeDialog";
-import { lineError, missingCoreCombo, specTotal, toSpecificationBody } from "./rules";
+import { lineError, specTotal, toSpecificationBody } from "./rules";
 import { useProject } from "../../../hooks/useProject";
 import { projectService } from "../../../services/projectService";
-import { loadProject, projectUpdated } from "../../../store/projectSlice";
+import { projectUpdated } from "../../../store/projectSlice";
 import { notify } from "../../../store/notifySlice";
-import { dateTimeVi, errorMessage } from "../../../utils/format";
+import { PATHS } from "../../../routes/paths";
+import { dateTimeVi, dateVi, errorMessage, money } from "../../../utils/format";
 
 const toRows = (specification) => (specification ?? []).map((s) => ({ ...s, description: s.description ?? "" }));
+const NOTE_TYPES = [
+  { value: "Adjustment", label: "Điều chỉnh dịch vụ" },
+  { value: "Tasting", label: "Sau buổi thử món" },
+  { value: "Fitting", label: "Sau buổi thử đồ" },
+];
 
-// M-05 (UC-20). The rows in this component are the truth while editing (L-13): save and freeze send them,
-// and adding or removing a line never drops unsaved edits of the other lines.
+// Services booked for the event. Stage 2 (until the lock date): the customer tells the operator what to change, the operator
+// edits the lines and writes a note; the total may go up freely but not below the agreed floor. After the lock: read-only.
 export default function Specification() {
   const dispatch = useDispatch();
   const { project, catalog, priceFrames } = useProject();
   const [rows, setRows] = useState(() => toRows(project.specification));
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [freezeOpen, setFreezeOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [noteType, setNoteType] = useState("Adjustment");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // A reload from the server (after save, freeze or switching project) replaces the editing rows.
   useEffect(() => { setRows(toRows(project.specification)); }, [project]);
 
-  const frozen = project.status !== "Active Baseline";
-  const missing = missingCoreCombo(rows);
-  const rowsValid = rows.length > 0 && rows.every((r) => !lineError(r, priceFrames, catalog));
+  const readOnly = !project.canAdjust;
+  const savedIds = new Set((project.specification ?? []).map((s) => Number(s.catalogItemId)));
+  const rowsValid = rows.length > 0 && rows.every((r) => !lineError(r, priceFrames, catalog, !savedIds.has(Number(r.catalogItemId))));
   const total = specTotal(rows);
+  const belowFloor = total < project.minimumTotal;
+  const dirty = JSON.stringify(rows.map((r) => [r.catalogItemId, Number(r.quantity), Number(r.unitPrice), r.description]))
+    !== JSON.stringify(toRows(project.specification).map((r) => [r.catalogItemId, Number(r.quantity), Number(r.unitPrice), r.description]));
 
   const change = (catalogItemId, patch) => setRows((list) => list.map((r) => (r.catalogItemId === catalogItemId ? { ...r, ...patch } : r)));
   const remove = (catalogItemId) => setRows((list) => list.filter((r) => r.catalogItemId !== catalogItemId));
@@ -44,37 +56,17 @@ export default function Specification() {
   }]);
 
   const save = async () => {
-    const saved = await projectService.saveSpecification(project.id, toSpecificationBody(rows));
-    dispatch(projectUpdated(saved));
-    return saved;
-  };
-
-  const saveDraft = async () => {
     setSaving(true);
     setError("");
     try {
-      await save();
-      dispatch(notify("Đã lưu đặc tả."));
+      const saved = await projectService.saveSpecification(project.id, toSpecificationBody(rows, note.trim(), noteType));
+      dispatch(projectUpdated(saved));
+      dispatch(notify("Đã lưu điều chỉnh và ghi chú."));
+      setNoteOpen(false);
+      setNote("");
     } catch (e) {
       setError(errorMessage(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const freeze = async () => {
-    setSaving(true);
-    setError("");
-    try {
-      await save();
-      await projectService.freezeBaseline(project.id);
-      setFreezeOpen(false);
-      // The roadmap is generated by the freeze, so reload the whole snapshot.
-      await dispatch(loadProject(project.id));
-      dispatch(notify(`Đã đóng băng Baseline ${project.id} và tạo lộ trình.`));
-    } catch (e) {
-      setFreezeOpen(false);
-      setError(errorMessage(e));
+      setNoteOpen(false);
     } finally {
       setSaving(false);
     }
@@ -84,35 +76,58 @@ export default function Specification() {
     <>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2, justifyContent: "space-between" }}>
         <div>
-          <Typography variant="h6">Đặc tả dịch vụ và Baseline gốc (M-05)</Typography>
-          <Typography variant="body2" color="text.secondary">Mỗi dịch vụ chỉ chọn một lần. Đơn giá phải nằm trong khung giá đang hiệu lực.</Typography>
+          <Typography variant="h6">Dịch vụ đã đặt</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {readOnly ? "Dịch vụ đã khóa, chỉ xem." : `Khách báo thay đổi, bạn cập nhật và ghi chú lại. Hạn điều chỉnh: ${dateVi(project.lockDate)}.`}
+          </Typography>
         </div>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1, alignItems: "flex-start" }}>
-          <Button id="openCatalogBtn" variant="outlined" startIcon={<AddIcon />} disabled={frozen || saving} onClick={() => setPickerOpen(true)}>Thêm từ Catalog</Button>
-          <Button id="saveSpecificationBtn" variant="outlined" startIcon={<SaveIcon />} disabled={frozen || saving} onClick={saveDraft}>Lưu nháp</Button>
-          <Button id="openFreezeBtn" variant="contained" startIcon={<LockIcon />} disabled={frozen || saving || missing.length > 0 || !rowsValid} onClick={() => setFreezeOpen(true)}>Chốt Baseline</Button>
-        </Stack>
+        {!readOnly && (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1, alignItems: "flex-start" }}>
+            <Button variant="outlined" startIcon={<AddIcon />} disabled={saving} onClick={() => setPickerOpen(true)}>Thêm dịch vụ</Button>
+            <Button variant="text" startIcon={<UndoIcon />} disabled={saving || !dirty} onClick={() => setRows(toRows(project.specification))}>Hoàn tác</Button>
+            <Button id="saveSpecificationBtn" variant="contained" startIcon={<SaveIcon />} disabled={saving || !dirty || !rowsValid || belowFloor}
+              onClick={() => setNoteOpen(true)}>Lưu điều chỉnh</Button>
+          </Stack>
+        )}
       </Stack>
 
       {error && <Alert severity="error" role="alert" sx={{ mb: 2 }}>{error}</Alert>}
-      {frozen && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Baseline gốc đã được đóng băng{project.baselineFrozenAt ? ` lúc ${dateTimeVi(project.baselineFrozenAt)}` : ""}. Thay đổi về sau đi qua Yêu cầu thay đổi.
+      {readOnly && project.status !== "Cancelled" && (
+        <Alert severity="info" sx={{ mb: 2 }}
+          action={project.canAddAddon && <Button color="inherit" component={RouterLink} to={PATHS.manager.addons(project.id)}>Tạo hợp đồng phát sinh</Button>}>
+          Dịch vụ đã khóa{project.lockedAt ? ` lúc ${dateTimeVi(project.lockedAt)}` : ` từ ${dateVi(project.lockDate)}`}. Khách cần thêm gì thì tạo hợp đồng phát sinh.
         </Alert>
       )}
-      <SpecSummary baseValue={project.baseValue} total={total} count={rows.length} />
-      <Stack direction="row" sx={{ mb: 1, justifyContent: "flex-end" }}>
-        <Chip id="coreComboStatus" color={missing.length ? "warning" : "success"}
-          label={missing.length ? `Thiếu Core Combo: ${missing.join(", ")}` : "Đủ 5 nhóm Core Combo"} />
-      </Stack>
-      <SpecTable rows={rows} priceFrames={priceFrames} catalog={catalog} readOnly={frozen} onChange={change} onRemove={remove} total={total} />
-      <Alert severity="info" sx={{ mt: 2 }}>
-        Core Combo bắt buộc gồm Sảnh, Ẩm thực, Trang trí, MC và Âm thanh & ánh sáng. Cần xử lý mọi cảnh báo khung giá trước khi đóng băng.
-      </Alert>
+      {!readOnly && belowFloor && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Tổng sau khi sửa ({money(total)}) thấp hơn mức tối thiểu {money(project.minimumTotal)}. Khách không được giảm quá 30% giá trị lúc ký.
+        </Alert>
+      )}
+      <SpecSummary signedValue={project.baseValue} savedTotal={project.currentTotal} total={total} minimumTotal={project.minimumTotal} />
+      <SpecTable rows={rows} priceFrames={priceFrames} catalog={catalog} readOnly={readOnly} onChange={change} onRemove={remove} total={total}
+        isNew={(id) => !savedIds.has(Number(id))} />
 
       <CatalogPickerDialog open={pickerOpen} catalog={catalog} priceFrames={priceFrames}
         selectedIds={new Set(rows.map((r) => Number(r.catalogItemId)))} onAdd={add} onClose={() => setPickerOpen(false)} />
-      <FreezeDialog open={freezeOpen} saving={saving} onClose={() => setFreezeOpen(false)} onConfirm={freeze} />
+
+      <Dialog open={noteOpen} onClose={saving ? undefined : () => setNoteOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Ghi chú điều chỉnh</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            Tổng giá trị: {money(project.currentTotal)} → <b>{money(total)}</b>. Ghi rõ khách yêu cầu gì để mọi người phụ trách cùng theo dõi.
+          </Typography>
+          <TextField select fullWidth label="Lý do" value={noteType} onChange={(e) => setNoteType(e.target.value)} sx={{ mb: 2 }}>
+            {NOTE_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+          </TextField>
+          <TextField autoFocus fullWidth multiline minRows={3} label="Nội dung ghi chú" required value={note}
+            onChange={(e) => setNote(e.target.value)} helperText={`${note.length}/1000 · tối thiểu 5 ký tự`}
+            slotProps={{ htmlInput: { maxLength: 1000 } }} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNoteOpen(false)} disabled={saving}>Hủy</Button>
+          <Button variant="contained" onClick={save} disabled={saving || note.trim().length < 5}>Lưu</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

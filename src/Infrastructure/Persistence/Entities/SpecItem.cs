@@ -19,13 +19,7 @@ public partial class SpecItem
 
     public decimal? LineTotal { get; set; }
 
-    public bool IsBaseline { get; set; }
-
-    public int Version { get; set; }
-
     public virtual ServiceCatalogItem CatalogItem { get; set; } = null!;
-
-    public virtual ICollection<Critem> Critems { get; set; } = new List<Critem>();
 
     public virtual WeddingProject Project { get; set; } = null!;
 }

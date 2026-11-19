@@ -15,10 +15,10 @@ const SECTIONS = [
     items: [
       { label: "Tổng quan", icon: DashboardIcon, to: M.dashboard },
       // `end` is false so the item stays active inside a project; exclude `M.newProject` so both aren't highlighted together.
-      { label: "Dự án", icon: FolderSpecialIcon, to: M.projects, exclude: M.newProject },
-      { label: "Khởi tạo hợp đồng", icon: AddCircleIcon, to: M.newProject },
-      { label: "Lịch tài nguyên", icon: CalendarMonthIcon, to: M.resourceCalendar },
-      { label: "Cảnh báo quá hạn", icon: WarningIcon, to: M.overdueAlerts },
+      { label: "Sự kiện", icon: FolderSpecialIcon, to: M.projects, exclude: M.newProject },
+      { label: "Tạo hợp đồng", icon: AddCircleIcon, to: M.newProject },
+      { label: "Lịch thiết bị", icon: CalendarMonthIcon, to: M.resourceCalendar },
+      { label: "Việc trễ hạn", icon: WarningIcon, to: M.overdueAlerts },
       { label: "Thông báo", icon: NotificationsIcon, to: PATHS.notifications },
     ],
   },

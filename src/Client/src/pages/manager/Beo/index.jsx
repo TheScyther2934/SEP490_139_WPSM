@@ -58,7 +58,7 @@ export default function Beo() {
     try {
       const updated = await projectService.saveDraftBeo(projectCode, notes);
       setData(updated);
-      dispatch(notify({ message: "Đã lưu ghi chú bản thảo BEO.", severity: "success" }));
+      dispatch(notify({ message: "Đã lưu ghi chú bản thảo phiếu điều phối.", severity: "success" }));
     } catch (e) {
       dispatch(notify({ message: errorMessage(e), severity: "error" }));
     } finally {
@@ -74,7 +74,7 @@ export default function Beo() {
       setDialogOpen(false);
       dispatch(
         notify({
-          message: `Đã phê duyệt và đóng băng BEO v${updated.version} đồng thời cập nhật 4 phiếu bộ phận (MSG18).`,
+          message: `Đã phê duyệt và chốt phiếu điều phối v${updated.version} đồng thời cập nhật 4 phiếu bộ phận.`,
           severity: "success",
         })
       );
@@ -89,8 +89,8 @@ export default function Beo() {
     <>
       <PageHeader
         code={beo?.status === "Stale" ? "M-12" : "M-10"}
-        title={`Hồ sơ Điều phối Vận hành BEO (${projectCode})`}
-        subtitle="Tổng hợp đặc tả hợp đồng gốc và toàn bộ phụ lục đã duyệt thành kế hoạch vận hành chuẩn cho 4 bộ phận."
+        title={`Phiếu điều phối tiệc (${projectCode})`}
+        subtitle="Tổng hợp dịch vụ đã chốt và các hợp đồng phát sinh khách đã xác nhận thành kế hoạch cho 4 bộ phận."
         actions={
           <Stack direction="row" spacing={1.5}>
             <Button startIcon={<ArrowBackIcon />} component={RouterLink} to={PATHS.manager.project(projectCode)}>
@@ -102,7 +102,7 @@ export default function Beo() {
               component={RouterLink}
               to={PATHS.manager.departmentSheets(projectCode)}
             >
-              Phiếu 4 bộ phận (M-11)
+              Phiếu 4 bộ phận
             </Button>
             {beo && (
               <Button
@@ -114,17 +114,17 @@ export default function Beo() {
                 id="openFreezeBeoBtn"
               >
                 {beo.status === "Stale"
-                  ? `Duyệt lại BEO Stale (M-12)`
+                  ? `Duyệt lại phiếu điều phối`
                   : beo.status === "Frozen"
-                  ? `Cập nhật phiên bản BEO mới`
-                  : `Đóng băng BEO (M-10)`}
+                  ? `Cập nhật phiên bản phiếu điều phối mới`
+                  : `Chốt phiếu điều phối`}
               </Button>
             )}
           </Stack>
         }
       />
 
-      <DataState loading={loading} error={error} onRetry={reload} empty={!beo} emptyText="Không tìm thấy dữ liệu BEO.">
+      <DataState loading={loading} error={error} onRetry={reload} empty={!beo} emptyText="Không tìm thấy dữ liệu phiếu điều phối.">
         {beo && (
           <Stack spacing={3}>
             {beo.status === "Stale" && (
@@ -132,11 +132,11 @@ export default function Beo() {
                 severity="warning"
                 action={
                   <Button color="inherit" size="small" onClick={() => setDialogOpen(true)}>
-                    Duyệt lại ngay (M-12)
+                    Duyệt lại ngay
                   </Button>
                 }
               >
-                <strong>Cảnh báo MSG22 / GBR-05:</strong> BEO v{beo.version} đã chuyển sang trạng thái <strong>Stale</strong> do có phụ lục hợp đồng mới được phê duyệt sau khi đóng băng. Vui lòng kiểm tra các hạng mục thay đổi và duyệt lại BEO để phát hành phiên bản v{beo.version + 1}.
+                <strong>Cần duyệt lại:</strong> BEO v{beo.version} đã chuyển sang trạng thái <strong>cần duyệt lại</strong> do có hợp đồng phát sinh khách vừa xác nhận sau khi chốt. Vui lòng kiểm tra các hạng mục thay đổi và duyệt lại BEO để phát hành phiên bản v{beo.version + 1}.
               </Alert>
             )}
 
@@ -146,7 +146,7 @@ export default function Beo() {
                   <CardContent>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
                       <Typography variant="subtitle1" fontWeight={800}>
-                        Thông tin BEO & Sự kiện
+                        Thông tin phiếu điều phối
                       </Typography>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Chip size="small" label={`Phiên bản v${beo.version}`} color="primary" variant="outlined" />
@@ -176,15 +176,15 @@ export default function Beo() {
                         <Typography fontWeight={700}>{beo.guestCount} bàn</Typography>
                       </Grid>
                       <Grid item xs={6} sm={4}>
-                        <Typography variant="caption" color="text.secondary">Phụ lục CR đã tích hợp</Typography>
+                        <Typography variant="caption" color="text.secondary">Phát sinh đã tích hợp</Typography>
                         <Typography fontWeight={700} color="primary.main">
                           {beo.approvedCrCount} yêu cầu thay đổi
                         </Typography>
                       </Grid>
                       <Grid item xs={6} sm={4}>
-                        <Typography variant="caption" color="text.secondary">Lần đóng băng gần nhất</Typography>
+                        <Typography variant="caption" color="text.secondary">Lần chốt gần nhất</Typography>
                         <Typography fontWeight={600}>
-                          {beo.frozenAt ? `${dateTimeVi(beo.frozenAt)} (${beo.approvedByName || "Manager"})` : "Chưa đóng băng"}
+                          {beo.frozenAt ? `${dateTimeVi(beo.frozenAt)} (${beo.approvedByName || "Manager"})` : "Chưa chốt"}
                         </Typography>
                       </Grid>
                     </Grid>
@@ -196,7 +196,7 @@ export default function Beo() {
                 <Card variant="outlined" sx={{ height: "100%" }}>
                   <CardContent>
                     <Typography variant="subtitle1" fontWeight={800} mb={1.5}>
-                      Ghi chú chỉ đạo vận hành (M-10)
+                      Ghi chú điều phối
                     </Typography>
                     <Stack spacing={1.5}>
                       <TextField
@@ -215,7 +215,7 @@ export default function Beo() {
                         disabled={saving}
                         sx={{ alignSelf: "flex-end" }}
                       >
-                        Lưu ghi chú BEO
+                        Lưu ghi chú
                       </Button>
                     </Stack>
                   </CardContent>
@@ -226,7 +226,7 @@ export default function Beo() {
             <Paper variant="outlined" sx={{ p: 2.5 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
                 <Typography variant="subtitle1" fontWeight={800}>
-                  Danh mục Hạng mục Vận hành Tổng hợp (Baseline + Phụ lục CR)
+                  Dịch vụ cần thực hiện (hợp đồng và phát sinh đã xác nhận)
                 </Typography>
                 <Typography variant="body2" fontWeight={700} color="primary.main">
                   Tổng giá trị hiệu lực: {money(beo.currentTotal)}
@@ -239,8 +239,8 @@ export default function Beo() {
                       <TableCell>Bộ phận phụ trách</TableCell>
                       <TableCell>Hạng mục dịch vụ</TableCell>
                       <TableCell>Chi tiết thực hiện</TableCell>
-                      <TableCell align="right">SL Baseline</TableCell>
-                      <TableCell align="right">SL Hiệu lực (BEO)</TableCell>
+                      <TableCell align="right">SL theo hợp đồng</TableCell>
+                      <TableCell align="right">SL thực hiện</TableCell>
                       <TableCell align="right">Đơn giá</TableCell>
                       <TableCell align="right">Thành tiền</TableCell>
                       <TableCell align="center">Nguồn</TableCell>
@@ -255,7 +255,7 @@ export default function Beo() {
                         <TableCell sx={{ fontWeight: 700 }}>{item.itemName}</TableCell>
                         <TableCell>{item.description}</TableCell>
                         <TableCell align="right">
-                          {item.baselineQuantity} {item.unit}
+                          {item.contractQuantity} {item.unit}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 800 }}>
                           {item.effectiveQuantity} {item.unit}
@@ -267,8 +267,8 @@ export default function Beo() {
                         <TableCell align="center">
                           <Chip
                             size="small"
-                            color={item.changedByCr ? "warning" : "default"}
-                            label={item.changedByCr ? "Cập nhật từ CR" : "Baseline gốc"}
+                            color={item.changedByAddon ? "warning" : "default"}
+                            label={item.changedByAddon ? "Từ hợp đồng phát sinh" : "Theo hợp đồng"}
                           />
                         </TableCell>
                       </TableRow>
@@ -280,7 +280,7 @@ export default function Beo() {
 
             <Paper variant="outlined" sx={{ p: 2.5 }}>
               <Typography variant="subtitle1" fontWeight={800} mb={1.5}>
-                Lịch sử các phiên bản BEO của dự án
+                Lịch sử các phiên bản phiếu điều phối của sự kiện
               </Typography>
               <Stack spacing={1.2}>
                 {beo.versionHistory?.length ? (
@@ -291,11 +291,11 @@ export default function Beo() {
                     >
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography fontWeight={800}>BEO Phiên bản v{v.version}</Typography>
+                          <Typography fontWeight={800}>Phiếu điều phối v{v.version}</Typography>
                           <StatusChip kind="beo" status={v.status} />
                         </Stack>
                         <Typography variant="caption" color="text.secondary">
-                          {v.frozenAt ? `Đóng băng: ${dateTimeVi(v.frozenAt)} bởi ${v.approvedByName || "Manager"}` : "Bản thảo"}
+                          {v.frozenAt ? `Chốt: ${dateTimeVi(v.frozenAt)} bởi ${v.approvedByName || "Manager"}` : "Bản thảo"}
                         </Typography>
                       </Stack>
                       {v.notes && (
@@ -307,7 +307,7 @@ export default function Beo() {
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">
-                    Chưa có phiên bản BEO nào được lưu trong cơ sở dữ liệu.
+                    Chưa có phiên bản phiếu điều phối nào được lưu trong cơ sở dữ liệu.
                   </Typography>
                 )}
               </Stack>

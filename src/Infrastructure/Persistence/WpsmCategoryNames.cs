@@ -12,7 +12,10 @@ internal static class WpsmCategoryNames
         ["media"] = "Photo/Video", ["photo/video"] = "Photo/Video", ["quay chụp"] = "Photo/Video",
         ["costume"] = "Attire", ["attire"] = "Attire", ["trang phục"] = "Attire",
         ["makeup"] = "Makeup", ["trang điểm"] = "Makeup",
-        ["transport"] = "Transport", ["vận chuyển"] = "Transport"
+        ["transport"] = "Transport", ["vận chuyển"] = "Transport",
+        ["ceremony"] = "Ceremony", ["bê lễ"] = "Ceremony", ["lễ vật"] = "Ceremony",
+        ["performance"] = "Performance", ["văn nghệ"] = "Performance",
+        ["furniture"] = "Furniture", ["nội thất"] = "Furniture"
     };
 
     internal static string Normalize(string category) => CategoryToDatabase.TryGetValue(category.Trim(), out var value)
@@ -21,6 +24,7 @@ internal static class WpsmCategoryNames
     internal static string ToDisplay(string category) => category switch
     {
         "Hall" => "Sảnh", "Catering" => "Ẩm thực", "Decor" => "Trang trí", "MC" => "MC", "AV" => "Âm thanh & ánh sáng",
-        "Photo/Video" => "Quay chụp", "Attire" => "Trang phục", "Makeup" => "Trang điểm", "Transport" => "Vận chuyển", _ => category
+        "Photo/Video" => "Quay chụp", "Attire" => "Trang phục", "Makeup" => "Trang điểm", "Transport" => "Vận chuyển",
+        "Ceremony" => "Bê lễ", "Performance" => "Văn nghệ", "Furniture" => "Nội thất", _ => category
     };
 }

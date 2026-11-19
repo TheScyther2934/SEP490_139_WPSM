@@ -68,7 +68,7 @@ export default function AccountDialog({ open, initial, self, onClose, onSave }) 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           {initial
             ? "Đổi email sẽ đổi email đăng nhập của người dùng."
-            : "Hệ thống sinh mật khẩu tạm và gửi qua email; người dùng phải đổi mật khẩu ở lần đăng nhập đầu. Tài khoản khách hàng được tạo khi Manager khởi tạo dự án."}
+            : "Hệ thống sinh mật khẩu tạm và gửi qua email; người dùng phải đổi mật khẩu ở lần đăng nhập đầu. Tài khoản khách hàng được tạo khi Manager khởi tạo sự kiện."}
         </Typography>
       </DialogContent>
       <DialogActions>

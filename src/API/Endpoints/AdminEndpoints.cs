@@ -9,22 +9,44 @@ using Infrastructure.Persistence.Entities;
 
 namespace API.Endpoints;
 
-// A-01, A-09..A-18: Admin dashboard, reports, photo feed, escalations, exceptions (GBR-12: Admin only).
+// A-01, A-09..A-18: Admin dashboard, reports, photo audit, escalations, exceptions (GBR-12: Admin only).
 public static class AdminEndpoints
 {
     public static RouteGroupBuilder MapAdminEndpoints(this RouteGroupBuilder api)
     {
         var admin = api.MapGroup("/admin").RequireAuthorization(policy => policy.RequireRole("Admin"));
-        admin.MapGet("/dashboard", async (IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
-        {
-            var dashboard = await repo.GetDashboardAsync(ct);
-            return Results.Ok(dashboard with { LatestPhotos = dashboard.LatestPhotos.Select(p => p with { ImageUrl = links.Url(p.PhotoId) }).ToList() });
-        });
+        admin.MapGet("/dashboard", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetDashboardAsync(ct)));
         admin.MapGet("/reports", async (DateOnly from, DateOnly to, IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetReportAsync(from, to, ct)));
-        admin.MapGet("/photos", async (string? projectCode, int? hallId, string? taskStatus, DateOnly? date, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
-            Results.Ok((await repo.GetPhotosAsync(new PhotoFeedFilter(projectCode, hallId, taskStatus, date), ct)).Select(p => p with { ImageUrl = links.Url(p.PhotoId) })));
-        admin.MapGet("/photo-feed", async (string? projectCode, int? hallId, string? taskStatus, DateOnly? date, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
-            Results.Ok((await repo.GetPhotosAsync(new PhotoFeedFilter(projectCode, hallId, taskStatus, date), ct)).Select(p => p with { ImageUrl = links.Url(p.PhotoId) })));
+        // Admin oversight of every project: search/filter list and read-only detail (creator, operators, status, contract, evidence).
+        admin.MapGet("/projects", async (string? search, string? status, int? hallId, int? managerId, DateOnly? from, DateOnly? to, string? sort,
+            int? page, int? pageSize, IAdminProjectRepository repo, CancellationToken ct) =>
+        {
+            if (from is { } f && to is { } t && f > t) return Results.BadRequest(new { message = "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc." });
+            return Results.Ok(await repo.SearchAsync(new AdminProjectQuery(search, status, hallId, managerId, from, to, sort, page ?? 1, pageSize ?? 20), ct));
+        });
+        admin.MapGet("/projects/filters", async (IAdminProjectRepository repo, CancellationToken ct) => Results.Ok(await repo.GetFilterOptionsAsync(ct)));
+        admin.MapGet("/projects/{projectCode}", async (string projectCode, IAdminProjectRepository repo, PhotoLinks links, CancellationToken ct) =>
+            await repo.GetDetailAsync(projectCode, ct) is { } detail
+                ? Results.Ok(detail with
+                {
+                    Evidence = detail.Evidence.Select(t => t with { Photos = t.Photos.Select(p => p with { ImageUrl = links.Url(p.PhotoId) }).ToList() }).ToList()
+                })
+                : Results.NotFound(new { message = "Không tìm thấy sự kiện." }));
+        // Audit log: who changed what (append-only); same filters for the list and the CSV export.
+        admin.MapGet("/audit-logs", async (string? search, string? action, string? impact, string? role, int? userId, string? projectCode,
+            DateOnly? from, DateOnly? to, int? page, int? pageSize, IAuditLogRepository repo, CancellationToken ct) =>
+        {
+            if (from is { } f && to is { } t && f > t) return Results.BadRequest(new { message = "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc." });
+            return Results.Ok(await repo.SearchAsync(new AuditLogQuery(search, action, impact, role, userId, projectCode, from, to, page ?? 1, pageSize ?? 25), ct));
+        });
+        admin.MapGet("/audit-logs/filters", async (IAuditLogRepository repo, CancellationToken ct) => Results.Ok(await repo.GetFilterOptionsAsync(ct)));
+        admin.MapGet("/audit-logs/export", async (string? search, string? action, string? impact, string? role, int? userId, string? projectCode,
+            DateOnly? from, DateOnly? to, IAuditLogRepository repo, CancellationToken ct) =>
+        {
+            var rows = await repo.ExportAsync(new AuditLogQuery(search, action, impact, role, userId, projectCode, from, to), 10_000, ct);
+            return Results.File(AuditCsv.Build(rows), "text/csv; charset=utf-8", $"audit-log_{DateTime.UtcNow:yyyyMMdd_HHmm}.csv");
+        });
+        // A-13 photo feed removed: proof photos are reviewed per project (admin project detail, evidence tab).
         admin.MapGet("/photos/{photoId:int}", async (int photoId, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
             await repo.GetPhotoAsync(photoId, ct) is { } photo ? Results.Ok(photo with { ImageUrl = links.Url(photo.PhotoId) }) : Results.NotFound());
         admin.MapGet("/photos/{photoId:int}/content", async (int photoId, IAdminRepository repo, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage, CancellationToken ct) =>

@@ -5,12 +5,14 @@ import { ENDPOINTS } from "../api/endpoints";
 export const adminService = {
   getDashboard: () => axiosClient.get(ENDPOINTS.admin.dashboard).then((r) => r.data),
   getReport: (from, to) => axiosClient.get(ENDPOINTS.admin.reports, { params: { from, to } }).then((r) => r.data),
-  getPhotos: (filtersOrDate) => {
-    const params = typeof filtersOrDate === "object" && filtersOrDate !== null
-      ? filtersOrDate
-      : { date: filtersOrDate };
-    return axiosClient.get(ENDPOINTS.admin.photos, { params }).then((r) => r.data);
-  },
+  // Admin projects: server-side search, filters and paging.
+  getProjects: (params) => axiosClient.get(ENDPOINTS.admin.projects, { params }).then((r) => r.data),
+  getProjectFilters: () => axiosClient.get(ENDPOINTS.admin.projectFilters).then((r) => r.data),
+  getProject: (code) => axiosClient.get(ENDPOINTS.admin.project(code)).then((r) => r.data),
+  // Audit log (same filters for the list and the CSV export).
+  getAuditLogs: (params) => axiosClient.get(ENDPOINTS.admin.auditLogs, { params }).then((r) => r.data),
+  getAuditFilters: () => axiosClient.get(ENDPOINTS.admin.auditFilters).then((r) => r.data),
+  exportAuditLogs: (params) => axiosClient.get(ENDPOINTS.admin.auditExport, { params, responseType: "blob" }).then((r) => r.data),
   getPhoto: (photoId) => axiosClient.get(ENDPOINTS.admin.photo(photoId)).then((r) => r.data),
   getOverdueAlerts: () => axiosClient.get(ENDPOINTS.admin.overdueAlerts).then((r) => r.data),
   getEscalatedComplaints: () => axiosClient.get(ENDPOINTS.admin.complaints).then((r) => r.data),

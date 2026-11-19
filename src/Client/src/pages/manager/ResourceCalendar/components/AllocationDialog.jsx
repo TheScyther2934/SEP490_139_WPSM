@@ -8,7 +8,7 @@ const toLocalInput = (iso) => {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
 
-// Allocate / reschedule / substitute dialog (M-21, UC-25). On conflict the API answers the clashing allocations (MSG08);
+// Allocate / reschedule / substitute dialog (M-21, UC-25). On conflict the API answers the clashing allocations;
 // the Manager changes time or resource and saves again, or requests an Admin exception (UC-47).
 export default function AllocationDialog({ open, resources, projects, initial, conflict, busy, onClose, onSave, onRequestException }) {
   const [form, setForm] = useState({});
@@ -26,7 +26,7 @@ export default function AllocationDialog({ open, resources, projects, initial, c
   const resource = resources.find((r) => r.resourceId === Number(form.resourceId));
   const errors = {};
   if (!form.resourceId) errors.resourceId = "Trường Tài nguyên là bắt buộc.";
-  if (!form.projectCode) errors.projectCode = "Trường Dự án là bắt buộc.";
+  if (!form.projectCode) errors.projectCode = "Trường Sự kiện là bắt buộc.";
   if (!form.startTime) errors.startTime = "Trường Bắt đầu là bắt buộc.";
   if (!form.endTime) errors.endTime = "Trường Kết thúc là bắt buộc.";
   else if (form.startTime && form.endTime <= form.startTime) errors.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
@@ -49,8 +49,8 @@ export default function AllocationDialog({ open, resources, projects, initial, c
             error={!!err("resourceId")} helperText={err("resourceId") ?? (resource ? `Tổng số: ${resource.totalQuantity}` : " ")} slotProps={{ htmlInput: { "data-field": "resource" } }}>
             {resources.map((r) => <MenuItem key={r.resourceId} value={r.resourceId}>{r.type} · {r.name}</MenuItem>)}
           </TextField>
-          <TextField select label="Dự án" required value={form.projectCode ?? ""} onChange={(e) => set({ projectCode: e.target.value })} disabled={!!initial?.allocationId}
-            error={!!err("projectCode")} helperText={err("projectCode") ?? "Sảnh lấy theo dự án."} slotProps={{ htmlInput: { "data-field": "project" } }}>
+          <TextField select label="Sự kiện" required value={form.projectCode ?? ""} onChange={(e) => set({ projectCode: e.target.value })} disabled={!!initial?.allocationId}
+            error={!!err("projectCode")} helperText={err("projectCode") ?? "Sảnh lấy theo sự kiện."} slotProps={{ htmlInput: { "data-field": "project" } }}>
             {projects.map((p) => <MenuItem key={p.id} value={p.id}>{p.id} · {p.coupleName}</MenuItem>)}
           </TextField>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

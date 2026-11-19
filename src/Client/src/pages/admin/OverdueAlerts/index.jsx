@@ -19,7 +19,7 @@ export default function OverdueAlerts() {
       <PageHeader
         code="A-15"
         title="Cảnh báo quá hạn"
-        subtitle="Giám sát toàn chuỗi: các nhiệm vụ ngày sự kiện đã quá hạn tại tất cả các sảnh và dự án."
+        subtitle="Giám sát toàn chuỗi: các nhiệm vụ ngày sự kiện đã quá hạn tại tất cả các sảnh và sự kiện."
         actions={
           <Button
             variant="outlined"

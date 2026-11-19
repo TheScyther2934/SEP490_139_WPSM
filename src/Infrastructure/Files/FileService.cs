@@ -11,7 +11,7 @@ namespace Infrastructure.Files;
 public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStorageOptions options) : IFileService
 {
     private const long MaxBytes = 10 * 1024 * 1024;
-    private static readonly string[] Purposes = ["NrdReceipt", "PaymentReceipt", "ProofPhoto", "Thumbnail", "AddendumPdf", "SignedAddendum", "BeoSheet", "SettlementReceipt"];
+    private static readonly string[] Purposes = ["DepositReceipt", "PaymentReceipt", "ProofPhoto", "Thumbnail", "AddendumPdf", "SignedAddendum", "BeoSheet", "SettlementReceipt"];
     private static readonly (byte[] Signature, string ContentType, string Extension)[] AllowedTypes =
     [
         ([0xFF, 0xD8, 0xFF], "image/jpeg", ".jpg"),
@@ -23,7 +23,7 @@ public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStor
     {
         if (!Purposes.Contains(command.Purpose)) throw new InvalidOperationException("Loại tệp không hợp lệ.");
         var projectId = await db.WeddingProjects.AsNoTracking()
-            .Where(x => x.ProjectCode == command.ProjectCode && x.ManagerId == command.UploadedBy)
+            .Where(x => x.ProjectCode == command.ProjectCode && (x.ManagerId == command.UploadedBy || x.ProjectManagers.Any(pm => pm.ManagerId == command.UploadedBy && pm.RemovedAt == null)))
             .Select(x => (int?)x.ProjectId).FirstOrDefaultAsync(cancellationToken);
         if (projectId is null) return null;
 
@@ -80,7 +80,7 @@ public sealed class FileService(WpsmDbContext db, IFileStorage storage, FileStor
     public async Task<SignedFileUrl?> GetSignedUrlAsync(Guid fileId, int userId, string? role, CancellationToken cancellationToken = default)
     {
         var allowed = await db.StoredFiles.AsNoTracking().AnyAsync(x => x.FileId == fileId && x.Project != null &&
-            ((role == "Customer" && x.Project.CustomerId == userId) || (role == "Manager" && x.Project.ManagerId == userId)), cancellationToken);
+            ((role == "Customer" && x.Project.CustomerId == userId) || (role == "Manager" && (x.Project.ManagerId == userId || x.Project.ProjectManagers.Any(pm => pm.ManagerId == userId && pm.RemovedAt == null)))), cancellationToken);
         if (!allowed) return null;
         var expiresAt = DateTimeOffset.UtcNow.Add(options.UrlLifetime);
         var expires = expiresAt.ToUnixTimeSeconds();

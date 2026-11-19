@@ -6,7 +6,7 @@ import { fileService } from "../services/fileService";
 import { notify } from "../store/notifySlice";
 import { errorMessage } from "../utils/format";
 
-// Opens a stored file through a short-lived signed URL (API-02); the API checks project access first (GBR-12).
+// Opens a stored file through a short-lived signed URL (API-02); the API checks project access first.
 export default function FileButton({ fileId, children = "Tải xuống", ...props }) {
   const dispatch = useDispatch();
   const [busy, setBusy] = useState(false);

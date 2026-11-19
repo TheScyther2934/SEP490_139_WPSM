@@ -40,7 +40,7 @@ export default function CustomerComplaints() {
             to={PATHS.customer.newComplaint}
             id="newComplaintBtn"
           >
-            Gửi khiếu nại mới (C-15)
+            Gửi khiếu nại mới
           </Button>
         }
       />
@@ -58,7 +58,7 @@ export default function CustomerComplaints() {
               <TableHead>
                 <TableRow>
                   <TableCell>Mã khiếu nại</TableCell>
-                  <TableCell>BEO đối chiếu</TableCell>
+                  <TableCell>Phiếu điều phối đối chiếu</TableCell>
                   <TableCell>Nội dung phản ánh</TableCell>
                   <TableCell>Ngày gửi</TableCell>
                   <TableCell>Trạng thái</TableCell>
@@ -70,7 +70,7 @@ export default function CustomerComplaints() {
                   <TableRow key={item.complaintCode} hover>
                     <TableCell sx={{ fontWeight: 800 }}>{item.complaintCode}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={`BEO v${item.beoVersion}`} variant="outlined" />
+                      <Chip size="small" label={`Phiếu điều phối v${item.beoVersion}`} variant="outlined" />
                     </TableCell>
                     <TableCell sx={{ maxWidth: 420 }}>
                       <Typography variant="body2" noWrap title={item.description}>
@@ -88,7 +88,7 @@ export default function CustomerComplaints() {
                         component={RouterLink}
                         to={PATHS.customer.complaint(item.complaintCode)}
                       >
-                        Chi tiết (C-16)
+                        Chi tiết
                       </Button>
                     </TableCell>
                   </TableRow>

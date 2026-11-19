@@ -12,20 +12,28 @@ export const ENDPOINTS = {
   projects: "/projects",
   project: (code) => `/projects/${encodeURIComponent(code)}`,
   specification: (code) => `/projects/${encodeURIComponent(code)}/specification`,
-  freeze: (code) => `/projects/${encodeURIComponent(code)}/freeze`,
-  nrdReceipt: (code) => `/projects/${encodeURIComponent(code)}/nrd-receipt`,
+  depositReceipt: (code) => `/projects/${encodeURIComponent(code)}/deposit-receipt`,
+  // Event stage flow: workspace (stages, notes), cancel, addon contracts, supplier evidence, customer lookup.
+  workspace: (code) => `/projects/${encodeURIComponent(code)}/workspace`,
+  stageNotes: (code) => `/projects/${encodeURIComponent(code)}/notes`,
+  cancelEvent: (code) => `/projects/${encodeURIComponent(code)}/cancel`,
+  addons: (code) => `/projects/${encodeURIComponent(code)}/addons`,
+  addonRemind: (code, addon) => `/projects/${encodeURIComponent(code)}/addons/${encodeURIComponent(addon)}/remind`,
+  addonCancel: (code, addon) => `/projects/${encodeURIComponent(code)}/addons/${encodeURIComponent(addon)}/cancel`,
+  suppliers: (code) => `/projects/${encodeURIComponent(code)}/suppliers`,
+  supplierFile: (code, id) => `/projects/${encodeURIComponent(code)}/suppliers/${id}/file`,
+  customerLookup: "/customers/lookup",
   resendCredentials: (code) => `/projects/${encodeURIComponent(code)}/resend-credentials`,
-  addenda: "/addenda",
-  projectChangeRequests: (code) => `/projects/${encodeURIComponent(code)}/change-requests`,
-  projectCostImpact: (code, crCode) => `/projects/${encodeURIComponent(code)}/change-requests/${encodeURIComponent(crCode)}/cost-impact`,
-  generateAddendum: (code, crCode) => `/projects/${encodeURIComponent(code)}/change-requests/${encodeURIComponent(crCode)}/addendum`,
-  attachSignedAddendum: (code, crCode) => `/projects/${encodeURIComponent(code)}/change-requests/${encodeURIComponent(crCode)}/signed-addendum`,
+  // Co-management: Primary Manager or Admin adds/removes co-managers.
+  projectManagers: (code) => `/projects/${encodeURIComponent(code)}/managers`,
+  projectManagerCandidates: (code) => `/projects/${encodeURIComponent(code)}/managers/candidates`,
+  removeProjectManager: (code, id) => `/projects/${encodeURIComponent(code)}/managers/${id}/remove`,
   beo: (code) => `/projects/${encodeURIComponent(code)}/beo`,
   beoDraft: (code) => `/projects/${encodeURIComponent(code)}/beo/draft`,
   beoFreeze: (code) => `/projects/${encodeURIComponent(code)}/beo/freeze`,
   beoDepartmentSheets: (code) => `/projects/${encodeURIComponent(code)}/beo/department-sheets`,
   beoDepartmentPdf: (code, department) => `/projects/${encodeURIComponent(code)}/beo/department-sheets/${encodeURIComponent(department)}/pdf`,
-  compileT7Beo: "/projects/beo/compile-t7",
+  compileBeoDrafts: "/projects/beo/compile-t7",
   managerComplaints: "/manager/complaints",
   managerComplaint: (complaintCode) => `/manager/complaints/${encodeURIComponent(complaintCode)}`,
   managerComplaintAction: (complaintCode) => `/manager/complaints/${encodeURIComponent(complaintCode)}/action`,
@@ -43,7 +51,12 @@ export const ENDPOINTS = {
   admin: {
     dashboard: "/admin/dashboard",
     reports: "/admin/reports",
-    photos: "/admin/photos",
+    projects: "/admin/projects",
+    projectFilters: "/admin/projects/filters",
+    auditLogs: "/admin/audit-logs",
+    auditFilters: "/admin/audit-logs/filters",
+    auditExport: "/admin/audit-logs/export",
+    project: (code) => `/admin/projects/${encodeURIComponent(code)}`,
     photo: (id) => `/admin/photos/${id}`,
     overdueAlerts: "/admin/overdue-alerts",
     complaints: "/admin/complaints",
@@ -59,8 +72,6 @@ export const ENDPOINTS = {
   manager: {
     dashboard: "/manager/dashboard",
     overdueAlerts: "/manager/overdue-alerts",
-    roadmap: (code) => `/manager/projects/${encodeURIComponent(code)}/roadmap`,
-    completeTask: (code, taskId) => `/manager/projects/${encodeURIComponent(code)}/roadmap/tasks/${taskId}/complete`,
     dayOfTasks: (code) => `/projects/${encodeURIComponent(code)}/day-of-tasks`,
     completeDayOfTask: (code, taskId) => `/projects/${encodeURIComponent(code)}/day-of-tasks/${taskId}/complete`,
     completeDayOfTaskDirect: (taskId) => `/day-of-tasks/${taskId}/complete`,
@@ -75,50 +86,21 @@ export const ENDPOINTS = {
   },
   customer: {
     dashboard: "/customer/dashboard",
-    roadmap: "/customer/roadmap",
-    completeTask: (projectCode, taskId) => `/customer/projects/${encodeURIComponent(projectCode)}/roadmap/tasks/${taskId}/complete`,
-    changeRequests: "/customer/change-requests",
-    changeRequestContext: "/customer/change-requests/creation-context",
-    changeRequest: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}`,
-    decideChangeRequest: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/decision`,
+    events: "/customer/events",
+    event: "/customer/event",
+    confirmAddon: (addon) => `/customer/addons/${encodeURIComponent(addon)}/confirm`,
     postEvent: "/customer/post-event",
     ratings: "/customer/ratings",
     complaints: "/customer/complaints",
     complaintBeoOptions: "/customer/complaints/beo-options",
     complaint: (complaintCode) => `/customer/complaints/${encodeURIComponent(complaintCode)}`,
   },
-  // FE-07. Manager calendar, allocation dialog (M-21) and conflict detail (M-22).
+  // FE-07. Manager calendar, allocation dialog and conflict detail.
   resourceCalendar: "/resource-calendar",
   resources: "/resources",
   resourceAllocations: "/resource-allocations",
   resourceAllocation: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}`,
   allocationException: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}/exception`,
-  // FE-05. Customer routes resolve the caller's own project (GBR-12); Manager routes carry the code.
-  changeRequests: {
-    customer: {
-      list: "/customer/change-requests",
-      form: "/customer/change-requests/form",
-      create: "/customer/change-requests",
-      detail: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}`,
-      submit: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/submit`,
-      approve: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/approve`,
-      reject: (crCode) => `/customer/change-requests/${encodeURIComponent(crCode)}/reject`,
-    },
-    manager: (projectCode) => {
-      const project = `/projects/${encodeURIComponent(projectCode)}/change-requests`;
-      return {
-        list: project,
-        form: `${project}/form`,
-        create: project,
-        detail: (crCode) => `${project}/${encodeURIComponent(crCode)}`,
-        submit: (crCode) => `${project}/${encodeURIComponent(crCode)}/submit`,
-        counter: (crCode) => `${project}/${encodeURIComponent(crCode)}/counter`,
-        approve: (crCode) => `${project}/${encodeURIComponent(crCode)}/approve`,
-        reject: (crCode) => `${project}/${encodeURIComponent(crCode)}/reject`,
-        exception: (crCode) => `${project}/${encodeURIComponent(crCode)}/exception`,
-      };
-    },
-  },
   customerPayments: {
     overview: (projectCode) => `/customer/payments${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
     summary: (projectCode) => `/customer/payments/summary${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
@@ -132,6 +114,3 @@ export const ENDPOINTS = {
   file: (id) => `/files/${encodeURIComponent(id)}`,
 };
 
-// One lookup for the C-05/C-06 and M-07/M-08 screens: the Manager paths need the project code.
-export const changeRequestRoutes = (role, projectCode) =>
-  role === "Manager" ? ENDPOINTS.changeRequests.manager(projectCode) : ENDPOINTS.changeRequests.customer;

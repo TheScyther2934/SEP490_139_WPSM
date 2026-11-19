@@ -1,11 +1,11 @@
 import BarChart from "../../../../components/reports/BarChart";
 import { ChartWithTable } from "../../../../components/reports/ReportLayout";
-import { money, monthVi, shortMoney, signedMoney } from "../../../../utils/format";
+import { money, monthVi, shortMoney } from "../../../../utils/format";
 
 const COLUMNS = [
   { label: "Tháng", value: (r) => monthVi(r.month) },
-  { label: "Giá trị gốc", align: "right", value: (r) => money(r.baseValue) },
-  { label: "Chênh lệch CR", align: "right", value: (r) => signedMoney(r.crVariance) },
+  { label: "Giá trị hợp đồng", align: "right", value: (r) => money(r.contractValue) },
+  { label: "Phát sinh đã xác nhận", align: "right", value: (r) => money(r.addonValue) },
   { label: "Đã thu", align: "right", value: (r) => money(r.received) },
   { label: "Còn phải thu", align: "right", value: (r) => money(r.outstanding) },
 ];

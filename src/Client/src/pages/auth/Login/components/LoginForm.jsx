@@ -4,7 +4,7 @@ import PasswordField from "../../../../components/PasswordField";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// G-01 fields: email (required, valid, ≤100) and password (required, 8–64). Server errors stay generic (GBR-11).
+// G-01 fields: email (required, valid, ≤100) and password (required, 8–64). Server errors stay generic.
 export default function LoginForm({ onSubmit, serverError, submitting }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -3,7 +3,7 @@ import { dateTimeVi, slotLabel } from "../../../../utils/format";
 
 export default function PhotoMeta({ photo }) {
   const rows = [
-    ["Dự án", photo.projectCode],
+    ["Sự kiện", photo.projectCode],
     ["Sảnh – ca", `${photo.hallName} – ${slotLabel(photo.slotName)}`],
     ["Nhiệm vụ", photo.taskName],
     ["Hạn hoàn thành", dateTimeVi(photo.deadline)],

@@ -24,7 +24,7 @@ public sealed class UserAccountRepository(WpsmDbContext db, IEmailOutbox emailOu
         var (fullName, email, phone) = Validate(command);
         var role = command.Role?.Trim() ?? "";
         if (!StaffRoles.Contains(role))
-            throw new InvalidOperationException("Admin chỉ tạo được tài khoản Manager hoặc Admin. Tài khoản khách hàng được tạo khi Manager khởi tạo dự án (M-03).");
+            throw new InvalidOperationException("Admin chỉ tạo được tài khoản Manager hoặc Admin. Tài khoản khách hàng được tạo khi Manager khởi tạo sự kiện (M-03).");
         await EnsureEmailFreeAsync(email, null, cancellationToken);
 
         var user = new User
@@ -51,7 +51,7 @@ public sealed class UserAccountRepository(WpsmDbContext db, IEmailOutbox emailOu
                 throw new InvalidOperationException("Chỉ đổi được vai trò giữa Manager và Admin; tài khoản khách hàng giữ nguyên vai trò.");
             if (userId == adminId) throw new InvalidOperationException("Bạn không thể tự đổi vai trò của chính mình.");
             if (user.Role == "Manager" && await OpenManagedProjectsAsync(userId, cancellationToken) is var open and > 0)
-                throw new InvalidOperationException($"Manager đang phụ trách {open} dự án chưa đóng nên không thể chuyển sang Admin.");
+                throw new InvalidOperationException($"Manager đang phụ trách {open} sự kiện chưa đóng nên không thể chuyển sang Admin.");
         }
         await EnsureEmailFreeAsync(email, userId, cancellationToken);
         user.FullName = fullName;
@@ -70,7 +70,7 @@ public sealed class UserAccountRepository(WpsmDbContext db, IEmailOutbox emailOu
         {
             if (userId == adminId) throw new InvalidOperationException("Bạn không thể tự khóa tài khoản của chính mình.");
             if (user.Role == "Manager" && await OpenManagedProjectsAsync(userId, cancellationToken) is var open and > 0)
-                throw new InvalidOperationException($"Manager đang phụ trách {open} dự án chưa đóng. Hãy hoàn tất hoặc chuyển dự án trước khi khóa.");
+                throw new InvalidOperationException($"Manager đang phụ trách {open} sự kiện chưa đóng. Hãy hoàn tất hoặc chuyển sự kiện trước khi khóa.");
             var now = DateTime.UtcNow;
             foreach (var token in await db.RefreshTokens.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync(cancellationToken))
                 token.RevokedAt = now;
@@ -100,10 +100,10 @@ public sealed class UserAccountRepository(WpsmDbContext db, IEmailOutbox emailOu
     private IQueryable<UserAccountView> Views(IQueryable<User>? source = null) =>
         (source ?? db.Users).AsNoTracking().Select(x => new UserAccountView(x.UserId, x.Email, x.FullName, x.Phone ?? "", x.Role, x.Status == "Active",
             x.MustChangePassword, x.CreatedAt,
-            db.WeddingProjects.Count(p => (p.CustomerId == x.UserId || p.ManagerId == x.UserId) && !ClosedStatuses.Contains(p.Status))));
+            db.WeddingProjects.Count(p => (p.CustomerId == x.UserId || (p.ManagerId == x.UserId || p.ProjectManagers.Any(pm => pm.ManagerId == x.UserId && pm.RemovedAt == null))) && !ClosedStatuses.Contains(p.Status))));
 
     private Task<int> OpenManagedProjectsAsync(int userId, CancellationToken cancellationToken) =>
-        db.WeddingProjects.CountAsync(p => p.ManagerId == userId && !ClosedStatuses.Contains(p.Status), cancellationToken);
+        db.WeddingProjects.CountAsync(p => (p.ManagerId == userId || p.ProjectManagers.Any(pm => pm.ManagerId == userId && pm.RemovedAt == null)) && !ClosedStatuses.Contains(p.Status), cancellationToken);
 
     private async Task EnsureEmailFreeAsync(string email, int? exceptUserId, CancellationToken cancellationToken)
     {

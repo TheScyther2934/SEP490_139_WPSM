@@ -22,7 +22,7 @@ import { customerService } from "../../../services/customerService";
 import { PATHS } from "../../../routes/paths";
 import { dateTimeVi, dateVi, money, slotLabel } from "../../../utils/format";
 
-// C-12: Post-event Summary & Entry to Service Ratings (C-13) and Complaints (C-14/C-15)
+// C-12: Post-event Summary & Entry to Service Ratings and Complaints (C-14/C-15)
 export default function PostEvent() {
   const { data, loading, error, reload } = useAsync(() => customerService.getPostEvent(), []);
 
@@ -41,7 +41,7 @@ export default function PostEvent() {
               component={RouterLink}
               to={PATHS.customer.complaints}
             >
-              Khiếu nại dịch vụ (C-14)
+              Khiếu nại dịch vụ
             </Button>
             <Button
               variant="contained"
@@ -49,24 +49,23 @@ export default function PostEvent() {
               component={RouterLink}
               to={PATHS.customer.ratings}
             >
-              {data?.isLocked ? "Xem đánh giá đã gửi (C-13)" : "Đánh giá 4 hạng mục (C-13)"}
+              {data?.isLocked ? "Xem đánh giá đã gửi" : "Đánh giá 4 hạng mục"}
             </Button>
           </Stack>
         }
       />
 
-      <DataState loading={loading} error={error} onRetry={reload} empty={!data} emptyText="Chưa có dữ liệu dự án cưới.">
+      <DataState loading={loading} error={error} onRetry={reload} empty={!data} emptyText="Chưa có dữ liệu sự kiện cưới.">
         {data && (
           <Stack spacing={3}>
             {data.isLocked ? (
               <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
-                Cảm ơn gia đình <strong>{data.coupleName}</strong> đã hoàn tất đánh giá dịch vụ tiệc cưới. Theo quy tắc{" "}
-                <strong>GBR-10</strong>, kết quả đánh giá đã được khóa vĩnh viễn để đảm bảo tính minh bạch.
+                Cảm ơn gia đình <strong>{data.coupleName}</strong> đã hoàn tất đánh giá dịch vụ tiệc cưới. Kết quả đánh giá đã được khóa vĩnh viễn để đảm bảo tính minh bạch.
               </Alert>
             ) : (
               <Alert severity="info">
                 Gia đình có thể gửi đánh giá chất lượng cho 4 hạng mục (<strong>Sảnh tiệc, Thực đơn, Trang trí, MC</strong>) tại màn hình{" "}
-                <strong>C-13</strong>. Lưu ý: Đánh giá chỉ được gửi 1 lần duy nhất và không thể chỉnh sửa sau khi xác nhận (GBR-10).
+                <strong>C-13</strong>. Lưu ý: Đánh giá chỉ được gửi 1 lần duy nhất và không thể chỉnh sửa sau khi xác nhận.
               </Alert>
             )}
 

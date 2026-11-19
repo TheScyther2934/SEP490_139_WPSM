@@ -19,8 +19,9 @@ const check = (name, ok, detail = "") => { if (!ok) bad++; console.log(`${ok ? "
 
   const outbox = sql(`SELECT CONCAT(COUNT(*), '|', MAX(CASE WHEN BodyHtml LIKE '%/login%' AND BodyHtml NOT LIKE '%/G01%' THEN 1 ELSE 0 END)) FROM dbo.EmailOutbox WHERE ToEmail = '${email}' AND Kind = 'Credentials'`);
   check("one credential email queued in the outbox, linking to the React /login", outbox === "1|1", outbox);
-  const legacy = sql(`SELECT COUNT(*) FROM dbo.EmailDeliveries WHERE Recipient = '${email}'`);
-  check("the old EmailDeliveries path is not used (no duplicate email)", legacy === "0", legacy);
+  // The legacy EmailDeliveries queue was dropped: the outbox is the only path (no duplicate email).
+  const legacy = sql("SELECT CASE WHEN OBJECT_ID(N'dbo.EmailDeliveries', N'U') IS NULL THEN 'dropped' ELSE 'exists' END");
+  check("the old EmailDeliveries table is gone (outbox only)", legacy === "dropped", legacy);
 
   console.log(`smtp passed: ${bad === 0}`);
   process.exit(bad ? 1 : 0);

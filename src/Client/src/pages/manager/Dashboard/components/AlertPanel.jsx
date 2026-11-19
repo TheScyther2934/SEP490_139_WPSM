@@ -87,7 +87,7 @@ export default function AlertPanel({ overdueTasks = [], staleBeos = [] }) {
             {staleBeos.length > 0 && (
               <Box>
                 <Typography variant="subtitle2" color="warning.dark" sx={{ fontWeight: "bold", mb: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <WarningAmberIcon fontSize="small" /> BEO lỗi thời cần duyệt lại ({staleBeos.length})
+                  <WarningAmberIcon fontSize="small" /> Phiếu điều phối cần duyệt lại cần duyệt lại ({staleBeos.length})
                 </Typography>
                 <Stack spacing={1}>
                   {staleBeos.slice(0, 5).map((b) => (

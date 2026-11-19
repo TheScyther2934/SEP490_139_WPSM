@@ -27,30 +27,29 @@ public static class WpsmApiEndpoints
                     Uri.UnescapeDataString(path[ProjectsPrefix.Length..].Split('/')[0]) is { Length: > 0 } code &&
                     !await context.RequestServices.GetRequiredService<IProjectRepository>().CanAccessAsync(code, UserId(context.User),
                         context.User.FindFirstValue(ClaimTypes.Role) ?? "", context.RequestAborted))
-                    return Results.NotFound(new { message = "Không tìm thấy dự án trong phạm vi tài khoản." });
+                    return Results.NotFound(new { message = "Không tìm thấy sự kiện trong phạm vi tài khoản." });
             }
             return await next(invocation);
         });
 
         api.MapProjectEndpoints();
+        api.MapProjectManagerEndpoints();
         api.MapFileEndpoints();
         api.MapConfigurationEndpoints();
         api.MapAdminEndpoints();
         api.MapAuthEndpoints();
         api.MapCustomerEndpoints();
-        api.MapChangeRequestEndpoints();
+        api.MapEventFlowEndpoints();
         api.MapResourceCalendarEndpoints();
         api.MapOperationsEndpoints();
         api.MapCustomerPaymentEndpoints();
         api.MapManagerPaymentEndpoints();
-        api.MapManagerRoadmapEndpoints();
         api.MapNotificationEndpoints();
         api.MapOverdueAlertEndpoints();
         api.MapManagerDashboardEndpoints();
         api.MapDayOfTaskEndpoints();
-        // Report 4: CR, BEO, project payments, feedback, resources, penalty rules, /manager/work (dropped by the merge with
-        // integrate/merge-all-branches; its duplicate routes were removed from OperationsEndpoints instead).
-        api.MapOperationsEndpoints();
+        // OperationsEndpoints (day-of, feedback, resources, catalog) is mapped once above:
+        // mapping it twice makes every one of its routes ambiguous at runtime.
         return api;
     }
 

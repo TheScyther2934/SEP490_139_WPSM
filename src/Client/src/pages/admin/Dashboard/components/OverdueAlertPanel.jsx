@@ -34,7 +34,7 @@ export default function OverdueAlertPanel({ alerts, total }) {
                 <Typography sx={{ color: "error.main", fontWeight: 600 }}>
                   {a.projectCode} · {a.taskName} quá hạn {a.overdueMinutes} phút
                 </Typography>
-                <Link component={RouterLink} to={`${PATHS.admin.photoFeed}?projectCode=${encodeURIComponent(a.projectCode)}`}
+                <Link component={RouterLink} to={PATHS.admin.project(a.projectCode, "evidence")}
                   sx={{ color: "error.main", fontWeight: 600 }}>
                   Xem ảnh minh chứng →
                 </Link>

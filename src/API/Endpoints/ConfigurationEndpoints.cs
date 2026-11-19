@@ -25,7 +25,8 @@ public static class ConfigurationEndpoints
         api.MapGet("/policies", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetPoliciesAsync(ct)))
             .RequireAuthorization();
         api.MapPut("/policies", async (PolicyRequest request, IConfigurationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            Results.Ok(await repo.UpdatePoliciesAsync(new PolicyCommand(request.NrdRatio, request.T30Ratio, request.CrPenaltyDays, request.CrPenaltyPercent, request.EffectiveFrom), UserId(user), ct)))
+            Results.Ok(await repo.UpdatePoliciesAsync(new PolicyCommand(request.DepositRatio, request.MaxDecreaseRatio, request.BookingMinDays, request.BookingMaxDays,
+                request.LockDays, request.SupplierDeadlineDays, request.SettlementDueDays, request.Hotline, request.EffectiveFrom), UserId(user), ct)))
             .RequireAuthorization(policy => policy.RequireRole("Admin"));
 
         return api;

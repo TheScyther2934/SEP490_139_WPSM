@@ -4,10 +4,10 @@ import { PATHS } from "../../../../routes/paths";
 
 const EMAIL_NOTE = {
   Sent: "Email tài khoản đã được gửi.",
-  Pending: "Email tài khoản đang chờ gửi. Trạng thái được cập nhật trong dự án.",
+  Pending: "Email tài khoản đang chờ gửi.",
   NotConfigured: "Chưa cấu hình gửi email. Vui lòng chuyển thông tin đăng nhập cho khách.",
   Failed: "Gửi email chưa thành công. Vui lòng chuyển thông tin đăng nhập cho khách.",
-  ExistingAccount: "Khách hàng sử dụng tài khoản đã có.",
+  ExistingAccount: "Khách cũ: dùng lại tài khoản đã có.",
 };
 
 // The temporary password is shown once, only when the API returns it (development without SMTP).
@@ -24,8 +24,8 @@ export default function SuccessPanel({ project, email, temporaryPassword, emailS
         </Box>
       )}
       <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-        <Button variant="contained" component={RouterLink} to={PATHS.manager.project(project.id)}>Mở dự án</Button>
-        <Button component={RouterLink} to={PATHS.manager.projects}>Danh sách dự án</Button>
+        <Button variant="contained" component={RouterLink} to={PATHS.manager.project(project.id)}>Mở sự kiện</Button>
+        <Button component={RouterLink} to={PATHS.manager.projects}>Danh sách sự kiện</Button>
       </Stack>
     </Alert>
   );

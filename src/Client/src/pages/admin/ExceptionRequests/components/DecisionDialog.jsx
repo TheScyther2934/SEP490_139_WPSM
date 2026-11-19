@@ -10,8 +10,8 @@ export default function DecisionDialog({ open, approve, request, note, busy, onC
       <DialogContent>
         <DialogContentText>
           {approve
-            ? `Chấp thuận yêu cầu ${request.code} (${sourceLabel(request.sourceType)}) cho dự án ${request.projectCode}. Hệ thống áp dụng ngoại lệ và ghi hồ sơ kiểm toán.`
-            : `Từ chối yêu cầu ${request.code} (${sourceLabel(request.sourceType)}) cho dự án ${request.projectCode}. Quy tắc chuẩn được giữ nguyên; quyết định không thể hoàn tác.`}
+            ? `Chấp thuận yêu cầu ${request.code} (${sourceLabel(request.sourceType)}) cho sự kiện ${request.projectCode}. Hệ thống áp dụng ngoại lệ và ghi hồ sơ kiểm toán.`
+            : `Từ chối yêu cầu ${request.code} (${sourceLabel(request.sourceType)}) cho sự kiện ${request.projectCode}. Quy tắc chuẩn được giữ nguyên; quyết định không thể hoàn tác.`}
         </DialogContentText>
         <Alert severity="info" sx={{ mt: 2 }}>Ghi chú quyết định: “{note}”</Alert>
       </DialogContent>

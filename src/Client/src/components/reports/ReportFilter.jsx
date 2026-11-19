@@ -7,7 +7,7 @@ const TABS = [
   { label: "Tổng hợp", to: PATHS.admin.reports },
   { label: "Công suất sảnh", to: PATHS.admin.hallUtilization },
   { label: "Doanh thu thuần", to: PATHS.admin.netRevenue },
-  { label: "Thống kê CR", to: PATHS.admin.crStatistics },
+  { label: "Phát sinh & sự kiện", to: PATHS.admin.addonStatistics },
 ];
 
 // Report tabs + date range in one row above the charts; switching tab keeps the range.

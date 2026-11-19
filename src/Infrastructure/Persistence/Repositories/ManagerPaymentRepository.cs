@@ -1,776 +1,287 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Domain.Enums;
 using Domain.Services;
 using Infrastructure.Files;
-using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
+/// <summary>
+/// Payments of an event seen by its operators: the deposit (stage 1) and the settlement (stage 5).
+/// Settlement = contract total after adjustments + confirmed addon contracts - deposit, recorded once after the event.
+/// </summary>
 public sealed class ManagerPaymentRepository(
     WpsmDbContext db,
     IFileStorage storage,
     INotificationRepository notifications) : IManagerPaymentRepository
 {
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".pdf", ".jpg", ".jpeg", ".png"
-    };
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".jpg", ".jpeg", ".png" };
 
-    public async Task<ManagerPaymentOverviewView?> GetProjectPaymentsAsync(
-        string projectCode,
-        int userId,
-        string role,
-        CancellationToken cancellationToken = default)
+    private sealed record Money(decimal ContractTotal, decimal AddonTotal, decimal GrandTotal, decimal DepositPaid, decimal SettlementPaid,
+        decimal TotalPaid, decimal Outstanding);
+
+    public async Task<ManagerPaymentOverviewView?> GetProjectPaymentsAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
     {
         var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-
-        var today = PaymentCalculator.GetVietnamToday();
-        return BuildOverview(project, today, await GetT30RatioAsync(today, cancellationToken));
+        return project is null ? null : await BuildOverviewAsync(project, cancellationToken);
     }
 
-    // Policy T30_RATIO in force today (SDS: T30 required = round(CurrentTotal × ratio) − NRD); 70% when unset.
-    private async Task<decimal> GetT30RatioAsync(DateOnly today, CancellationToken cancellationToken)
-    {
-        var ratio = await db.PolicyConfigs.AsNoTracking()
-            .Where(p => p.PolicyType == "T30_RATIO" && p.EffectiveFrom <= today)
-            .OrderByDescending(p => p.EffectiveFrom)
-            .Select(p => p.RatePercent)
-            .FirstOrDefaultAsync(cancellationToken);
-        return ratio > 0 ? ratio : 70m;
-    }
-
-    public async Task<RecordPaymentResult> RecordPaymentAsync(
-        string projectCode,
-        int managerId,
-        string role,
-        RecordPaymentCommand command,
+    public async Task<RecordPaymentResult> RecordPaymentAsync(string projectCode, int managerId, string role, RecordPaymentCommand command,
         CancellationToken cancellationToken = default)
     {
         var project = await ResolveProjectAsync(projectCode, managerId, role, cancellationToken);
-        if (project is null)
-            return new RecordPaymentResult(false, "Không tìm thấy dự án trong phạm vi quyền hạn.");
+        if (project is null) return new RecordPaymentResult(false, "Không tìm thấy sự kiện trong phạm vi quyền hạn.");
+        if (project.Status is EventStatus.Settled or EventStatus.Closed)
+            return new RecordPaymentResult(false, "Sự kiện đã tất toán hoặc đã đóng, không thể ghi nhận thêm thanh toán.");
+        if (project.Status == EventStatus.Cancelled)
+            return new RecordPaymentResult(false, "Sự kiện đã hủy, không ghi nhận thanh toán.");
 
-        if (string.Equals(project.Status, "Settled", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(project.Status, "Closed", StringComparison.OrdinalIgnoreCase))
-        {
-            return new RecordPaymentResult(false, "Dự án đã hoàn tất quyết toán hoặc đã đóng, không thể ghi nhận thêm thanh toán milestone.");
-        }
-
-        // 1. Payment Type validation
-        var rawType = (command.PaymentType ?? "").Trim().ToUpperInvariant();
-        if (rawType is "NRD")
-        {
-            return new RecordPaymentResult(false, "Khoản đặt cọc NRD đã được ghi nhận khi khởi tạo hợp đồng và không thể ghi nhận lại qua M-14.");
-        }
-
-        string canonicalType = rawType switch
-        {
-            "T30" or "T-30" => "T30",
-            "FINAL" or "SETTLEMENT" => "FINAL",
-            _ => ""
-        };
-
-        if (string.IsNullOrEmpty(canonicalType))
-        {
-            return new RecordPaymentResult(false, "Loại thanh toán không hợp lệ. Chỉ chấp nhận T-30 hoặc Final Settlement.");
-        }
+        var type = (command.PaymentType ?? "").Trim();
+        if (string.Equals(type, PaymentKinds.Deposit, StringComparison.OrdinalIgnoreCase))
+            return new RecordPaymentResult(false, "Tiền đặt cọc được ghi nhận khi ký hợp đồng, không ghi nhận lại ở đây.");
+        if (!string.Equals(type, PaymentKinds.Settlement, StringComparison.OrdinalIgnoreCase))
+            return new RecordPaymentResult(false, "Chỉ ghi nhận được khoản tất toán.");
 
         var today = PaymentCalculator.GetVietnamToday();
-
-        // 2. Event completion check for FINAL payment
-        if (canonicalType == "FINAL")
-        {
-            if (!PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today))
-            {
-                return new RecordPaymentResult(false, "Chỉ có thể ghi nhận thanh toán quyết toán sau khi sự kiện cưới đã diễn ra hoàn tất.");
-            }
-        }
-
-        // 3. Payment Date validation (cannot be in the future)
+        if (!PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today))
+            return new RecordPaymentResult(false, "Chỉ ghi nhận tất toán sau ngày cưới.");
         if (command.PaymentDate > today)
-        {
-            return new RecordPaymentResult(false, "Ngày thanh toán không được là ngày trong tương lai (theo giờ Việt Nam).");
-        }
+            return new RecordPaymentResult(false, "Ngày thanh toán không được ở tương lai (giờ Việt Nam).");
 
-        // 4. Financial breakdown & balance check
-        var crVariance = PaymentCalculator.CalculateApprovedCrVariance(
-            project.ChangeRequests.Select(c => (c.Status, c.TotalVariance, c.CostImpact, c.PenaltyFee)));
-        var currentTotal = PaymentCalculator.CalculateCurrentTotal(project.BaseContractValue, crVariance);
-        var totalPaid = PaymentCalculator.CalculateTotalPaid(
-            project.Payments.Select(p => (p.Status, p.Amount)));
-        var outstandingBalance = PaymentCalculator.CalculateOutstandingBalance(currentTotal, totalPaid);
+        // The invoice fixes the amount: issue it now if the daily job has not run yet.
+        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        if (project.Status == EventStatus.Locked) project.Status = EventStatus.Completed;
+        var invoice = await EventFlowSupport.IssueInvoiceAsync(db, project, managerId, policy, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await db.Entry(project).Collection(p => p.Payments).LoadAsync(cancellationToken);
 
-        // 5. Amount validation (MSG11)
-        if (command.Amount <= 0)
-        {
-            return new RecordPaymentResult(false, "Số tiền thanh toán phải lớn hơn 0.");
-        }
+        var money = await ComputeMoneyAsync(project, cancellationToken);
+        if (command.Amount <= 0) return new RecordPaymentResult(false, "Số tiền thanh toán phải lớn hơn 0.");
+        if (command.Amount != money.Outstanding)
+            return new RecordPaymentResult(false, $"Tất toán thanh toán một lần đúng số còn lại {EventStageRules.Vnd(money.Outstanding)} (đã nhập {EventStageRules.Vnd(command.Amount)}).");
 
-        if (command.Amount > outstandingBalance)
-        {
-            return new RecordPaymentResult(false, $"Số tiền thanh toán ({command.Amount:N0} đ) vượt quá số dư còn lại ({outstandingBalance:N0} đ) của dự án. (MSG11)");
-        }
-
-        // 6. Method & Receipt validation
-        var rawMethod = (command.Method ?? "").Trim();
-        string method = rawMethod.ToLowerInvariant() switch
-        {
-            "bank" or "bank transfer" or "chuyen khoan" => "Bank",
-            "cash" or "tien mat" => "Cash",
-            _ => "Bank"
-        };
-
-        var hasReceiptFile = command.ReceiptBytes is { Length: > 0 };
-        if (method == "Bank" && !hasReceiptFile)
-        {
-            return new RecordPaymentResult(false, "Phương thức chuyển khoản ngân hàng bắt buộc phải tải lên chứng từ / ủy nhiệm chi (JPG/PNG/PDF).");
-        }
+        var method = (command.Method ?? "").Trim().ToLowerInvariant() is "cash" or "tien mat" ? "Cash" : "Bank";
+        var hasReceipt = command.ReceiptBytes is { Length: > 0 };
+        if (method == "Bank" && !hasReceipt)
+            return new RecordPaymentResult(false, "Chuyển khoản bắt buộc tải lên chứng từ (JPG, PNG hoặc PDF).");
 
         string? storageKey = null;
-        string? originalFileName = command.ReceiptFileName;
-        string? contentType = command.ReceiptContentType ?? "application/pdf";
-
-        if (hasReceiptFile)
+        var contentType = command.ReceiptContentType ?? "application/pdf";
+        if (hasReceipt)
         {
-            var ext = Path.GetExtension(originalFileName ?? "").ToLowerInvariant();
+            var ext = Path.GetExtension(command.ReceiptFileName ?? "").ToLowerInvariant();
             if (string.IsNullOrEmpty(ext) || !AllowedExtensions.Contains(ext))
-            {
-                return new RecordPaymentResult(false, "Định dạng file biên nhận không hợp lệ. Chỉ chấp nhận JPG, PNG hoặc PDF.");
-            }
-
+                return new RecordPaymentResult(false, "Chứng từ chỉ nhận JPG, PNG hoặc PDF.");
             if (command.ReceiptBytes!.Length > 10 * 1024 * 1024)
-            {
-                return new RecordPaymentResult(false, "Dung lượng file biên nhận vượt quá giới hạn cho phép (tối đa 10 MB).");
-            }
-
-            storageKey = $"payments/{project.ProjectCode}/{canonicalType}_{Guid.NewGuid():N}{ext}";
+                return new RecordPaymentResult(false, "Chứng từ tối đa 10 MB.");
+            storageKey = $"payments/{project.ProjectCode}/Settlement_{Guid.NewGuid():N}{ext}";
             using var fileStream = new MemoryStream(command.ReceiptBytes);
             await storage.UploadAsync(fileStream, storageKey, cancellationToken);
-
-            var storedFile = new StoredFile
+            db.StoredFiles.Add(new StoredFile
             {
-                FileId = Guid.NewGuid(),
-                ProjectId = project.ProjectId,
-                Purpose = canonicalType == "FINAL" ? "SettlementReceipt" : "PaymentReceipt",
-                StorageKey = storageKey,
-                OriginalName = originalFileName ?? $"{canonicalType}_{project.ProjectCode}{ext}",
-                ContentType = contentType,
-                SizeBytes = command.ReceiptBytes.Length,
-                UploadedBy = managerId,
-                UploadedAt = DateTime.UtcNow
-            };
-            db.StoredFiles.Add(storedFile);
+                FileId = Guid.NewGuid(), ProjectId = project.ProjectId, Purpose = "PaymentReceipt", StorageKey = storageKey,
+                OriginalName = command.ReceiptFileName ?? $"Settlement_{project.ProjectCode}{ext}", ContentType = contentType,
+                SizeBytes = command.ReceiptBytes.Length, UploadedBy = managerId, UploadedAt = DateTime.UtcNow
+            });
         }
 
-        // 7. Update or Insert Payment row
-        var payment = project.Payments.FirstOrDefault(p =>
-            string.Equals(p.PaymentType, canonicalType, StringComparison.OrdinalIgnoreCase) ||
-            (canonicalType == "T30" && string.Equals(p.PaymentType, "T-30", StringComparison.OrdinalIgnoreCase)));
-
+        var payment = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Settlement);
         if (payment is null)
         {
-            payment = new Payment
-            {
-                ProjectId = project.ProjectId,
-                PaymentType = canonicalType,
-                Status = "Paid",
-                DueDate = canonicalType == "T30" ? project.EventDate.AddDays(-30) : project.EventDate,
-                Amount = command.Amount,
-                PaymentMethod = method,
-                PaidDate = command.PaymentDate,
-                RecordedBy = managerId,
-                ReceiptContent = command.ReceiptBytes,
-                ReceiptFileName = originalFileName,
-                ReceiptContentType = contentType,
-                ReceiptFilePath = storageKey ?? (method == "Cash" ? null : $"payments/{canonicalType}_{project.ProjectCode}")
-            };
+            payment = new Payment { ProjectId = project.ProjectId, PaymentType = PaymentKinds.Settlement, DueDate = invoice.DueDate };
             db.Payments.Add(payment);
             project.Payments.Add(payment);
         }
-        else
+        payment.Status = "Paid";
+        payment.Amount = command.Amount;
+        payment.PaymentMethod = method;
+        payment.PaidDate = command.PaymentDate;
+        payment.RecordedBy = managerId;
+        if (hasReceipt)
         {
-            payment.Status = "Paid";
-            payment.Amount = command.Amount;
-            payment.PaymentMethod = method;
-            payment.PaidDate = command.PaymentDate;
-            payment.RecordedBy = managerId;
-            if (hasReceiptFile)
-            {
-                payment.ReceiptContent = command.ReceiptBytes;
-                payment.ReceiptFileName = originalFileName;
-                payment.ReceiptContentType = contentType;
-                payment.ReceiptFilePath = storageKey;
-            }
+            payment.ReceiptContent = command.ReceiptBytes;
+            payment.ReceiptFileName = command.ReceiptFileName;
+            payment.ReceiptContentType = contentType;
+            payment.ReceiptFilePath = storageKey;
         }
 
-        // 8. Re-evaluate totals
-        var newTotalPaid = totalPaid + command.Amount;
-        var newBalance = PaymentCalculator.CalculateOutstandingBalance(currentTotal, newTotalPaid);
-        project.CurrentTotal = currentTotal;
-
-        var isSettled = false;
-        // 9. If FINAL and balance reaches 0, transition to Settled & generate settlement receipt
-        if (canonicalType == "FINAL" && newBalance == 0)
-        {
-            project.Status = "Settled";
-            isSettled = true;
-
-            var managerUser = await db.Users.FindAsync(new object[] { managerId }, cancellationToken);
-            var managerName = managerUser?.FullName ?? "Ban Quan Ly Tiec Cuoi";
-
-            var receiptModel = BuildReceiptPdfModel(project, currentTotal, newTotalPaid, managerName, DateTime.UtcNow);
-            var receiptPdfBytes = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(receiptModel);
-
-            var settlementStorageKey = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}.pdf"; // unique: storage never overwrites
-            using var pdfStream = new MemoryStream(receiptPdfBytes);
-            await storage.UploadAsync(pdfStream, settlementStorageKey, cancellationToken);
-
-            db.StoredFiles.Add(new StoredFile
-            {
-                FileId = Guid.NewGuid(),
-                ProjectId = project.ProjectId,
-                Purpose = "SettlementReceipt",
-                StorageKey = settlementStorageKey,
-                OriginalName = $"Bien_nhan_quyet_toan_{project.ProjectCode}.pdf",
-                ContentType = "application/pdf",
-                SizeBytes = receiptPdfBytes.Length,
-                UploadedBy = managerId,
-                UploadedAt = DateTime.UtcNow
-            });
-
-            payment.ReceiptContent = receiptPdfBytes;
-            payment.ReceiptFileName = $"Bien_nhan_quyet_toan_{project.ProjectCode}.pdf";
-            payment.ReceiptContentType = "application/pdf";
-            payment.ReceiptFilePath = settlementStorageKey;
-        }
-
+        // One payment closes the event: settled, invoice paid, settlement receipt generated.
+        project.Status = EventStatus.Settled;
+        invoice.Status = "Paid";
+        invoice.PaidAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
 
-        // 10. Send G-04 Notifications to Customer
+        var managerName = (await db.Users.FindAsync([managerId], cancellationToken))?.FullName ?? "Ban quản lý tiệc cưới";
+        money = await ComputeMoneyAsync(project, cancellationToken);
+        await StoreSettlementReceiptAsync(project, money, managerName, managerId, cancellationToken);
+
         try
         {
-            var milestoneTitle = PaymentCalculator.GetMilestoneName(canonicalType);
-            await notifications.CreateNotificationAsync(
-                recipientId: project.CustomerId,
-                type: NotificationTypes.Payment,
-                message: $"Đã ghi nhận thanh toán đợt {canonicalType} ({milestoneTitle}): {command.Amount:N0} đ. Phương thức: {method}.",
-                linkUrl: "/customer/payments",
-                relatedEntityType: "Payment",
-                relatedEntityId: payment.PaymentId.ToString(),
-                cancellationToken: cancellationToken);
-
-            if (isSettled)
-            {
-                await notifications.CreateNotificationAsync(
-                    recipientId: project.CustomerId,
-                    type: NotificationTypes.Payment,
-                    message: $"Dự án cưới {project.ProjectCode} đã hoàn tất quyết toán hợp đồng (Settled). Biên nhận quyết toán chính thức đã sẵn sàng tải về.",
-                    linkUrl: "/customer/payments",
-                    relatedEntityType: "Payment",
-                    relatedEntityId: payment.PaymentId.ToString(),
-                    cancellationToken: cancellationToken);
-            }
+            await notifications.CreateNotificationAsync(project.CustomerId, NotificationTypes.Payment,
+                $"Sự kiện {project.ProjectCode} đã tất toán {EventStageRules.Vnd(command.Amount)}. Biên nhận tất toán đã sẵn sàng tải về.",
+                "/customer/payments", "Payment", payment.PaymentId.ToString(), cancellationToken);
         }
-        catch { }
+        catch (Exception) { /* a failed notification must not undo the recorded payment */ }
 
-        var updatedOverview = BuildOverview(project, today, await GetT30RatioAsync(today, cancellationToken));
-        return new RecordPaymentResult(
-            Success: true,
-            Message: $"Ghi nhận thanh toán đợt {canonicalType} ({command.Amount:N0} đ) thành công.",
-            PaymentId: payment.PaymentId,
-            NewBalance: newBalance,
-            IsSettled: isSettled,
-            Overview: updatedOverview
-        );
+        return new RecordPaymentResult(true, $"Đã ghi nhận tất toán {EventStageRules.Vnd(command.Amount)}. Sự kiện chuyển sang Đã tất toán.",
+            payment.PaymentId, 0m, true, await BuildOverviewAsync(project, cancellationToken));
     }
 
-    public async Task<SettlementCalculationView?> GetSettlementCalculationAsync(
-        string projectCode,
-        int userId,
-        string role,
-        CancellationToken cancellationToken = default)
+    public async Task<SettlementCalculationView?> GetSettlementCalculationAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
     {
         var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-
-        var today = PaymentCalculator.GetVietnamToday();
-        return BuildSettlementCalculation(project, today);
+        return project is null ? null : BuildSettlement(project, await ComputeMoneyAsync(project, cancellationToken));
     }
 
-    public async Task<FinalSettlementReceiptView?> GenerateSettlementReceiptAsync(
-        string projectCode,
-        int managerId,
-        string role,
-        CancellationToken cancellationToken = default)
+    public async Task<FinalSettlementReceiptView?> GenerateSettlementReceiptAsync(string projectCode, int managerId, string role, CancellationToken cancellationToken = default)
     {
         var project = await ResolveProjectAsync(projectCode, managerId, role, cancellationToken);
         if (project is null) return null;
+        var money = await ComputeMoneyAsync(project, cancellationToken);
+        var calc = BuildSettlement(project, money);
+        if (!calc.IsEventCompleted) throw new InvalidOperationException("Chỉ phát hành biên nhận tất toán sau ngày cưới.");
+        if (calc.FinalAmountDue > 0) throw new InvalidOperationException($"Còn {EventStageRules.Vnd(calc.FinalAmountDue)} chưa thanh toán.");
 
-        var today = PaymentCalculator.GetVietnamToday();
-        var calc = BuildSettlementCalculation(project, today);
+        var managerName = (await db.Users.FindAsync([managerId], cancellationToken))?.FullName ?? "Ban quản lý tiệc cưới";
+        await StoreSettlementReceiptAsync(project, money, managerName, managerId, cancellationToken);
+        project.Status = EventStatus.Settled;
+        await db.SaveChangesAsync(cancellationToken);
+        return MapReceiptView(project, money, managerName, DateTime.UtcNow);
+    }
 
-        if (!calc.IsEventCompleted)
-            throw new InvalidOperationException("Chỉ có thể phát hành biên nhận quyết toán sau khi sự kiện cưới đã hoàn tất.");
+    public async Task<FileContentResultModel?> GetSettlementReceiptFileAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
+    {
+        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
+        if (project is null) return null;
+        var stored = await db.StoredFiles.AsNoTracking().Where(f => f.ProjectId == project.ProjectId && f.Purpose == "SettlementReceipt")
+            .OrderByDescending(f => f.UploadedAt).FirstOrDefaultAsync(cancellationToken);
+        if (stored is not null && await ReadStoredAsync(stored, cancellationToken) is { } file) return file;
 
-        if (calc.FinalAmountDue > 0)
-            throw new InvalidOperationException($"Không thể quyết toán hợp đồng khi còn dư nợ ({calc.FinalAmountDue:N0} đ).");
+        var money = await ComputeMoneyAsync(project, cancellationToken);
+        if (project.Status != EventStatus.Settled && money.Outstanding > 0) return null;
+        var pdf = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(BuildPdfModel(project, money, project.Manager?.FullName ?? "Ban quản lý", DateTime.UtcNow));
+        return new FileContentResultModel(pdf, "application/pdf", $"Bien_nhan_tat_toan_{project.ProjectCode}.pdf");
+    }
 
-        var managerUser = await db.Users.FindAsync(new object[] { managerId }, cancellationToken);
-        var managerName = managerUser?.FullName ?? "Ban Quản Lý Tiệc Cưới";
+    public async Task<FileContentResultModel?> GetPaymentReceiptFileAsync(string projectCode, string paymentType, int userId, string role, CancellationToken cancellationToken = default)
+    {
+        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
+        if (project is null) return null;
+        var payment = project.Payments.FirstOrDefault(p => string.Equals(p.PaymentType, paymentType, StringComparison.OrdinalIgnoreCase));
+        if (payment?.ReceiptContent is { Length: > 0 } content)
+            return new FileContentResultModel(content, payment.ReceiptContentType ?? "application/pdf", payment.ReceiptFileName ?? $"Receipt_{project.ProjectCode}_{payment.PaymentType}.pdf");
+        var purpose = string.Equals(paymentType, PaymentKinds.Deposit, StringComparison.OrdinalIgnoreCase) ? "DepositReceipt" : "PaymentReceipt";
+        var stored = await db.StoredFiles.AsNoTracking().Where(f => f.ProjectId == project.ProjectId && f.Purpose == purpose)
+            .OrderByDescending(f => f.UploadedAt).FirstOrDefaultAsync(cancellationToken);
+        return stored is null ? null : await ReadStoredAsync(stored, cancellationToken);
+    }
 
-        var receiptModel = BuildReceiptPdfModel(project, calc.CurrentProjectTotal, calc.TotalRecordedPayments, managerName, DateTime.UtcNow);
-        var receiptPdfBytes = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(receiptModel);
+    private async Task<FileContentResultModel?> ReadStoredAsync(StoredFile stored, CancellationToken cancellationToken)
+    {
+        await using var stream = await storage.OpenReadAsync(stored.StorageKey, cancellationToken);
+        if (stream is null) return null;
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms, cancellationToken);
+        return new FileContentResultModel(ms.ToArray(), stored.ContentType, stored.OriginalName);
+    }
 
-        var settlementStorageKey = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}.pdf"; // unique: storage never overwrites
-        using var pdfStream = new MemoryStream(receiptPdfBytes);
-        await storage.UploadAsync(pdfStream, settlementStorageKey, cancellationToken);
-
+    private async Task StoreSettlementReceiptAsync(WeddingProject project, Money money, string managerName, int managerId, CancellationToken cancellationToken)
+    {
+        var pdf = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(BuildPdfModel(project, money, managerName, DateTime.UtcNow));
+        var key = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}.pdf";
+        using var pdfStream = new MemoryStream(pdf);
+        await storage.UploadAsync(pdfStream, key, cancellationToken);
         db.StoredFiles.Add(new StoredFile
         {
-            FileId = Guid.NewGuid(),
-            ProjectId = project.ProjectId,
-            Purpose = "SettlementReceipt",
-            StorageKey = settlementStorageKey,
-            OriginalName = $"Bien_nhan_quyet_toan_{project.ProjectCode}.pdf",
-            ContentType = "application/pdf",
-            SizeBytes = receiptPdfBytes.Length,
-            UploadedBy = managerId,
-            UploadedAt = DateTime.UtcNow
+            FileId = Guid.NewGuid(), ProjectId = project.ProjectId, Purpose = "SettlementReceipt", StorageKey = key,
+            OriginalName = $"Bien_nhan_tat_toan_{project.ProjectCode}.pdf", ContentType = "application/pdf", SizeBytes = pdf.Length,
+            UploadedBy = managerId, UploadedAt = DateTime.UtcNow
         });
-
-        // Ensure Final payment row has receipt attached
-        var finalPayment = project.Payments.FirstOrDefault(p =>
-            string.Equals(p.PaymentType, "FINAL", StringComparison.OrdinalIgnoreCase));
-        if (finalPayment != null)
-        {
-            finalPayment.ReceiptContent = receiptPdfBytes;
-            finalPayment.ReceiptFileName = $"Bien_nhan_quyet_toan_{project.ProjectCode}.pdf";
-            finalPayment.ReceiptContentType = "application/pdf";
-            finalPayment.ReceiptFilePath = settlementStorageKey;
-        }
-
-        project.Status = "Settled";
         await db.SaveChangesAsync(cancellationToken);
-
-        // Send G-04 notification to Customer
-        try
-        {
-            await notifications.CreateNotificationAsync(
-                recipientId: project.CustomerId,
-                type: NotificationTypes.Payment,
-                message: $"Biên nhận quyết toán dự án {project.ProjectCode} đã được phát hành. Chúc mừng hai bạn đã hoàn tất thanh toán hợp đồng.",
-                linkUrl: "/customer/payments",
-                relatedEntityType: "Payment",
-                relatedEntityId: finalPayment?.PaymentId.ToString(),
-                cancellationToken: cancellationToken);
-        }
-        catch { }
-
-        return MapFinalReceiptView(project, calc, managerName, DateTime.UtcNow);
     }
 
-    public async Task<FileContentResultModel?> GetSettlementReceiptFileAsync(
-        string projectCode,
-        int userId,
-        string role,
-        CancellationToken cancellationToken = default)
+    private async Task<WeddingProject?> ResolveProjectAsync(string projectCode, int userId, string role, CancellationToken cancellationToken)
     {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-
-        // 1. Try FINAL payment ReceiptContent
-        var finalPayment = project.Payments.FirstOrDefault(p =>
-            string.Equals(p.PaymentType, "FINAL", StringComparison.OrdinalIgnoreCase));
-        if (finalPayment?.ReceiptContent is { Length: > 0 } content)
-        {
-            return new FileContentResultModel(
-                content,
-                finalPayment.ReceiptContentType ?? "application/pdf",
-                finalPayment.ReceiptFileName ?? $"Bien_nhan_quyet_toan_{project.ProjectCode}.pdf");
-        }
-
-        // 2. Try StoredFiles with SettlementReceipt
-        var stored = await db.StoredFiles.AsNoTracking()
-            .Where(f => f.ProjectId == project.ProjectId && f.Purpose == "SettlementReceipt")
-            .OrderByDescending(f => f.UploadedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (stored is not null)
-        {
-            await using var stream = await storage.OpenReadAsync(stored.StorageKey, cancellationToken);
-            if (stream is not null)
-            {
-                using var ms = new MemoryStream();
-                await stream.CopyToAsync(ms, cancellationToken);
-                return new FileContentResultModel(ms.ToArray(), stored.ContentType, stored.OriginalName);
-            }
-        }
-
-        // 3. If project is Settled and balance is 0, generate on the fly
-        var today = PaymentCalculator.GetVietnamToday();
-        var calc = BuildSettlementCalculation(project, today);
-        if (calc.IsSettled || (calc.IsEventCompleted && calc.FinalAmountDue == 0))
-        {
-            var managerName = project.Manager?.FullName ?? "Ban Quan Ly WPSM";
-            var receiptModel = BuildReceiptPdfModel(project, calc.CurrentProjectTotal, calc.TotalRecordedPayments, managerName, DateTime.UtcNow);
-            var generatedBytes = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(receiptModel);
-            return new FileContentResultModel(
-                generatedBytes,
-                "application/pdf",
-                $"Bien_nhan_quyet_toan_{project.ProjectCode}.pdf");
-        }
-
-        return null;
-    }
-
-    public async Task<FileContentResultModel?> GetPaymentReceiptFileAsync(
-        string projectCode,
-        string paymentType,
-        int userId,
-        string role,
-        CancellationToken cancellationToken = default)
-    {
-        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
-        if (project is null) return null;
-
-        Payment? payment = project.Payments.FirstOrDefault(p =>
-            string.Equals(p.PaymentType, paymentType, StringComparison.OrdinalIgnoreCase) ||
-            (string.Equals(paymentType, "T30", StringComparison.OrdinalIgnoreCase) && string.Equals(p.PaymentType, "T-30", StringComparison.OrdinalIgnoreCase)));
-
-        if (payment?.ReceiptContent is { Length: > 0 } content)
-        {
-            return new FileContentResultModel(
-                content,
-                payment.ReceiptContentType ?? "application/pdf",
-                payment.ReceiptFileName ?? $"Receipt_{project.ProjectCode}_{payment.PaymentType}.pdf");
-        }
-
-        var purpose = paymentType.ToUpperInvariant() switch
-        {
-            "NRD" => "NrdReceipt",
-            "T30" or "T-30" => "PaymentReceipt",
-            "FINAL" => "SettlementReceipt",
-            _ => "PaymentReceipt"
-        };
-
-        var stored = await db.StoredFiles.AsNoTracking()
-            .Where(f => f.ProjectId == project.ProjectId && f.Purpose == purpose)
-            .OrderByDescending(f => f.UploadedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (stored is not null)
-        {
-            await using var stream = await storage.OpenReadAsync(stored.StorageKey, cancellationToken);
-            if (stream is not null)
-            {
-                using var ms = new MemoryStream();
-                await stream.CopyToAsync(ms, cancellationToken);
-                return new FileContentResultModel(ms.ToArray(), stored.ContentType, stored.OriginalName);
-            }
-        }
-
-        return null;
-    }
-
-    private async Task<WeddingProject?> ResolveProjectAsync(
-        string projectCode,
-        int userId,
-        string role,
-        CancellationToken cancellationToken)
-    {
-        var query = db.WeddingProjects
-            .Include(p => p.Customer)
-            .Include(p => p.Manager)
-            .Include(p => p.Hall)
-            .Include(p => p.Slot)
+        var query = db.WeddingProjects.Include(p => p.Customer).Include(p => p.Manager).Include(p => p.Hall).Include(p => p.Slot)
             .Include(p => p.Payments).ThenInclude(p => p.RecordedByNavigation)
-            .Include(p => p.ChangeRequests)
             .Where(p => p.ProjectCode == projectCode);
-
-        if (role == "Customer")
-        {
-            query = query.Where(p => p.CustomerId == userId);
-        }
-        else if (role == "Manager")
-        {
-            query = query.Where(p => p.ManagerId == userId);
-        }
-
+        if (role == "Customer") query = query.Where(p => p.CustomerId == userId);
+        else if (role == "Manager") query = query.Where(p => p.ManagerId == userId || p.ProjectManagers.Any(pm => pm.ManagerId == userId && pm.RemovedAt == null));
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
-    private static ManagerPaymentOverviewView BuildOverview(
-        WeddingProject project,
-        DateOnly today,
-        decimal t30Ratio)
+    private async Task<Money> ComputeMoneyAsync(WeddingProject project, CancellationToken cancellationToken)
     {
-        var crVariance = PaymentCalculator.CalculateApprovedCrVariance(
-            project.ChangeRequests.Select(c => (c.Status, c.TotalVariance, c.CostImpact, c.PenaltyFee)));
-        var currentTotal = PaymentCalculator.CalculateCurrentTotal(project.BaseContractValue, crVariance);
-        var totalPaid = PaymentCalculator.CalculateTotalPaid(
-            project.Payments.Select(p => (p.Status, p.Amount)));
-        var outstandingBalance = PaymentCalculator.CalculateOutstandingBalance(currentTotal, totalPaid);
-
-        var isEventCompleted = PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today);
-        var isSettled = string.Equals(project.Status, "Settled", StringComparison.OrdinalIgnoreCase);
-
-        var summary = new ManagerPaymentSummaryView(
-            ProjectId: project.ProjectId,
-            ProjectCode: project.ProjectCode,
-            CoupleName: project.Customer.FullName,
-            HallName: project.Hall.Name,
-            SlotName: project.Slot.SlotName,
-            EventDate: project.EventDate,
-            ProjectStatus: project.Status,
-            BaseContractValue: project.BaseContractValue,
-            TotalApprovedCrVariance: crVariance,
-            CurrentProjectTotal: currentTotal,
-            TotalAmountPaid: totalPaid,
-            OutstandingBalance: outstandingBalance,
-            IsEventCompleted: isEventCompleted,
-            IsSettled: isSettled
-        );
-
-        var milestones = BuildMilestones(project, summary, today, t30Ratio);
-        var history = BuildHistory(project);
-        var settlement = BuildSettlementCalculation(project, today);
-
-        return new ManagerPaymentOverviewView(summary, milestones, history, settlement);
+        var addonTotal = await EventFlowSupport.ConfirmedAddonTotalAsync(db, project.ProjectId, cancellationToken);
+        var grand = PaymentCalculator.CalculateGrandTotal(project.CurrentTotal, addonTotal);
+        var paid = project.Payments.Where(p => p.Status == "Paid").ToList();
+        var deposit = paid.Where(p => p.PaymentType == PaymentKinds.Deposit).Sum(p => p.Amount ?? 0m);
+        var settlement = paid.Where(p => p.PaymentType == PaymentKinds.Settlement).Sum(p => p.Amount ?? 0m);
+        var total = deposit + settlement;
+        return new Money(project.CurrentTotal, addonTotal, grand, deposit, settlement, total, PaymentCalculator.CalculateOutstandingBalance(grand, total));
     }
 
-    private static IReadOnlyList<ManagerPaymentMilestoneView> BuildMilestones(
-        WeddingProject project,
-        ManagerPaymentSummaryView summary,
-        DateOnly today,
-        decimal t30Ratio)
+    private async Task<ManagerPaymentOverviewView> BuildOverviewAsync(WeddingProject project, CancellationToken cancellationToken)
     {
-        var payments = project.Payments.ToList();
-        var nrdPayment = payments.FirstOrDefault(p => string.Equals(p.PaymentType, "NRD", StringComparison.OrdinalIgnoreCase));
-        var t30Payment = payments.FirstOrDefault(p =>
-            string.Equals(p.PaymentType, "T30", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.PaymentType, "T-30", StringComparison.OrdinalIgnoreCase));
-        var finalPayment = payments.FirstOrDefault(p => string.Equals(p.PaymentType, "FINAL", StringComparison.OrdinalIgnoreCase));
+        var today = PaymentCalculator.GetVietnamToday();
+        var money = await ComputeMoneyAsync(project, cancellationToken);
+        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var completed = PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today);
+        var settled = project.Status == EventStatus.Settled;
+        var summary = new ManagerPaymentSummaryView(project.ProjectId, project.ProjectCode, project.Customer.FullName, project.Hall.Name, project.Slot.SlotName,
+            project.EventDate, project.Status, project.CurrentTotal, money.AddonTotal, money.GrandTotal, money.TotalPaid, money.Outstanding, completed, settled);
 
-        var nrdPaid = nrdPayment?.Amount ?? project.Nrdamount;
-        var nrdStatus = PaymentCalculator.ResolveMilestoneStatus(nrdPayment?.Status ?? "Paid", project.EventDate.AddDays(-90), today, project.Status, "NRD");
-
-        // T-30 follows the current total (base + approved CRs), not the original base value.
-        var t30Amount = t30Payment?.Amount ?? Math.Round(
-            PaymentCalculator.CalculateT30Amount(summary.CurrentProjectTotal, nrdPaid, t30Ratio), 0, MidpointRounding.AwayFromZero);
-        var t30PaidAmount = t30Payment?.Status == "Paid" ? (t30Payment.Amount ?? 0m) : 0m;
-        var t30DueDate = t30Payment?.DueDate ?? project.EventDate.AddDays(-30);
-        var t30Status = PaymentCalculator.ResolveMilestoneStatus(t30Payment?.Status, t30DueDate, today, project.Status, "T30");
-
-        var finalDueDate = project.EventDate;
-        // FINAL is what remains after T-30: an unpaid T-30 must not be counted again in FINAL.
-        var finalAmount = finalPayment?.Amount ?? Math.Max(0m, summary.OutstandingBalance - (t30PaidAmount > 0 ? 0m : t30Amount));
-        var finalPaidAmount = finalPayment?.Status == "Paid" ? (finalPayment.Amount ?? 0m) : 0m;
-        var finalStatus = summary.IsSettled || (finalPayment?.Status == "Paid")
-            ? "Paid"
-            : (summary.IsEventCompleted ? "Due" : "Upcoming");
-
-        return new List<ManagerPaymentMilestoneView>
+        var deposit = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Deposit);
+        var settlement = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Settlement);
+        var settlementDue = EventStageRules.SettlementDueDate(project.EventDate, policy);
+        var settlementAmount = settlement?.Status == "Paid" ? settlement.Amount ?? 0m
+            : PaymentCalculator.CalculateSettlementAmount(money.ContractTotal, money.AddonTotal, money.DepositPaid);
+        var milestones = new List<ManagerPaymentMilestoneView>
         {
-            new(
-                PaymentId: nrdPayment?.PaymentId,
-                PaymentType: "NRD",
-                MilestoneName: PaymentCalculator.GetMilestoneName("NRD"),
-                DueDate: nrdPayment?.DueDate ?? project.EventDate.AddDays(-90),
-                Amount: nrdPaid,
-                PaidAmount: nrdPayment?.Status == "Paid" ? nrdPaid : 0m,
-                Status: nrdStatus,
-                PaymentMethod: nrdPayment?.PaymentMethod ?? "Cash",
-                PaidDate: nrdPayment?.PaidDate,
-                RecordedByName: nrdPayment?.RecordedByNavigation?.FullName,
-                ReceiptAvailable: nrdPayment?.ReceiptContent != null || nrdPayment?.ReceiptFilePath != null,
-                ReceiptUrl: $"/api/wpsm/projects/{project.ProjectCode}/payments/NRD/receipt"
-            ),
-            new(
-                PaymentId: t30Payment?.PaymentId,
-                PaymentType: "T30",
-                MilestoneName: PaymentCalculator.GetMilestoneName("T30"),
-                DueDate: t30DueDate,
-                Amount: t30Amount,
-                PaidAmount: t30PaidAmount,
-                Status: t30Status,
-                PaymentMethod: t30Payment?.PaymentMethod,
-                PaidDate: t30Payment?.PaidDate,
-                RecordedByName: t30Payment?.RecordedByNavigation?.FullName,
-                ReceiptAvailable: t30Payment?.ReceiptContent != null || t30Payment?.ReceiptFilePath != null,
-                ReceiptUrl: t30Payment?.ReceiptContent != null || t30Payment?.ReceiptFilePath != null
-                    ? $"/api/wpsm/projects/{project.ProjectCode}/payments/T30/receipt"
-                    : null
-            ),
-            new(
-                PaymentId: finalPayment?.PaymentId,
-                PaymentType: "FINAL",
-                MilestoneName: PaymentCalculator.GetMilestoneName("FINAL"),
-                DueDate: finalDueDate,
-                Amount: finalAmount,
-                PaidAmount: finalPaidAmount,
-                Status: finalStatus,
-                PaymentMethod: finalPayment?.PaymentMethod,
-                PaidDate: finalPayment?.PaidDate,
-                RecordedByName: finalPayment?.RecordedByNavigation?.FullName,
-                ReceiptAvailable: finalPayment?.ReceiptContent != null || finalPayment?.ReceiptFilePath != null || summary.IsSettled,
-                ReceiptUrl: finalPayment?.ReceiptContent != null || finalPayment?.ReceiptFilePath != null || summary.IsSettled
-                    ? $"/api/wpsm/projects/{project.ProjectCode}/settlement/receipt"
-                    : null
-            )
+            new(deposit?.PaymentId, PaymentKinds.Deposit, PaymentKinds.Label(PaymentKinds.Deposit), deposit?.DueDate ?? DateOnly.FromDateTime(project.CreatedAt),
+                deposit?.Amount ?? project.DepositAmount, deposit?.Status == "Paid" ? deposit.Amount ?? 0m : 0m,
+                PaymentCalculator.ResolvePaymentStatus(deposit?.Status, deposit?.DueDate, today), deposit?.PaymentMethod, deposit?.PaidDate,
+                deposit?.RecordedByNavigation?.FullName, HasReceipt(deposit), $"/api/wpsm/projects/{project.ProjectCode}/payments/{PaymentKinds.Deposit}/receipt"),
+            new(settlement?.PaymentId, PaymentKinds.Settlement, PaymentKinds.Label(PaymentKinds.Settlement), settlement?.DueDate ?? settlementDue,
+                settlementAmount, settlement?.Status == "Paid" ? settlement.Amount ?? 0m : 0m,
+                settled || settlement?.Status == "Paid" ? "Paid" : completed ? "Due" : "Upcoming", settlement?.PaymentMethod, settlement?.PaidDate,
+                settlement?.RecordedByNavigation?.FullName, HasReceipt(settlement) || settled,
+                HasReceipt(settlement) || settled ? $"/api/wpsm/projects/{project.ProjectCode}/settlement/receipt" : null)
+        };
+        var history = project.Payments.Where(p => p.Status == "Paid").OrderByDescending(p => p.PaidDate).ThenByDescending(p => p.PaymentId)
+            .Select(p => new ManagerPaymentHistoryItemView(p.PaymentId, p.PaymentType, p.Amount ?? 0m, p.PaidDate, p.PaymentMethod, p.Status,
+                p.RecordedByNavigation?.FullName, HasReceipt(p), $"/api/wpsm/projects/{project.ProjectCode}/payments/{p.PaymentType}/receipt",
+                p.PaidDate?.ToDateTime(TimeOnly.MinValue))).ToList();
+        return new ManagerPaymentOverviewView(summary, milestones, history, BuildSettlement(project, money))
+        {
+            Invoice = await EventFlowSupport.LoadInvoiceViewAsync(db, project.ProjectId, project.ProjectCode, cancellationToken)
         };
     }
 
-    private static IReadOnlyList<ManagerPaymentHistoryItemView> BuildHistory(WeddingProject project)
+    private static bool HasReceipt(Payment? p) => p is not null && (p.ReceiptContent != null || p.ReceiptFilePath != null);
+
+    private static SettlementCalculationView BuildSettlement(WeddingProject project, Money money)
     {
-        return project.Payments
-            .OrderByDescending(p => p.PaidDate ?? p.DueDate)
-            .ThenByDescending(p => p.PaymentId)
-            .Select(p => new ManagerPaymentHistoryItemView(
-                PaymentId: p.PaymentId,
-                PaymentType: p.PaymentType,
-                Amount: p.Amount ?? 0m,
-                PaymentDate: p.PaidDate,
-                Method: p.PaymentMethod,
-                Status: p.Status,
-                RecordedByName: p.RecordedByNavigation?.FullName,
-                ReceiptAvailable: p.ReceiptContent != null || p.ReceiptFilePath != null,
-                ReceiptUrl: $"/api/wpsm/projects/{project.ProjectCode}/payments/{p.PaymentType}/receipt",
-                CreatedAt: p.PaidDate.HasValue ? p.PaidDate.Value.ToDateTime(TimeOnly.MinValue) : null
-            ))
-            .ToList();
+        var completed = PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, PaymentCalculator.GetVietnamToday());
+        return new SettlementCalculationView(project.CurrentTotal, money.AddonTotal, money.GrandTotal, money.DepositPaid, money.SettlementPaid,
+            money.TotalPaid, money.Outstanding, completed, completed && money.Outstanding == 0, project.Status == EventStatus.Settled, DateTime.UtcNow);
     }
 
-    private static SettlementCalculationView BuildSettlementCalculation(WeddingProject project, DateOnly today)
-    {
-        var crVariance = PaymentCalculator.CalculateApprovedCrVariance(
-            project.ChangeRequests.Select(c => (c.Status, c.TotalVariance, c.CostImpact, c.PenaltyFee)));
-        var currentTotal = PaymentCalculator.CalculateCurrentTotal(project.BaseContractValue, crVariance);
+    private static FinalSettlementReceiptPdfModel BuildPdfModel(WeddingProject project, Money money, string managerName, DateTime issueDate) =>
+        new($"BN-{project.ProjectCode}-{issueDate:yyyyMMddHHmm}", project.ProjectCode, project.Customer.FullName, project.Customer.Email,
+            project.Customer.Phone ?? "", project.EventDate, project.Hall.Name, money.ContractTotal, money.AddonTotal, money.GrandTotal, money.TotalPaid,
+            0m, EventStatus.Settled, managerName, issueDate,
+            project.Payments.Where(p => p.Status == "Paid").OrderBy(p => p.PaidDate)
+                .Select(p => (PaymentKinds.Label(p.PaymentType), p.PaidDate, p.PaymentMethod, p.Amount ?? 0m, (string?)(p.RecordedByNavigation?.FullName ?? managerName)))
+                .ToList());
 
-        var payments = project.Payments.Where(p => p.Status == "Paid").ToList();
-        var nrdPaid = payments.FirstOrDefault(p => string.Equals(p.PaymentType, "NRD", StringComparison.OrdinalIgnoreCase))?.Amount ?? 0m;
-        var t30Paid = payments.FirstOrDefault(p =>
-            string.Equals(p.PaymentType, "T30", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(p.PaymentType, "T-30", StringComparison.OrdinalIgnoreCase))?.Amount ?? 0m;
-        var finalPaid = payments.FirstOrDefault(p => string.Equals(p.PaymentType, "FINAL", StringComparison.OrdinalIgnoreCase))?.Amount ?? 0m;
-        var otherPaid = payments.Where(p =>
-            !string.Equals(p.PaymentType, "NRD", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(p.PaymentType, "T30", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(p.PaymentType, "T-30", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(p.PaymentType, "FINAL", StringComparison.OrdinalIgnoreCase))
-            .Sum(p => p.Amount ?? 0m);
-
-        var totalPaid = nrdPaid + t30Paid + finalPaid + otherPaid;
-        var finalDue = PaymentCalculator.CalculateOutstandingBalance(currentTotal, totalPaid);
-        var isEventCompleted = PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today);
-        var isSettled = string.Equals(project.Status, "Settled", StringComparison.OrdinalIgnoreCase);
-
-        return new SettlementCalculationView(
-            BaseContractValue: project.BaseContractValue,
-            ApprovedCrVariance: crVariance,
-            CurrentProjectTotal: currentTotal,
-            NrdPaid: nrdPaid,
-            T30Paid: t30Paid,
-            OtherRecordedPayments: otherPaid + finalPaid,
-            TotalRecordedPayments: totalPaid,
-            FinalAmountDue: finalDue,
-            IsEventCompleted: isEventCompleted,
-            CanSettle: isEventCompleted && finalDue == 0,
-            IsSettled: isSettled,
-            CalculatedAt: DateTime.UtcNow
-        );
-    }
-
-    private static FinalSettlementReceiptPdfModel BuildReceiptPdfModel(
-        WeddingProject project,
-        decimal currentTotal,
-        decimal totalPaid,
-        string managerName,
-        DateTime issueDate)
-    {
-        var crVariance = PaymentCalculator.CalculateApprovedCrVariance(
-            project.ChangeRequests.Select(c => (c.Status, c.TotalVariance, c.CostImpact, c.PenaltyFee)));
-
-        var paymentItems = project.Payments
-            .Where(p => p.Status == "Paid")
-            .OrderBy(p => p.PaidDate ?? p.DueDate)
-            .Select(p => (
-                Type: PaymentCalculator.GetMilestoneName(p.PaymentType),
-                Date: p.PaidDate,
-                Method: p.PaymentMethod,
-                Amount: p.Amount ?? 0m,
-                RecordedBy: (string?)(p.RecordedByNavigation?.FullName ?? managerName)
-            ))
-            .ToList();
-
-        var receiptNo = $"FSR-{project.ProjectCode}-{issueDate:yyyyMMddHHmm}";
-
-        return new FinalSettlementReceiptPdfModel(
-            ReceiptNumber: receiptNo,
-            ProjectCode: project.ProjectCode,
-            CoupleName: project.Customer.FullName,
-            CustomerEmail: project.Customer.Email,
-            CustomerPhone: project.Customer.Phone ?? "",
-            EventDate: project.EventDate,
-            HallName: project.Hall.Name,
-            BaseContractValue: project.BaseContractValue,
-            TotalApprovedCrVariance: crVariance,
-            CurrentProjectTotal: currentTotal,
-            TotalAmountPaid: totalPaid,
-            FinalBalance: 0m,
-            Status: "Settled",
-            IssuingManagerName: managerName,
-            IssueDate: issueDate,
-            Payments: paymentItems
-        );
-    }
-
-    private static FinalSettlementReceiptView MapFinalReceiptView(
-        WeddingProject project,
-        SettlementCalculationView calc,
-        string managerName,
-        DateTime issueDate)
-    {
-        var paymentHistory = project.Payments
-            .Where(p => p.Status == "Paid")
-            .OrderBy(p => p.PaidDate ?? p.DueDate)
-            .Select(p => new SettlementPaymentItemView(
-                PaymentType: PaymentCalculator.GetMilestoneName(p.PaymentType),
-                PaidDate: p.PaidDate,
-                Method: p.PaymentMethod,
-                Amount: p.Amount ?? 0m,
-                RecordedBy: p.RecordedByNavigation?.FullName ?? managerName
-            ))
-            .ToList();
-
-        var receiptNo = $"FSR-{project.ProjectCode}-{issueDate:yyyyMMddHHmm}";
-
-        return new FinalSettlementReceiptView(
-            ReceiptNumber: receiptNo,
-            ProjectCode: project.ProjectCode,
-            CoupleName: project.Customer.FullName,
-            CustomerEmail: project.Customer.Email,
-            CustomerPhone: project.Customer.Phone ?? "",
-            EventDate: project.EventDate,
-            HallName: project.Hall.Name,
-            BaseContractValue: calc.BaseContractValue,
-            TotalApprovedCrVariance: calc.ApprovedCrVariance,
-            CurrentProjectTotal: calc.CurrentProjectTotal,
-            TotalAmountPaid: calc.TotalRecordedPayments,
-            FinalBalance: 0m,
-            Status: "Settled",
-            IssuingManagerName: managerName,
-            IssueDate: issueDate,
-            PaymentHistory: paymentHistory,
-            DownloadUrl: $"/api/wpsm/projects/{project.ProjectCode}/settlement/receipt"
-        );
-    }
+    private static FinalSettlementReceiptView MapReceiptView(WeddingProject project, Money money, string managerName, DateTime issueDate) =>
+        new($"BN-{project.ProjectCode}-{issueDate:yyyyMMddHHmm}", project.ProjectCode, project.Customer.FullName, project.Customer.Email,
+            project.Customer.Phone ?? "", project.EventDate, project.Hall.Name, money.ContractTotal, money.AddonTotal, money.GrandTotal, money.TotalPaid,
+            0m, EventStatus.Settled, managerName, issueDate,
+            project.Payments.Where(p => p.Status == "Paid").OrderBy(p => p.PaidDate)
+                .Select(p => new SettlementPaymentItemView(PaymentKinds.Label(p.PaymentType), p.PaidDate, p.PaymentMethod, p.Amount ?? 0m,
+                    p.RecordedByNavigation?.FullName ?? managerName)).ToList(),
+            $"/api/wpsm/projects/{project.ProjectCode}/settlement/receipt");
 }

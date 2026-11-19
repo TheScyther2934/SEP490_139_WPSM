@@ -12,7 +12,7 @@ export default function CountdownBanner({ dashboard }) {
           </div>
           <div>
             <Typography variant="h4" id="countdown-label">{dashboard.countdownLabel}</Typography>
-            <Typography sx={{ opacity: 0.85 }}>Ngày sự kiện: {dateVi(dashboard.eventDate)}</Typography>
+            <Typography sx={{ opacity: 0.85 }}>{dashboard.statusLabel}</Typography>
           </div>
         </Stack>
       </CardContent>

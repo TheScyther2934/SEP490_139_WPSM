@@ -56,7 +56,7 @@ export default function ConflictDetail() {
                 </List>
               </Alert>
             )}
-            {a.exceptionStatus === "Pending" && <Alert severity="warning">Đang chờ Admin quyết định ngoại lệ (A-18).</Alert>}
+            {a.exceptionStatus === "Pending" && <Alert severity="warning">Đang chờ Admin quyết định ngoại lệ.</Alert>}
             {a.exceptionStatus === "Rejected" && <Alert severity="info">Admin đã từ chối ngoại lệ; phân bổ không được thực hiện.</Alert>}
             {a.exceptionStatus !== "Pending" && a.status !== "Released" && (
               <div><Button variant="contained" onClick={() => { setConflict(null); setEditing(true); }}>Đổi giờ / đổi tài nguyên</Button></div>

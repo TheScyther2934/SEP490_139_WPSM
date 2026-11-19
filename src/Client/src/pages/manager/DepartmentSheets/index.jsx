@@ -47,7 +47,7 @@ export default function DepartmentSheets() {
     try {
       const updated = await projectService.generateDepartmentSheets(projectCode);
       setData(updated);
-      dispatch(notify({ message: "Đã đồng bộ lại 4 phiếu điều phối bộ phận từ BEO hiện hành.", severity: "success" }));
+      dispatch(notify({ message: "Đã đồng bộ lại 4 phiếu điều phối bộ phận từ phiếu điều phối hiện hành.", severity: "success" }));
     } catch (e) {
       dispatch(notify({ message: errorMessage(e), severity: "error" }));
     } finally {
@@ -79,12 +79,12 @@ export default function DepartmentSheets() {
     <>
       <PageHeader
         code="M-11"
-        title={`Phiếu Điều phối Bộ phận BEO (${projectCode})`}
+        title={`Phiếu điều phối từng bộ phận (${projectCode})`}
         subtitle="Phân tách kế hoạch vận hành theo 4 bộ phận chuyên trách: Kitchen, Service, Decor và Tech-MC kèm xuất PDF."
         actions={
           <Stack direction="row" spacing={1.5}>
             <Button startIcon={<ArrowBackIcon />} component={RouterLink} to={PATHS.manager.beo(projectCode)}>
-              Về BEO Tổng (M-10)
+              Về phiếu điều phối
             </Button>
             <Button
               variant="contained"
@@ -98,11 +98,11 @@ export default function DepartmentSheets() {
         }
       />
 
-      <DataState loading={loading} error={error} onRetry={reload} empty={!beo} emptyText="Không tìm thấy dữ liệu BEO.">
+      <DataState loading={loading} error={error} onRetry={reload} empty={!beo} emptyText="Không tìm thấy dữ liệu phiếu điều phối.">
         {beo && (
           <Stack spacing={3}>
             <Alert severity={beo.status === "Stale" ? "warning" : "info"}>
-              Đang hiển thị phiếu điều phối thuộc <strong>BEO v{beo.version}</strong> · Sảnh <strong>{beo.hallName}</strong> · Ca{" "}
+              Đang hiển thị phiếu điều phối thuộc <strong>Phiếu điều phối v{beo.version}</strong> · Sảnh <strong>{beo.hallName}</strong> · Ca{" "}
               <strong>{slotLabel(beo.slotName)}</strong> ngày <strong>{dateVi(beo.eventDate)}</strong>.{" "}
               <StatusChip kind="beo" status={beo.status} />
             </Alert>
@@ -142,7 +142,7 @@ export default function DepartmentSheets() {
                                   </TableCell>
                                   <TableCell>
                                     {item.description}
-                                    {item.changedByCr ? " (Đã cập nhật CR)" : ""}
+                                    {item.changedByAddon ? " (phát sinh)" : ""}
                                   </TableCell>
                                 </TableRow>
                               ))

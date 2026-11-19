@@ -22,8 +22,6 @@ using Infrastructure.Persistence.Entities;
 using Infrastructure.Persistence.Repositories;
 using Domain.Enums;
 using Domain.Services;
-using Application.Roadmap;
-using Infrastructure.Roadmap;
 using Application.Payments;
 using Infrastructure.Payments;
 using Application.Dashboard;
@@ -35,14 +33,23 @@ using Infrastructure.Events;
 using Infrastructure.Dashboard;
 using Infrastructure.DayOfTasks;
 using Infrastructure.OverdueAlerts;
+using Infrastructure.Auditing;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("WpsmDb");
-builder.Services.AddDbContext<WpsmDbContext>(options => options.UseSqlServer(connectionString));
+// Audit log: every EF save writes AuditLogs rows with the signed-in user (system for jobs).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuditActor, API.HttpAuditActor>();
+builder.Services.AddScoped<AuditSaveChangesInterceptor>();
+builder.Services.AddDbContext<WpsmDbContext>((services, options) => options.UseSqlServer(connectionString)
+    .AddInterceptors(services.GetRequiredService<AuditSaveChangesInterceptor>()));
 builder.Services.AddDataProtection();
 builder.Services.AddScoped<ProjectReadModel>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
-builder.Services.AddScoped<ISpecificationRoadmapRepository, SpecificationRoadmapRepository>();
+builder.Services.AddScoped<ISpecificationRepository, SpecificationRepository>();
+builder.Services.AddScoped<IEventFlowRepository, EventFlowRepository>();
+builder.Services.AddScoped<IAddonContractRepository, AddonContractRepository>();
+builder.Services.AddScoped<ISupplierEvidenceRepository, SupplierEvidenceRepository>();
 builder.Services.AddScoped<IConfigurationRepository, ConfigurationRepository>();
 builder.Services.AddScoped<IAdminRepository, AdminRepository>();
 builder.Services.AddScoped<IAccountProfileRepository, AccountProfileRepository>();
@@ -52,11 +59,10 @@ builder.Services.AddScoped<DevelopmentDatabaseSeeder>();
 builder.Services.AddScoped<ICustomerDashboardRepository, CustomerDashboardRepository>();
 builder.Services.AddScoped<ICustomerPaymentRepository, CustomerPaymentRepository>();
 builder.Services.AddScoped<IManagerPaymentRepository, ManagerPaymentRepository>();
-builder.Services.AddScoped<ICustomerRoadmapRepository, CustomerRoadmapRepository>();
-builder.Services.AddScoped<IManagerRoadmapRepository, ManagerRoadmapRepository>();
+builder.Services.AddScoped<IAdminProjectRepository, AdminProjectRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IProjectManagerRepository, ProjectManagerRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IAddendumRepository, AddendumRepository>();
-builder.Services.AddScoped<IChangeRequestRepository, ChangeRequestRepository>();
 builder.Services.AddScoped<IResourceCalendarRepository, ResourceCalendarRepository>();
 builder.Services.AddScoped<IComplaintRatingRepository, ComplaintRatingRepository>();
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
@@ -64,18 +70,12 @@ builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddSingleton<PhotoLinks>();
 // Report 4 use cases added on 2026-11-05 (docs/explain/sds-gaps.md).
 builder.Services.AddSingleton<IPdfGenerator, Infrastructure.Pdf.QuestPdfGenerator>();
-builder.Services.AddScoped<IOperationsNotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IManagerWorkRepository, ManagerWorkRepository>();
-builder.Services.AddScoped<IOperationsChangeRequestRepository, OperationsChangeRequestRepository>();
 builder.Services.AddScoped<IBeoRepository, BeoRepository>();
-builder.Services.AddScoped<IOperationsBeoRepository, OperationsBeoRepository>();
 builder.Services.AddScoped<IDayOfRepository, DayOfRepository>();
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IFeedbackRepository, FeedbackRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IConfigurationAdminRepository, ConfigurationAdminRepository>();
 builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
-builder.Services.AddScoped<OperationsJobs>();
 
 // SDS III.1.1: HS256 with a 256-bit secret from User Secrets or the environment.
 var jwtSecret = builder.Configuration["Jwt:Secret"];
@@ -119,10 +119,7 @@ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailDeliveryService, EmailDeliveryService>();
 builder.Services.AddScoped<EmailDispatchJob>();
 builder.Services.AddScoped<BeoCompilationJob>();
-builder.Services.AddScoped<IRoadmapReminderService, RoadmapReminderService>();
-builder.Services.AddScoped<SendRoadmapMilestoneRemindersJob>();
-builder.Services.AddScoped<IT30PaymentRequestService, T30PaymentRequestService>();
-builder.Services.AddScoped<IssueT30PaymentRequestJob>();
+builder.Services.AddScoped<EventStageJob>();
 builder.Services.AddScoped<IFinalSettlementService, FinalSettlementService>();
 builder.Services.AddScoped<FinalSettlementJob>();
 builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
@@ -216,32 +213,35 @@ if (backgroundJobsEnabled)
 {
     var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
     recurringJobs.AddOrUpdate<EmailDispatchJob>("job-07-email-dispatch", job => job.RunAsync(CancellationToken.None), "*/1 * * * *");
-    recurringJobs.AddOrUpdate<SendRoadmapMilestoneRemindersJob>(
-        "job-01-roadmap-milestone-reminders",
-        job => job.RunAsync(CancellationToken.None),
-        "0 7 * * *",
-        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
-    recurringJobs.AddOrUpdate<IssueT30PaymentRequestJob>(
-        "job-02-t30-payment-request",
-        job => job.RunAsync(CancellationToken.None),
-        "0 7 * * *",
-        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
-    recurringJobs.AddOrUpdate<BeoCompilationJob>("job-03-compile-beo-draft", job => job.RunAsync(CancellationToken.None), "0 7 * * *");
+    // Stage 3 starts at 00:05: lock events on their lock date, remind operators past the supplier deadline.
+    recurringJobs.AddOrUpdate<EventStageJob>(
+        "job-01-event-stages",
+        job => job.ExecuteAsync(CancellationToken.None),
+        "5 0 * * *",
+        new RecurringJobOptions { TimeZone = VietnamTime.VietnamTimeZone });
+    recurringJobs.AddOrUpdate<BeoCompilationJob>("job-03-compile-beo-draft", job => job.RunAsync(CancellationToken.None), "0 7 * * *",
+        new RecurringJobOptions { TimeZone = VietnamTime.VietnamTimeZone });
     recurringJobs.AddOrUpdate<LoadDayOfTimelineJob>(
         "job-04-load-day-of-timeline",
         job => job.ExecuteAsync(),
         "0 6 * * *",
-        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+        new RecurringJobOptions { TimeZone = VietnamTime.VietnamTimeZone });
     recurringJobs.AddOrUpdate<DetectOverdueTasksJob>(
         "job-05-detect-overdue-tasks",
         job => job.RunAsync(CancellationToken.None),
         "*/1 * * * *",
-        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+        new RecurringJobOptions { TimeZone = VietnamTime.VietnamTimeZone });
     recurringJobs.AddOrUpdate<FinalSettlementJob>(
         "job-06-final-settlement",
         job => job.RunAsync(CancellationToken.None),
         "0 1 * * *",
-        new RecurringJobOptions { TimeZone = RoadmapRules.VietnamTimeZone });
+        new RecurringJobOptions { TimeZone = VietnamTime.VietnamTimeZone });
+
+    // Schedules left in Hangfire storage by earlier builds (removed OperationsJobs, roadmap reminders, T-30 payment request, old e-mail id).
+    // Hangfire keeps recurring jobs across restarts, so without this they would keep running next to the jobs above.
+    foreach (var legacyId in new[] { "job-01-roadmap-reminders", "job-02-t30-payment", "job-03-beo-draft", "job-04-load-day-of", "job-05-overdue",
+                 "JOB-07-dispatch-emails", "job-01-roadmap-milestone-reminders", "job-02-t30-payment-request" })
+        recurringJobs.RemoveIfExists(legacyId);
 }
 
 app.UseCors();
@@ -281,5 +281,17 @@ app.UseRateLimiter();
 
 app.MapWpsmApi();
 app.MapSpaFallback();
+
+// Merges have repeatedly mapped the same route twice, which only fails when the route is called (AmbiguousMatchException).
+// In Development refuse to start instead, naming the duplicates.
+if (app.Environment.IsDevelopment())
+{
+    var duplicates = ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints).OfType<RouteEndpoint>()
+        .SelectMany(e => (e.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()?.HttpMethods ?? ["*"])
+            .Select(method => $"{method} /{e.RoutePattern.RawText?.Trim('/')}"))
+        .GroupBy(route => route, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+    if (duplicates.Count > 0)
+        throw new InvalidOperationException("Duplicate API routes (each must be mapped once): " + string.Join(", ", duplicates));
+}
 
 app.Run();

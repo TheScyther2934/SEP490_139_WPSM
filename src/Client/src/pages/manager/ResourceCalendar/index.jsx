@@ -15,7 +15,7 @@ import { projectService } from "../../../services/projectService";
 import { PATHS } from "../../../routes/paths";
 import { isoDate } from "../../../utils/format";
 
-// M-21 (UC-25, UC-26): hall bookings and shared-resource allocations; conflicts are checked on save (GBR-09).
+// M-21 (UC-25, UC-26): hall bookings and shared-resource allocations; conflicts are checked on save.
 export default function ResourceCalendar() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -54,7 +54,7 @@ export default function ResourceCalendar() {
   const release = async () => {
     if (await run(() => resourceService.release(releasing.allocationId), "Đã giải phóng tài nguyên.")) { setReleasing(null); calendar.reload(); }
   };
-  const activeProjects = projects.filter((p) => ["Active Baseline", "Baseline Frozen"].includes(p.status));
+  const activeProjects = projects.filter((p) => ["Adjusting", "Locked"].includes(p.status));
 
   return (
     <>
