@@ -7,5 +7,6 @@ public sealed record AccessToken(string Token, DateTime ExpiresAt);
 /// <summary>Issues the short-lived JWT access token (SDS III.1.1: 15 minutes, HS256).</summary>
 public interface ITokenService
 {
-    AccessToken CreateAccessToken(AccountView account);
+    /// <summary>The token carries the device session id ("sid") so a signed-out device is refused at once.</summary>
+    AccessToken CreateAccessToken(AccountView account, Guid? sessionId = null);
 }

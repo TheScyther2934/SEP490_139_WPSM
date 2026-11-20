@@ -20,6 +20,11 @@ public class RefreshToken
 
     public string? CreatedByIp { get; set; }
 
+    /// <summary>The device session this token belongs to (null only for tokens issued before sessions existed).</summary>
+    public Guid? SessionId { get; set; }
+
+    public virtual UserSession? Session { get; set; }
+
     public virtual User User { get; set; } = null!;
 
     public virtual RefreshToken? ReplacedByToken { get; set; }

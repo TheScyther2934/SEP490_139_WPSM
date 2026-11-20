@@ -139,9 +139,10 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
             : [];
     }
 
-    // sp_getapplock keeps two Managers from both passing the capacity check for the same resource (SDS III.2.2).
+    // A transaction-scoped advisory lock keeps two Managers from both passing the capacity check for the same resource (SDS III.2.2).
+    // Key (4201, resourceId): 4201 marks resource locks; waits at most 10 s like the former sp_getapplock timeout.
     private Task LockAsync(int resourceId, CancellationToken cancellationToken) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"EXEC sp_getapplock @Resource = {"resource:" + resourceId}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000", cancellationToken);
+        db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('lock_timeout', '10s', true), pg_advisory_xact_lock(4201, {resourceId})", cancellationToken);
 
     private Task<bool> HasOpenExceptionAsync(int allocationId, CancellationToken cancellationToken) =>
         db.ExceptionRequests.AnyAsync(x => x.AllocationId == allocationId && x.Status == "Pending", cancellationToken);

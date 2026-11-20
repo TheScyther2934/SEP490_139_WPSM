@@ -49,8 +49,8 @@ public static class AdminEndpoints
         // A-13 photo feed removed: proof photos are reviewed per project (admin project detail, evidence tab).
         admin.MapGet("/photos/{photoId:int}", async (int photoId, IAdminRepository repo, PhotoLinks links, CancellationToken ct) =>
             await repo.GetPhotoAsync(photoId, ct) is { } photo ? Results.Ok(photo with { ImageUrl = links.Url(photo.PhotoId) }) : Results.NotFound());
-        admin.MapGet("/photos/{photoId:int}/content", async (int photoId, IAdminRepository repo, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage, CancellationToken ct) =>
-            await repo.GetPhotoPathAsync(photoId, ct) is { } path ? PhotoFile(path, environment, storage) : Results.NotFound());
+        admin.MapGet("/photos/{photoId:int}/content", async (int photoId, IAdminRepository repo, IFileService files, HttpContext context, CancellationToken ct) =>
+            await repo.GetPhotoFileAsync(photoId, ct) is { } file ? await ServeStoredFile(files, file, context, ct) : Results.NotFound());
         admin.MapGet("/overdue-alerts", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetOverdueAlertsAsync(ct)));
         admin.MapGet("/complaints", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetEscalatedComplaintsAsync(ct)));
         admin.MapPost("/complaints/{complaintId:int}/resolve", async (int complaintId, ResolveComplaintRequest request, IAdminRepository repo, ClaimsPrincipal user, CancellationToken ct) =>

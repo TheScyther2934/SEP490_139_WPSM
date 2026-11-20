@@ -1,3 +1,4 @@
+import { FILE_ACCEPT, FILE_TYPES_LABEL } from "../../../../utils/files";
 import { useRef } from "react";
 import { Alert, Button, Card, CardContent, FormHelperText, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
@@ -24,7 +25,7 @@ export default function DepositSection({ form, errors, onChange, minimum, ratio,
             <MenuItem value="Cash">Tiền mặt</MenuItem>
           </TextField>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", gap: 1 }}>
-            <input ref={fileRef} id="depositReceiptFile" type="file" accept=".pdf,.jpg,.jpeg,.png" hidden
+            <input ref={fileRef} id="depositReceiptFile" type="file" accept={FILE_ACCEPT} hidden
               onChange={(e) => onChange("receipt", e.target.files?.[0] ?? null)} />
             <Button variant="outlined" startIcon={<UploadFileIcon />} disabled={disabled} onClick={() => fileRef.current?.click()}>
               Chọn biên nhận{form.paymentMethod === "Bank" ? " *" : ""}
@@ -36,7 +37,7 @@ export default function DepositSection({ form, errors, onChange, minimum, ratio,
               </>
             )}
           </Stack>
-          <FormHelperText error={!!errors.receipt}>{errors.receipt ?? "PDF, JPG hoặc PNG, tối đa 10 MB."}</FormHelperText>
+          <FormHelperText error={!!errors.receipt}>{errors.receipt ?? `${FILE_TYPES_LABEL}.`}</FormHelperText>
         </Stack>
       </CardContent>
     </Card>

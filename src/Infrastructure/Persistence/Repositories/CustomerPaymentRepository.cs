@@ -91,7 +91,8 @@ public sealed class CustomerPaymentRepository(
             payment = project.Payments.FirstOrDefault(p => string.Equals(p.PaymentType, paymentType, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (payment?.ReceiptContent is { Length: > 0 } content)
+        // The receipt recorded on the payment (its storage key), else the latest stored file of that kind.
+        if (payment?.ReceiptFilePath is { Length: > 0 } key && await ReadAsync(key, cancellationToken) is { } content)
         {
             return new FileContentResultModel(
                 content,
@@ -161,7 +162,7 @@ public sealed class CustomerPaymentRepository(
         var finalPayment = project.Payments.FirstOrDefault(p =>
             string.Equals(p.PaymentType, PaymentKinds.Settlement, StringComparison.OrdinalIgnoreCase));
 
-        if (finalPayment?.ReceiptContent is { Length: > 0 } bytes)
+        if (finalPayment?.ReceiptFilePath is { Length: > 0 } receiptKey && await ReadAsync(receiptKey, cancellationToken) is { } bytes)
         {
             return new FileContentResultModel(
                 bytes,
@@ -173,6 +174,15 @@ public sealed class CustomerPaymentRepository(
     }
 
     // ── Internal Helpers ──────────────────────────────────────────────────────
+
+    private async Task<byte[]?> ReadAsync(string key, CancellationToken cancellationToken)
+    {
+        await using var stream = await storage.OpenReadAsync(key, cancellationToken);
+        if (stream is null) return null;
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms, cancellationToken);
+        return ms.ToArray();
+    }
 
     private async Task<WeddingProject?> ResolveCustomerProjectAsync(
         int customerId,
@@ -212,7 +222,7 @@ public sealed class CustomerPaymentRepository(
         var depositAmount = deposit?.Amount ?? project.DepositAmount;
         var depositDue = deposit?.DueDate ?? DateOnly.FromDateTime(project.CreatedAt);
         var depositStatus = PaymentCalculator.ResolvePaymentStatus(deposit?.Status, depositDue, today);
-        var depositReceipt = deposit?.ReceiptContent != null || !string.IsNullOrEmpty(deposit?.ReceiptFilePath) ||
+        var depositReceipt = !string.IsNullOrEmpty(deposit?.ReceiptFilePath) ||
             await db.StoredFiles.AnyAsync(f => f.ProjectId == project.ProjectId && f.Purpose == "DepositReceipt", cancellationToken);
 
         var settlement = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Settlement);
@@ -223,7 +233,7 @@ public sealed class CustomerPaymentRepository(
             : PaymentCalculator.CalculateSettlementAmount(summary.BaseContractValue, summary.ConfirmedAddonTotal, depositPaid);
         var completed = PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today);
         var settlementStatus = settled || settlement?.Status == "Paid" ? "Paid" : completed ? "Due" : "Upcoming";
-        var settlementReceipt = settled && (settlement?.ReceiptContent != null || !string.IsNullOrEmpty(settlement?.ReceiptFilePath) ||
+        var settlementReceipt = settled && (!string.IsNullOrEmpty(settlement?.ReceiptFilePath) ||
             await db.StoredFiles.AnyAsync(f => f.ProjectId == project.ProjectId && f.Purpose == "SettlementReceipt", cancellationToken));
 
         return

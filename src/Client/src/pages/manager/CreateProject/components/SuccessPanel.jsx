@@ -5,7 +5,8 @@ import { PATHS } from "../../../../routes/paths";
 const EMAIL_NOTE = {
   Sent: "Email tài khoản đã được gửi.",
   Pending: "Email tài khoản đang chờ gửi.",
-  NotConfigured: "Chưa cấu hình gửi email. Vui lòng chuyển thông tin đăng nhập cho khách.",
+  NotConfigured: "Máy chủ chưa cấu hình gửi email nên khách sẽ không nhận được email. Vui lòng chuyển thông tin đăng nhập cho khách.",
+  Saved: "Máy chủ chưa cấu hình gửi email nên khách không nhận được email. Vui lòng chuyển thông tin đăng nhập cho khách.",
   Failed: "Gửi email chưa thành công. Vui lòng chuyển thông tin đăng nhập cho khách.",
   ExistingAccount: "Khách cũ: dùng lại tài khoản đã có.",
 };

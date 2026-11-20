@@ -5,7 +5,14 @@ import { projectService } from "../../../../services/projectService";
 import { notify } from "../../../../store/notifySlice";
 import { errorMessage } from "../../../../utils/format";
 
-const EMAIL_STATUS = { Pending: "Đang chờ gửi", Sent: "Đã gửi", Failed: "Gửi thất bại", ExistingAccount: "Tài khoản đã có" };
+const EMAIL_STATUS = {
+  Pending: "Đang chờ gửi",
+  Sent: "Đã gửi",
+  // The server had no email account configured: the message was only saved on the server, the customer did not get it.
+  Saved: "Chưa gửi được (máy chủ chưa cấu hình email), hãy chuyển thông tin đăng nhập cho khách",
+  Failed: "Gửi thất bại",
+  ExistingAccount: "Tài khoản đã có",
+};
 
 // Customer contact and the credential e-mail; resending issues a new temporary password.
 export default function CustomerAccountCard({ project }) {

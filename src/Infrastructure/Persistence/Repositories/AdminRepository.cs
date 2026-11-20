@@ -139,8 +139,9 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         return x is null ? null : new PhotoAuditView(x.PhotoId, x.ProjectCode, x.Hall, x.Slot, x.TaskName, Utc(x.DeadlineTime), Utc(x.UploadedAt), x.UploadedAt > x.DeadlineTime, x.FullName);
     }
 
-    public async Task<string?> GetPhotoPathAsync(int photoId, CancellationToken cancellationToken = default) =>
-        await db.ExecutionPhotos.AsNoTracking().Where(x => x.PhotoId == photoId).Select(x => x.ImageFilePath).FirstOrDefaultAsync(cancellationToken);
+    public async Task<StoredFileRef?> GetPhotoFileAsync(int photoId, CancellationToken cancellationToken = default) =>
+        await db.ExecutionPhotos.AsNoTracking().Where(x => x.PhotoId == photoId)
+            .Select(x => new StoredFileRef(x.ImageFilePath, x.ContentType ?? "image/jpeg", x.FileName ?? "minh-chung")).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<OverdueAlertView>> GetOverdueAlertsAsync(CancellationToken cancellationToken = default)
     {

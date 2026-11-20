@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Domain.Services;
+using Infrastructure.Files;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
 using Infrastructure.Persistence.Repositories;
@@ -83,7 +84,7 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    private ManagerPaymentRepository Repo() => new(_db, new DummyStorage(), _notifications);
+    private ManagerPaymentRepository Repo() => new(_db, new FileService(_db, new TestFileStorage(), new FileStorageOptions { RootPath = ".", SigningKey = "test" }), _notifications);
 
     private void EventHeld()
     {
@@ -178,7 +179,7 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
     {
         EventHeld();
 
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(180_000_000m, "Bank", receipt: [1, 2, 3, 4]));
+        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(180_000_000m, "Bank", receipt: Encoding.ASCII.GetBytes("%PDF-1.4 %%EOF")));
 
         Assert.True(result.Success);
         Assert.Equal(0m, result.NewBalance);
@@ -213,13 +214,6 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
         Assert.Contains("%%EOF", text);
         Assert.Contains("BN-001", text);
         Assert.Contains("Hop dong phat sinh da xac nhan", text);
-    }
-
-    private sealed class DummyStorage : IFileStorage
-    {
-        public Task UploadAsync(Stream content, string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult<Stream?>(null);
-        public Task DeleteAsync(string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class DummyNotificationRepository : INotificationRepository

@@ -139,7 +139,8 @@ public sealed class EventFlowRepository(WpsmDbContext db, IEmailOutbox emailOutb
         if (!string.IsNullOrWhiteSpace(query))
         {
             var term = query.Trim();
-            customers = customers.Where(u => u.FullName.Contains(term) || u.Email.Contains(term) || (u.Phone != null && u.Phone.Contains(term)));
+            var like = SqlLike.Contains(term);
+            customers = customers.Where(u => EF.Functions.ILike(u.FullName, like) || EF.Functions.ILike(u.Email, like) || (u.Phone != null && EF.Functions.ILike(u.Phone, like)));
         }
         var rows = await customers.OrderBy(u => u.FullName).Take(20)
             .Select(u => new

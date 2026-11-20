@@ -34,7 +34,8 @@ public static class ProjectEndpoints
             var created = await repo.CreateProjectAsync(new CreateProjectCommand(request.CoupleName, request.CustomerEmail, request.CustomerPhone,
                 request.Hall, request.Slot, request.EventDate, request.BaseValue, request.DepositAmount, request.PaymentMethod, request.ReceiptFilePath, request.Items),
                 UserId(user), passwordHash, temporaryPassword, ct);
-            var emailStatus = created.TemporaryPassword is not null ? "Pending" : "ExistingAccount";
+            // Without SMTP the credentials email is only saved as a file: say so, the Manager hands the password over.
+            var emailStatus = created.TemporaryPassword is null ? "ExistingAccount" : string.IsNullOrWhiteSpace(email.Host) ? "NotConfigured" : "Pending";
             // The password travels only by email once SMTP is configured; the screen shows it only in Development without SMTP.
             var shownPassword = newCustomer && ShowsPasswordOnScreen(environment, email) ? created.TemporaryPassword : null;
             return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, shownPassword, emailStatus));
@@ -56,23 +57,12 @@ public static class ProjectEndpoints
 
         api.MapPost("/projects/{id}/deposit-receipt", async (string id, IFormFile receipt, IProjectRepository repo, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            var extension = Path.GetExtension(receipt.FileName).ToLowerInvariant();
-            if (receipt.Length is <= 0 or > 10 * 1024 * 1024 || extension is not (".pdf" or ".jpg" or ".jpeg" or ".png"))
-                return Results.BadRequest(new { message = "Chứng từ phải là PDF/JPG/PNG và không vượt quá 10 MB." });
-
-            await using var buffer = new MemoryStream();
-            await receipt.CopyToAsync(buffer, ct);
-            var bytes = buffer.ToArray();
-            var recorded = await repo.RecordDepositReceiptAsync(id, UserId(user), bytes, receipt.FileName, receipt.ContentType ?? "application/octet-stream", ct);
-            if (!recorded) return Results.NotFound();
-
-            try
-            {
-                await using var uploadStream = new MemoryStream(bytes);
-                await files.UploadAsync(new FileUploadCommand(uploadStream, receipt.FileName, "DepositReceipt", id, UserId(user)), ct);
-            }
-            catch { }
-
+            if (receipt.Length is <= 0 or > 10 * 1024 * 1024)
+                return Results.BadRequest(new { message = "Chứng từ không được trống và tối đa 10 MB." });
+            // Stored like every file (type checked by content, phone photos converted); the payment keeps the storage key.
+            await using var content = receipt.OpenReadStream();
+            var stored = await files.UploadAsync(new FileUploadCommand(content, receipt.FileName, "DepositReceipt", id, UserId(user)), ct);
+            if (stored is null || !await repo.RecordDepositReceiptAsync(id, UserId(user), stored, ct)) return Results.NotFound();
             return Results.Ok(new { message = "Đã lưu biên nhận tiền đặt cọc.", paymentStatus = "Paid" });
         }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
 
@@ -98,34 +88,14 @@ public static class ProjectEndpoints
             return Results.Ok(halls);
         }).RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapGet("/projects/{id}/deposit-receipt", async (string id, WpsmDbContext db, IWebHostEnvironment environment, CancellationToken ct) =>
+        api.MapGet("/projects/{id}/deposit-receipt", async (string id, WpsmDbContext db, IProjectRepository repo, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            var payment = await db.Payments.AsNoTracking().Include(p => p.Project)
+            // Only the event's operators (and Admin) may read it.
+            if (!await repo.CanAccessAsync(id, UserId(user), user.FindFirstValue(ClaimTypes.Role) ?? "", ct)) return Results.NotFound();
+            var payment = await db.Payments.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Project.ProjectCode == id && p.PaymentType == "Deposit", ct);
-            if (payment == null) return Results.NotFound();
-            if (payment.ReceiptContent != null && payment.ReceiptContent.Length > 0)
-            {
-                var contentType = payment.ReceiptContentType ?? "application/octet-stream";
-                var fileName = payment.ReceiptFileName ?? $"Dat_coc_{id}.dat";
-                return Results.File(payment.ReceiptContent, contentType, fileName);
-            }
-            if (!string.IsNullOrEmpty(payment.ReceiptFilePath))
-            {
-                var filePath = payment.ReceiptFilePath;
-                if (!Path.IsPathRooted(filePath))
-                    filePath = Path.Combine(environment.ContentRootPath, filePath);
-                if (File.Exists(filePath))
-                {
-                    var contentType = Path.GetExtension(filePath).ToLowerInvariant() switch
-                    {
-                        ".pdf" => "application/pdf",
-                        ".jpg" or ".jpeg" => "image/jpeg",
-                        ".png" => "image/png",
-                        _ => "application/octet-stream"
-                    };
-                    return Results.File(filePath, contentType, Path.GetFileName(filePath));
-                }
-            }
+            if (payment?.ReceiptFilePath is { Length: > 0 } key && await files.ReadAsync(key, ct) is { } content)
+                return Results.File(content, payment.ReceiptContentType ?? "application/octet-stream", payment.ReceiptFileName ?? $"Dat_coc_{id}");
             return Results.NotFound(new { message = "Không tìm thấy biên nhận tiền đặt cọc." });
         }).RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 

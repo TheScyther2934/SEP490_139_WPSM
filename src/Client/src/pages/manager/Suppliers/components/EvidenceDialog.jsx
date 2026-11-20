@@ -1,3 +1,4 @@
+import { FILE_ACCEPT, FILE_TYPES_LABEL } from "../../../../utils/files";
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
@@ -5,7 +6,7 @@ import { EVIDENCE_TYPES } from "./EvidenceItem";
 
 const empty = (specItemId) => ({ supplierName: "", evidenceType: "Transfer", specItemId: specItemId ?? "", note: "", file: null });
 
-// Upload form: supplier, service (preselected when opened from a service), type, note, one PDF/JPG/PNG file.
+// Upload form: supplier, service (preselected when opened from a service), type, note, one PDF or photo (iPhone HEIC accepted).
 // `specItemId`: undefined = closed, "" = no service chosen yet.
 export default function EvidenceDialog({ specItemId, lines, busy, onClose, onSave }) {
   const open = specItemId !== undefined;
@@ -29,10 +30,10 @@ export default function EvidenceDialog({ specItemId, lines, busy, onClose, onSav
           </TextField>
           <TextField label="Ghi chú" multiline minRows={2} value={form.note} onChange={set("note")} />
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <input ref={fileRef} type="file" hidden accept=".pdf,.jpg,.jpeg,.png"
+            <input ref={fileRef} type="file" hidden accept={FILE_ACCEPT}
               onChange={(e) => setForm({ ...form, file: e.target.files?.[0] ?? null })} />
             <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => fileRef.current?.click()}>Chọn tệp *</Button>
-            <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>{form.file ? form.file.name : "PDF, JPG hoặc PNG, tối đa 10 MB"}</Typography>
+            <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>{form.file ? form.file.name : FILE_TYPES_LABEL}</Typography>
           </Stack>
         </Stack>
       </DialogContent>

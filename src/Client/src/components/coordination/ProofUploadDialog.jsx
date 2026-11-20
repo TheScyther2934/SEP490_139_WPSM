@@ -4,26 +4,25 @@ import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import CloseIcon from "@mui/icons-material/Close";
+import ImageIcon from "@mui/icons-material/Image";
+import { FILE_ACCEPT, PHOTO_ACCEPT, canPreviewImage, isAllowedFile, isPdfFile } from "../../utils/files";
 
-const MAX_BYTES = 10 * 1024 * 1024;
-const isPdf = (f) => /\.pdf$/i.test(f.name);
-
-// 1–3 files per upload: photos (JPG/PNG) or documents (PDF, e.g. a delivery note), up to 10 MB each; the API checks again.
+// 1–3 files per upload: photos (JPG/PNG, iPhone HEIC converted by the server) or documents (PDF, e.g. a delivery note), up to 10 MB each; the API checks again.
 // `required`: completing a task that needs proof. `room`: how many files the task can still take.
 export const proofError = (files, required, room = 3) => {
   const limit = Math.min(3, room);
   if (required && files.length === 0) return "Nhiệm vụ này cần ít nhất 1 ảnh hoặc tài liệu minh chứng.";
   if (files.length > limit) return limit < 3 ? `Nhiệm vụ này chỉ nhận thêm ${limit} tệp.` : "Mỗi lần tải lên tối đa 3 tệp.";
-  if (files.some((f) => f.size > MAX_BYTES || !/\.(jpe?g|png|pdf)$/i.test(f.name))) return "Chỉ nhận ảnh JPG, PNG hoặc tài liệu PDF, tối đa 10 MB mỗi tệp.";
+  if (files.some((f) => !isAllowedFile(f))) return "Chỉ nhận ảnh JPG, PNG, HEIC (iPhone), WebP hoặc tài liệu PDF, tối đa 10 MB mỗi tệp.";
   return "";
 };
 
 function Preview({ file, url, busy, onRemove }) {
   return (
     <Box sx={{ position: "relative" }}>
-      {isPdf(file) ? (
+      {!canPreviewImage(file) ? (
         <Stack sx={{ width: 96, height: 96, borderRadius: 1, border: 1, borderColor: "divider", alignItems: "center", justifyContent: "center", p: 0.5 }}>
-          <PictureAsPdfIcon color="error" />
+          {isPdfFile(file) ? <PictureAsPdfIcon color="error" /> : <ImageIcon color="primary" />}
           <Typography variant="caption" noWrap sx={{ maxWidth: "100%" }}>{file.name}</Typography>
         </Stack>
       ) : (
@@ -42,7 +41,7 @@ export default function ProofUploadDialog({ task, mode = "complete", maxPhotos =
   const [files, setFiles] = useState([]);
   const [note, setNote] = useState("");
   useEffect(() => { setFiles([]); setNote(""); }, [task, mode]);
-  const previews = useMemo(() => files.map((f) => ({ file: f, url: isPdf(f) ? "" : URL.createObjectURL(f) })), [files]);
+  const previews = useMemo(() => files.map((f) => ({ file: f, url: canPreviewImage(f) ? URL.createObjectURL(f) : "" })), [files]);
   useEffect(() => () => previews.forEach((p) => p.url && URL.revokeObjectURL(p.url)), [previews]);
 
   const adding = mode === "add";
@@ -67,11 +66,11 @@ export default function ProofUploadDialog({ task, mode = "complete", maxPhotos =
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button component="label" variant="outlined" startIcon={<PhotoCameraIcon />} disabled={busy}>
             Chụp ảnh
-            <input hidden type="file" accept="image/jpeg,image/png" capture="environment" multiple data-field="proofPhotos" onChange={pick} />
+            <input hidden type="file" accept={PHOTO_ACCEPT} capture="environment" multiple data-field="proofPhotos" onChange={pick} />
           </Button>
           <Button component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={busy}>
             Chọn ảnh hoặc PDF
-            <input hidden type="file" accept="image/jpeg,image/png,application/pdf,.pdf" multiple data-field="proofFiles" onChange={pick} />
+            <input hidden type="file" accept={FILE_ACCEPT} multiple data-field="proofFiles" onChange={pick} />
           </Button>
         </Stack>
         <Stack direction="row" sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>

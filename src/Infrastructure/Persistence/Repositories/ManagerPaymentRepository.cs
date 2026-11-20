@@ -13,10 +13,9 @@ namespace Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class ManagerPaymentRepository(
     WpsmDbContext db,
-    IFileStorage storage,
+    IFileService files,
     INotificationRepository notifications) : IManagerPaymentRepository
 {
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".jpg", ".jpeg", ".png" };
 
     private sealed record Money(decimal ContractTotal, decimal AddonTotal, decimal GrandTotal, decimal DepositPaid, decimal SettlementPaid,
         decimal TotalPaid, decimal Outstanding);
@@ -66,24 +65,18 @@ public sealed class ManagerPaymentRepository(
         if (method == "Bank" && !hasReceipt)
             return new RecordPaymentResult(false, "Chuyển khoản bắt buộc tải lên chứng từ (JPG, PNG hoặc PDF).");
 
-        string? storageKey = null;
-        var contentType = command.ReceiptContentType ?? "application/pdf";
+        // The receipt is stored like every file (type checked by content, HEIC photos converted): Payments keeps its key, not its bytes.
+        StoredFileView? receipt = null;
         if (hasReceipt)
         {
-            var ext = Path.GetExtension(command.ReceiptFileName ?? "").ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext) || !AllowedExtensions.Contains(ext))
-                return new RecordPaymentResult(false, "Chứng từ chỉ nhận JPG, PNG hoặc PDF.");
-            if (command.ReceiptBytes!.Length > 10 * 1024 * 1024)
-                return new RecordPaymentResult(false, "Chứng từ tối đa 10 MB.");
-            storageKey = $"payments/{project.ProjectCode}/Settlement_{Guid.NewGuid():N}{ext}";
-            using var fileStream = new MemoryStream(command.ReceiptBytes);
-            await storage.UploadAsync(fileStream, storageKey, cancellationToken);
-            db.StoredFiles.Add(new StoredFile
+            try
             {
-                FileId = Guid.NewGuid(), ProjectId = project.ProjectId, Purpose = "PaymentReceipt", StorageKey = storageKey,
-                OriginalName = command.ReceiptFileName ?? $"Settlement_{project.ProjectCode}{ext}", ContentType = contentType,
-                SizeBytes = command.ReceiptBytes.Length, UploadedBy = managerId, UploadedAt = DateTime.UtcNow
-            });
+                receipt = await files.StoreAsync(project.ProjectId, "PaymentReceipt", command.ReceiptFileName ?? $"Settlement_{project.ProjectCode}", command.ReceiptBytes!, managerId, cancellationToken);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return new RecordPaymentResult(false, ex.Message);
+            }
         }
 
         var payment = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Settlement);
@@ -98,12 +91,11 @@ public sealed class ManagerPaymentRepository(
         payment.PaymentMethod = method;
         payment.PaidDate = command.PaymentDate;
         payment.RecordedBy = managerId;
-        if (hasReceipt)
+        if (receipt is not null)
         {
-            payment.ReceiptContent = command.ReceiptBytes;
-            payment.ReceiptFileName = command.ReceiptFileName;
-            payment.ReceiptContentType = contentType;
-            payment.ReceiptFilePath = storageKey;
+            payment.ReceiptFileName = receipt.OriginalName;
+            payment.ReceiptContentType = receipt.ContentType;
+            payment.ReceiptFilePath = receipt.StorageKey;
         }
 
         // One payment closes the event: settled, invoice paid, settlement receipt generated.
@@ -169,7 +161,7 @@ public sealed class ManagerPaymentRepository(
         var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
         if (project is null) return null;
         var payment = project.Payments.FirstOrDefault(p => string.Equals(p.PaymentType, paymentType, StringComparison.OrdinalIgnoreCase));
-        if (payment?.ReceiptContent is { Length: > 0 } content)
+        if (payment?.ReceiptFilePath is { Length: > 0 } key && await files.ReadAsync(key, cancellationToken) is { } content)
             return new FileContentResultModel(content, payment.ReceiptContentType ?? "application/pdf", payment.ReceiptFileName ?? $"Receipt_{project.ProjectCode}_{payment.PaymentType}.pdf");
         var purpose = string.Equals(paymentType, PaymentKinds.Deposit, StringComparison.OrdinalIgnoreCase) ? "DepositReceipt" : "PaymentReceipt";
         var stored = await db.StoredFiles.AsNoTracking().Where(f => f.ProjectId == project.ProjectId && f.Purpose == purpose)
@@ -179,26 +171,14 @@ public sealed class ManagerPaymentRepository(
 
     private async Task<FileContentResultModel?> ReadStoredAsync(StoredFile stored, CancellationToken cancellationToken)
     {
-        await using var stream = await storage.OpenReadAsync(stored.StorageKey, cancellationToken);
-        if (stream is null) return null;
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken);
-        return new FileContentResultModel(ms.ToArray(), stored.ContentType, stored.OriginalName);
+        var content = await files.ReadAsync(stored.StorageKey, cancellationToken);
+        return content is null ? null : new FileContentResultModel(content, stored.ContentType, stored.OriginalName);
     }
 
     private async Task StoreSettlementReceiptAsync(WeddingProject project, Money money, string managerName, int managerId, CancellationToken cancellationToken)
     {
         var pdf = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(BuildPdfModel(project, money, managerName, DateTime.UtcNow));
-        var key = $"settlements/{project.ProjectCode}/Receipt_{project.ProjectCode}_{DateTime.UtcNow:yyyyMMdd}_{Guid.NewGuid():N}.pdf";
-        using var pdfStream = new MemoryStream(pdf);
-        await storage.UploadAsync(pdfStream, key, cancellationToken);
-        db.StoredFiles.Add(new StoredFile
-        {
-            FileId = Guid.NewGuid(), ProjectId = project.ProjectId, Purpose = "SettlementReceipt", StorageKey = key,
-            OriginalName = $"Bien_nhan_tat_toan_{project.ProjectCode}.pdf", ContentType = "application/pdf", SizeBytes = pdf.Length,
-            UploadedBy = managerId, UploadedAt = DateTime.UtcNow
-        });
-        await db.SaveChangesAsync(cancellationToken);
+        await files.StoreAsync(project.ProjectId, "SettlementReceipt", $"Bien_nhan_tat_toan_{project.ProjectCode}.pdf", pdf, managerId, cancellationToken);
     }
 
     private async Task<WeddingProject?> ResolveProjectAsync(string projectCode, int userId, string role, CancellationToken cancellationToken)
@@ -259,7 +239,7 @@ public sealed class ManagerPaymentRepository(
         };
     }
 
-    private static bool HasReceipt(Payment? p) => p is not null && (p.ReceiptContent != null || p.ReceiptFilePath != null);
+    private static bool HasReceipt(Payment? p) => p?.ReceiptFilePath is not null;
 
     private static SettlementCalculationView BuildSettlement(WeddingProject project, Money money)
     {

@@ -24,36 +24,15 @@ public static class EndpointHelpers
     }
 
     /// <summary>
-    /// Serves a proof photo. ImageFilePath is either an absolute path (older uploads), a storage key under Files:RootPath
-    /// (M-17 DayOfTaskService uploads through IFileStorage), or a path relative to the content root (legacy).
+    /// Serves a stored file after the caller checked access: a photo on Cloudinary is a redirect to a download link valid 5 minutes,
+    /// a PDF (or any file on the local disk) is streamed by the API. Shown inline (the browser displays it).
     /// </summary>
-    public static IResult PhotoFile(string filePath, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage)
+    public static async Task<IResult> ServeStoredFile(IFileService files, StoredFileRef file, HttpContext context, CancellationToken ct)
     {
-        var resolved = ResolvePhotoPath(filePath, environment, storage);
-        if (resolved is null) return Results.NotFound();
-        filePath = resolved;
-        var contentType = Path.GetExtension(filePath).ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            ".gif" => "image/gif",
-            ".pdf" => "application/pdf",
-            _ => "application/octet-stream"
-        };
-        return Results.File(filePath, contentType, enableRangeProcessing: true);
-    }
-
-    private static string? ResolvePhotoPath(string filePath, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage)
-    {
-        if (Path.IsPathRooted(filePath)) return File.Exists(filePath) ? filePath : null;
-        // Storage keys stay inside the storage root (same guard as LocalDiskFileStorage).
-        var root = Path.GetFullPath(storage.RootPath);
-        var underStorage = Path.GetFullPath(Path.Combine(root, filePath));
-        if (underStorage.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) && File.Exists(underStorage))
-            return underStorage;
-        var underContent = Path.Combine(environment.ContentRootPath, filePath);
-        return File.Exists(underContent) ? underContent : null;
+        if (await files.OpenAsync(file.StorageKey, file.ContentType, file.FileName, ct) is not { } content) return Results.NotFound();
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        context.Response.Headers.CacheControl = "private, max-age=240";
+        return content.RedirectUrl is { } url ? Results.Redirect(url) : Results.File(content.Content!, content.ContentType, enableRangeProcessing: true);
     }
 
     public static int UserId(ClaimsPrincipal user) => int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var id)

@@ -23,9 +23,10 @@ public sealed class AdminProjectRepository(WpsmDbContext db) : IAdminProjectRepo
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim();
-            projects = projects.Where(x => x.ProjectCode.Contains(term) || x.Customer.FullName.Contains(term)
-                || x.Customer.Email.Contains(term) || (x.Customer.Phone != null && x.Customer.Phone.Contains(term))
-                || x.Manager.FullName.Contains(term) || x.ProjectManagers.Any(m => m.RemovedAt == null && m.Manager.FullName.Contains(term)));
+            var like = SqlLike.Contains(term);
+            projects = projects.Where(x => EF.Functions.ILike(x.ProjectCode, like) || EF.Functions.ILike(x.Customer.FullName, like)
+                || EF.Functions.ILike(x.Customer.Email, like) || (x.Customer.Phone != null && EF.Functions.ILike(x.Customer.Phone, like))
+                || EF.Functions.ILike(x.Manager.FullName, like) || x.ProjectManagers.Any(m => m.RemovedAt == null && EF.Functions.ILike(m.Manager.FullName, like)));
         }
         if (!string.IsNullOrWhiteSpace(query.Status)) projects = projects.Where(x => x.Status == query.Status);
         if (query.HallId is { } hallId) projects = projects.Where(x => x.HallId == hallId);

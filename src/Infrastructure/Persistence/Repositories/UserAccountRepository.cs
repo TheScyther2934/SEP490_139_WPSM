@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
+using Application.Auth;
 using Application.Persistence;
 using Infrastructure.Email;
 using Infrastructure.Persistence.Entities;
@@ -71,9 +72,7 @@ public sealed class UserAccountRepository(WpsmDbContext db, IEmailOutbox emailOu
             if (userId == adminId) throw new InvalidOperationException("Bạn không thể tự khóa tài khoản của chính mình.");
             if (user.Role == "Manager" && await OpenManagedProjectsAsync(userId, cancellationToken) is var open and > 0)
                 throw new InvalidOperationException($"Manager đang phụ trách {open} sự kiện chưa đóng. Hãy hoàn tất hoặc chuyển sự kiện trước khi khóa.");
-            var now = DateTime.UtcNow;
-            foreach (var token in await db.RefreshTokens.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync(cancellationToken))
-                token.RevokedAt = now;
+            await EndSessionsAsync(userId, SessionEndReasons.AccountLocked, cancellationToken);
         }
         user.Status = active ? "Active" : "Inactive";
         await db.SaveChangesAsync(cancellationToken);
@@ -87,13 +86,24 @@ public sealed class UserAccountRepository(WpsmDbContext db, IEmailOutbox emailOu
         if (user.Status != "Active") throw new InvalidOperationException("Tài khoản đang bị khóa. Hãy mở khóa trước khi cấp lại mật khẩu.");
         user.PasswordHash = passwordHash;
         user.MustChangePassword = true;
-        var now = DateTime.UtcNow;
-        foreach (var token in await db.RefreshTokens.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync(cancellationToken))
-            token.RevokedAt = now;
+        await EndSessionsAsync(userId, SessionEndReasons.PasswordReset, cancellationToken);
         emailOutbox.Enqueue(user.Email, "Cấp lại mật khẩu WPSM",
             EmailTemplates.AccountCredentials(user.FullName, user.Email, temporaryPassword, user.Role, reset: true, emailOptions.PublicBaseUrl), "Credentials", null);
         await db.SaveChangesAsync(cancellationToken);
         return await Views(db.Users.Where(x => x.UserId == userId)).SingleAsync(cancellationToken);
+    }
+
+    // Signs the user out of every device: sessions end and their refresh tokens stop working (access tokens are refused within 30 s).
+    private async Task EndSessionsAsync(int userId, string reason, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var session in await db.UserSessions.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync(cancellationToken))
+        {
+            session.RevokedAt = now;
+            session.RevokedReason = reason;
+        }
+        foreach (var token in await db.RefreshTokens.Where(x => x.UserId == userId && x.RevokedAt == null).ToListAsync(cancellationToken))
+            token.RevokedAt = now;
     }
 
     // Filter/order on Users before this projection: EF cannot translate OrderBy/Where over the projected record.

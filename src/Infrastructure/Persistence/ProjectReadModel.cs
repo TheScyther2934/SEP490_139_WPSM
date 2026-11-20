@@ -20,7 +20,7 @@ public sealed class ProjectReadModel(WpsmDbContext db)
         var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
         var today = VietnamTime.GetVietnamToday();
         var payments = x.Payments.OrderBy(p => p.PaymentType == PaymentKinds.Deposit ? 0 : 1)
-            .Select(p => new PaymentView(p.PaymentType, p.Status, p.Amount ?? 0m, p.DueDate, p.PaidDate, p.ReceiptContent != null || p.ReceiptFilePath != null))
+            .Select(p => new PaymentView(p.PaymentType, p.Status, p.Amount ?? 0m, p.DueDate, p.PaidDate, p.ReceiptFilePath != null))
             .ToList();
         var paid = payments.Where(p => p.Status == "Paid").Sum(p => p.Amount);
         var depositStatus = payments.FirstOrDefault(p => p.Type == PaymentKinds.Deposit)?.Status ?? "Unknown";

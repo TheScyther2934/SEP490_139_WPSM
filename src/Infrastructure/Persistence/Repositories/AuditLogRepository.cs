@@ -20,9 +20,10 @@ public sealed class AuditLogRepository(WpsmDbContext db) : IAuditLogRepository
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var term = q.Search.Trim();
-            logs = logs.Where(x => x.Summary.Contains(term) || (x.AccountName != null && x.AccountName.Contains(term))
-                || (x.Email != null && x.Email.Contains(term)) || (x.ProjectCode != null && x.ProjectCode.Contains(term))
-                || (x.Changes != null && x.Changes.Contains(term)));
+            var like = SqlLike.Contains(term);
+            logs = logs.Where(x => EF.Functions.ILike(x.Summary, like) || (x.AccountName != null && EF.Functions.ILike(x.AccountName, like))
+                || (x.Email != null && EF.Functions.ILike(x.Email, like)) || (x.ProjectCode != null && EF.Functions.ILike(x.ProjectCode, like))
+                || (x.Changes != null && EF.Functions.ILike(x.Changes, like)));
         }
         if (!string.IsNullOrWhiteSpace(q.Action)) logs = logs.Where(x => x.Action == q.Action);
         if (!string.IsNullOrWhiteSpace(q.Impact)) logs = logs.Where(x => x.Impact == q.Impact);

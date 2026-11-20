@@ -1,3 +1,4 @@
+import { FILE_ACCEPT, FILE_TYPES_LABEL } from "../../../../utils/files";
 import { useState, useEffect } from "react";
 import {
   Alert,
@@ -62,8 +63,8 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
     }
 
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!["jpg", "jpeg", "png", "pdf"].includes(ext)) {
-      setError("Định dạng file không hợp lệ. Chỉ chấp nhận JPG, PNG hoặc PDF.");
+    if (!["jpg", "jpeg", "png", "pdf", "heic", "heif", "webp", "avif"].includes(ext)) {
+      setError("Định dạng file không hợp lệ. Chỉ nhận ảnh (JPG, PNG, HEIC, WebP) hoặc PDF.");
       return;
     }
 
@@ -230,7 +231,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
                   <input
                     type="file"
                     hidden
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept={FILE_ACCEPT}
                     onChange={handleFileChange}
                   />
                 </Button>
@@ -245,7 +246,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
                 )}
               </Stack>
               <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
-                Định dạng hỗ trợ: JPG, PNG, PDF. Tối đa 10 MB.
+                {FILE_TYPES_LABEL}.
               </Typography>
             </Box>
           </Stack>

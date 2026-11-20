@@ -78,7 +78,8 @@ public interface IAdminRepository
     Task<AdminReportView> GetReportAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProofPhotoView>> GetPhotosAsync(PhotoFeedFilter filter, CancellationToken cancellationToken = default);
     Task<PhotoAuditView?> GetPhotoAsync(int photoId, CancellationToken cancellationToken = default);
-    Task<string?> GetPhotoPathAsync(int photoId, CancellationToken cancellationToken = default);
+    /// <summary>Where a proof file is stored (key, type, name) to serve it.</summary>
+    Task<StoredFileRef?> GetPhotoFileAsync(int photoId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OverdueAlertView>> GetOverdueAlertsAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EscalatedComplaintView>> GetEscalatedComplaintsAsync(CancellationToken cancellationToken = default);
     /// <summary>UC-46. Returns false when the complaint does not exist or is not Escalated.</summary>

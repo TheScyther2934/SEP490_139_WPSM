@@ -7,7 +7,8 @@ using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
 
-// Login, rotating refresh-token session and own profile for the React client.
+// Login, device sessions with rotating refresh tokens, and own profile for the React client.
+// One account may be signed in on several devices; each sign-in is a session that can be signed out on its own.
 public static class AuthEndpoints
 {
     public const string SignInRateLimit = "sign-in";
@@ -35,12 +36,12 @@ public static class AuthEndpoints
             var account = rotated is null ? null : await repo.FindAccountByIdAsync(rotated.UserId, ct);
             if (rotated is null || account is null || account.Status != "Active")
             {
-                if (rotated is not null) await refreshTokens.RevokeAllAsync(rotated.UserId, ct);
+                if (rotated is not null) await refreshTokens.RevokeAllAsync(rotated.UserId, SessionEndReasons.AccountLocked, cancellationToken: ct);
                 context.Response.Cookies.Delete(RefreshCookie, new CookieOptions { Path = RefreshCookiePath });
                 return Results.Json(new { message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." }, statusCode: StatusCodes.Status401Unauthorized);
             }
             SetRefreshCookie(context, rotated);
-            return Results.Ok(TokenBody(account, tokens.CreateAccessToken(account)));
+            return Results.Ok(TokenBody(account, tokens.CreateAccessToken(account, rotated.SessionId)));
         });
 
         api.MapPost("/auth/token/revoke", async (IRefreshTokenService refreshTokens, HttpContext context, CancellationToken ct) =>
@@ -60,7 +61,7 @@ public static class AuthEndpoints
             .RequireAuthorization();
 
         api.MapPost("/auth/change-password", async (ChangePasswordRequest request, IAccountProfileRepository repo, IPasswordHasher<User> hasher,
-            ITokenService tokens, IRefreshTokenService refreshTokens, ClaimsPrincipal user, HttpContext context, CancellationToken ct) =>
+            ITokenService tokens, IRefreshTokenService refreshTokens, SessionGuard guard, ClaimsPrincipal user, HttpContext context, CancellationToken ct) =>
         {
             if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword) || request.NewPassword.Length < 8 || request.NewPassword != request.ConfirmPassword)
                 return Results.BadRequest(new { message = "Mật khẩu mới phải dài ít nhất 8 ký tự và hai lần nhập phải trùng nhau." });
@@ -73,9 +74,32 @@ public static class AuthEndpoints
             if (!await repo.UpdatePasswordAsync(account.UserId, hash, ct)) return Results.Unauthorized();
             var refreshed = await repo.FindAccountAsync(account.Email, ct);
             if (refreshed is null) return Results.Unauthorized();
-            // A new password ends every refresh-token session; this client continues with a fresh token pair.
-            await refreshTokens.RevokeAllAsync(refreshed.UserId, ct);
-            return await IssueTokensAsync(refreshed, tokens, refreshTokens, context, ct);
+            // A new password signs out every other device; this one keeps its session (a new access token clears "must change").
+            var current = SessionGuard.SessionOf(user);
+            await refreshTokens.RevokeAllAsync(refreshed.UserId, SessionEndReasons.PasswordChanged, current, ct);
+            guard.ForgetAll();
+            return current is { } sid
+                ? Results.Ok(TokenBody(refreshed, tokens.CreateAccessToken(refreshed, sid)))
+                : await IssueTokensAsync(refreshed, tokens, refreshTokens, context, ct);
+        }).RequireAuthorization();
+
+        // Signed-in devices of the current account (profile page): list, sign out one, sign out all the others.
+        api.MapGet("/auth/sessions", async (IRefreshTokenService refreshTokens, ClaimsPrincipal user, CancellationToken ct) =>
+            Results.Ok(await refreshTokens.ListSessionsAsync(UserId(user), SessionGuard.SessionOf(user), ct)))
+            .RequireAuthorization();
+        api.MapDelete("/auth/sessions/{sessionId:guid}", async (Guid sessionId, IRefreshTokenService refreshTokens, SessionGuard guard, ClaimsPrincipal user, CancellationToken ct) =>
+        {
+            if (!await refreshTokens.RevokeSessionAsync(UserId(user), sessionId, ct))
+                return Results.NotFound(new { message = "Phiên này đã kết thúc hoặc không thuộc tài khoản của bạn." });
+            guard.Forget(sessionId);
+            return Results.NoContent();
+        }).RequireAuthorization();
+        api.MapPost("/auth/sessions/revoke-others", async (IRefreshTokenService refreshTokens, SessionGuard guard, ClaimsPrincipal user, CancellationToken ct) =>
+        {
+            if (SessionGuard.SessionOf(user) is not { } current) return Results.BadRequest(new { message = "Hãy đăng nhập lại để quản lý thiết bị." });
+            await refreshTokens.RevokeAllAsync(UserId(user), SessionEndReasons.RemoteSignOut, current, ct);
+            guard.ForgetAll();
+            return Results.NoContent();
         }).RequireAuthorization();
 
         return api;
@@ -83,8 +107,9 @@ public static class AuthEndpoints
 
     private static async Task<IResult> IssueTokensAsync(AccountView account, ITokenService tokens, IRefreshTokenService refreshTokens, HttpContext context, CancellationToken ct)
     {
-        SetRefreshCookie(context, await refreshTokens.IssueAsync(account.UserId, ClientIp(context), ct));
-        return Results.Ok(TokenBody(account, tokens.CreateAccessToken(account)));
+        var issued = await refreshTokens.IssueAsync(account.UserId, ClientIp(context), context.Request.Headers.UserAgent.ToString(), ct);
+        SetRefreshCookie(context, issued);
+        return Results.Ok(TokenBody(account, tokens.CreateAccessToken(account, issued.SessionId)));
     }
 
     private static object TokenBody(AccountView account, AccessToken token) => new

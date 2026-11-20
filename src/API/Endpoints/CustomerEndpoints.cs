@@ -20,7 +20,7 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/photos/{photoId:int}",
-            async (int photoId, WpsmDbContext db, IWebHostEnvironment environment, Infrastructure.Files.FileStorageOptions storage, ClaimsPrincipal user, CancellationToken ct) =>
+            async (int photoId, WpsmDbContext db, IFileService files, HttpContext context, ClaimsPrincipal user, CancellationToken ct) =>
             {
                 var userId = UserId(user);
                 var photo = await db.ExecutionPhotos
@@ -33,7 +33,9 @@ public static class CustomerEndpoints
                 if (photo.DayOfTask.Project.CustomerId != userId)
                     return Results.Forbid();
 
-                return PhotoFile(photo.ImageFilePath, environment, storage);
+                // Customers see photos only, never internal documents (PDF proof).
+                if (photo.ContentType is { } type && !type.StartsWith("image/", StringComparison.Ordinal)) return Results.NotFound();
+                return await ServeStoredFile(files, new StoredFileRef(photo.ImageFilePath, photo.ContentType ?? "image/jpeg", photo.FileName ?? "anh"), context, ct);
             })
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 

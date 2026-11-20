@@ -15,32 +15,8 @@ namespace Tests;
 
 public sealed class DayOfTaskServiceTests : IDisposable
 {
-    private sealed class InMemoryFileStorage : IFileStorage
-    {
-        public readonly Dictionary<string, byte[]> Files = new();
-
-        public Task UploadAsync(Stream content, string key, CancellationToken cancellationToken = default)
-        {
-            using var ms = new MemoryStream();
-            content.CopyTo(ms);
-            Files[key] = ms.ToArray();
-            return Task.CompletedTask;
-        }
-
-        public Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult<Stream?>(Files.TryGetValue(key, out var bytes) ? new MemoryStream(bytes) : null);
-        }
-
-        public Task DeleteAsync(string key, CancellationToken cancellationToken = default)
-        {
-            Files.Remove(key);
-            return Task.CompletedTask;
-        }
-    }
-
     private readonly WpsmDbContext _db;
-    private readonly InMemoryFileStorage _storage;
+    private readonly TestFileStorage _storage;
     private readonly DayOfTaskService _service;
 
     private readonly User _manager;
@@ -57,7 +33,7 @@ public sealed class DayOfTaskServiceTests : IDisposable
             .Options;
 
         _db = new WpsmDbContext(options);
-        _storage = new InMemoryFileStorage();
+        _storage = new TestFileStorage();
         _service = new DayOfTaskService(_db, _storage);
 
         _manager = new User { UserId = 1, Email = "mgr@example.com", FullName = "Quản Lý", Role = "Manager", Status = "Active", PasswordHash = "h", CreatedAt = DateTime.UtcNow };

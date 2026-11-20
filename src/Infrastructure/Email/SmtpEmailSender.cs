@@ -25,6 +25,8 @@ public sealed class EmailOptions
 /// </summary>
 public sealed class SmtpEmailSender(EmailOptions options) : IEmailSender
 {
+    public bool DeliversEmail => !string.IsNullOrWhiteSpace(options.Host);
+
     public async Task<string> SendAsync(string toEmail, string subject, string bodyHtml, CancellationToken cancellationToken = default)
     {
         var messageId = $"{Guid.NewGuid():N}@wpsm";

@@ -135,7 +135,7 @@ public sealed class CoManagementAndAuditTests : IDisposable
     }
 
     [Fact]
-    public async Task Beo_freeze_waits_for_the_lock_and_for_pending_addons()
+    public async Task Beo_freeze_waits_for_the_lock_but_not_for_pending_addons()
     {
         // Still adjusting (stage 2): the coordination sheet is frozen only from the locked services.
         var project = await _db.WeddingProjects.SingleAsync(x => x.ProjectId == 5);
@@ -145,15 +145,16 @@ public sealed class CoManagementAndAuditTests : IDisposable
         var early = await Assert.ThrowsAsync<InvalidOperationException>(() => new BeoRepository(_db).FreezeOrReapproveBeoAsync("WPSM-T-001", PrimaryId, null));
         Assert.Contains("khóa dịch vụ", early.Message);
 
-        // Locked, but an addon contract still waits for the customer.
+        // Locked with an addon contract still waiting for the customer: it is not in the sheet, so it does not block (20/11/2026).
         project.Status = "Locked";
         project.LockedAt = DateTime.UtcNow;
         var addon = new AddonContract { AddonCode = "PS-T-1", ProjectId = 5, Title = "Thêm bàn", Status = "PendingCustomer", CreatedBy = PrimaryId, CreatedAt = DateTime.UtcNow };
         addon.Items.Add(new AddonContractItem { Description = "Bàn", Quantity = 1, UnitPrice = 3_500_000m });
         _db.AddonContracts.Add(addon);
         await _db.SaveChangesAsync();
-        var pending = await Assert.ThrowsAsync<InvalidOperationException>(() => new BeoRepository(_db).FreezeOrReapproveBeoAsync("WPSM-T-001", PrimaryId, null));
-        Assert.Contains("PS-T-1", pending.Message);
+        var frozen = await new BeoRepository(_db).FreezeOrReapproveBeoAsync("WPSM-T-001", PrimaryId, null);
+        Assert.Equal("Frozen", frozen!.Status);
+        Assert.DoesNotContain(frozen.Items, i => i.ChangedByAddon);
     }
 
     [Fact]

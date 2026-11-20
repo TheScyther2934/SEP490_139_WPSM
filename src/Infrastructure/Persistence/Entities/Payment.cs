@@ -19,8 +19,8 @@ public partial class Payment
 
     public string? PaymentMethod { get; set; }
 
+    /// <summary>Storage key of the receipt (StoredFiles); the bytes live in the file storage, not in this table.</summary>
     public string? ReceiptFilePath { get; set; }
-    public byte[]? ReceiptContent { get; set; }
     public string? ReceiptFileName { get; set; }
     public string? ReceiptContentType { get; set; }
 

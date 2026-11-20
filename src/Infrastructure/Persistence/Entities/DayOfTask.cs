@@ -23,7 +23,8 @@ public partial class DayOfTask
 
     public bool PhotoRequired { get; set; }
 
-    public byte[]? RowVersion { get; set; }
+    /// <summary>Concurrency token: the PostgreSQL system column xmin (changes on every update).</summary>
+    public uint RowVersion { get; set; }
 
     /// <summary>Kitchen, Service, Decor or Tech-MC.</summary>
     public string Department { get; set; } = "Service";

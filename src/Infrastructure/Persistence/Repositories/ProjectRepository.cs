@@ -187,7 +187,7 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         return true;
     }
 
-    public async Task<bool> RecordDepositReceiptAsync(string projectCode, int managerId, byte[] content, string fileName, string contentType, CancellationToken cancellationToken = default)
+    public async Task<bool> RecordDepositReceiptAsync(string projectCode, int managerId, StoredFileView receipt, CancellationToken cancellationToken = default)
     {
         var payment = await db.Payments.Include(x => x.Project)
             .SingleOrDefaultAsync(x => x.Project.ProjectCode == projectCode && x.PaymentType == "Deposit", cancellationToken);
@@ -195,37 +195,9 @@ public sealed class ProjectRepository(WpsmDbContext db, ProjectReadModel readMod
         if (payment.Status == "Paid") throw new InvalidOperationException("Tiền đặt cọc đã được ghi nhận.");
         payment.Status = "Paid";
         payment.PaymentMethod = "Bank";
-        payment.ReceiptFilePath = "database";
-        payment.ReceiptContent = content;
-        payment.ReceiptFileName = fileName;
-        payment.ReceiptContentType = contentType;
-        payment.PaidDate = DateOnly.FromDateTime(DateTime.Today);
-        payment.RecordedBy = managerId;
-
-        // G-04: Notify customer that NRD payment is recorded
-        db.Notifications.Add(new Notification
-        {
-            RecipientId = payment.Project.CustomerId,
-            Type = "Payment",
-            Message = $"Biên nhận tiền đặt cọc của sự kiện {projectCode} đã được ghi nhận.",
-            LinkUrl = "/customer/payments",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        });
-
-        await db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
-    public async Task<bool> RecordDepositReceiptAsync(string projectCode, int managerId, string receiptPath, CancellationToken cancellationToken = default)
-    {
-        var payment = await db.Payments.Include(x => x.Project)
-            .SingleOrDefaultAsync(x => x.Project.ProjectCode == projectCode && x.PaymentType == "Deposit", cancellationToken);
-        if (payment is null || payment.Project.ManagerId != managerId) return false;
-        if (payment.Status == "Paid") throw new InvalidOperationException("Tiền đặt cọc đã được ghi nhận.");
-        payment.Status = "Paid";
-        payment.PaymentMethod = "Bank";
-        payment.ReceiptFilePath = receiptPath;
+        payment.ReceiptFilePath = receipt.StorageKey;
+        payment.ReceiptFileName = receipt.OriginalName;
+        payment.ReceiptContentType = receipt.ContentType;
         payment.PaidDate = DateOnly.FromDateTime(DateTime.Today);
         payment.RecordedBy = managerId;
 

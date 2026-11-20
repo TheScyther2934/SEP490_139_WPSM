@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
+using Infrastructure.Files;
 using Infrastructure.Persistence.Entities;
 using static Infrastructure.Persistence.Repositories.OperationsSupport;
 
@@ -210,15 +211,16 @@ public sealed class DayOfRepository(WpsmDbContext db, IFileService files) : IDay
 
     private async Task StoreProofAsync(DayOfTask task, int managerId, IReadOnlyList<ProofPhotoUpload> photos, DateTime now, CancellationToken cancellationToken)
     {
-        if (photos.Any(x => x.Content.Length is 0 or > 10 * 1024 * 1024 || !IsAllowedProof(x.Content)))
-            throw new InvalidOperationException("Minh chứng chỉ nhận ảnh JPG, PNG hoặc tài liệu PDF, tối đa 10 MB mỗi tệp (MSG17).");
+        // Checked for all files first, so nothing is stored when one of them is refused.
+        if (photos.Any(x => x.Content.LongLength is 0 or > FileService.MaxBytes || FileTypes.Detect(x.Content) is null))
+            throw new InvalidOperationException("Minh chứng chỉ nhận ảnh JPG, PNG, HEIC (iPhone), WebP hoặc tài liệu PDF, tối đa 10 MB mỗi tệp (MSG17).");
         foreach (var photo in photos)
         {
             var file = await files.StoreAsync(task.ProjectId, "ProofPhoto", photo.FileName, photo.Content, managerId, cancellationToken);
             task.ExecutionPhotos.Add(new ExecutionPhoto
             {
-                UploaderId = managerId, UploadedAt = now, ImageFilePath = (await files.GetLocalPathAsync(file.Id, cancellationToken))!,
-                FileName = Trim(Path.GetFileName(photo.FileName), 255), ContentType = file.ContentType
+                UploaderId = managerId, UploadedAt = now, FileId = file.Id, ImageFilePath = file.StorageKey,
+                FileName = Trim(file.OriginalName, 255), ContentType = file.ContentType
             });
         }
     }
@@ -226,9 +228,4 @@ public sealed class DayOfRepository(WpsmDbContext db, IFileService files) : IDay
     private static string Trim(string value, int max) { value = value.Trim(); return value.Length > max ? value[..max] : value; }
 
     private static bool IsImageType(string? contentType) => contentType is null || contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsAllowedProof(byte[] content) =>
-        content.AsSpan().StartsWith(new byte[] { 0xFF, 0xD8, 0xFF })
-        || content.AsSpan().StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47 })
-        || content.AsSpan().StartsWith("%PDF"u8);
 }

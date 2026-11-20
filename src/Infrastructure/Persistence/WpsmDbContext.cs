@@ -7,6 +7,15 @@ namespace Infrastructure.Persistence;
 
 public partial class WpsmDbContext : DbContext
 {
+    /// <summary>Column default for UTC timestamps (columns are "timestamp without time zone" holding UTC, as datetime2 did on SQL Server).</summary>
+    internal const string UtcNowSql = "(now() at time zone 'utc')";
+
+    // DateTime maps to "timestamp without time zone" and is read/written as is: the code keeps UTC values everywhere
+    // (and Vietnam dates as DateOnly), so the strict UTC-kind checks of timestamptz would only add failures. Must run before Npgsql is used.
+    static WpsmDbContext() => UseLegacyTimestamps();
+
+    public static void UseLegacyTimestamps() => AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
     public WpsmDbContext(DbContextOptions<WpsmDbContext> options)
         : base(options)
     {
@@ -49,6 +58,9 @@ public partial class WpsmDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Case-insensitive e-mail (SQL Server compared text case-insensitively).
+        modelBuilder.HasPostgresExtension("citext");
+
         modelBuilder.Entity<Beo>(entity =>
         {
             entity.ToTable("BEOs");
@@ -87,7 +99,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Department).HasMaxLength(20);
             entity.Property(e => e.GeneratedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.PdfFilePath).HasMaxLength(500);
 
             entity.HasOne(d => d.Beo).WithMany(p => p.BeodepartmentSheets)
@@ -108,7 +120,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.ComplaintCode).HasMaxLength(30);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.EscalationNote).HasMaxLength(500);
             entity.Property(e => e.ResolutionNote).HasMaxLength(1000);
@@ -135,7 +147,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CompletedAt).HasPrecision(0);
             entity.Property(e => e.OverdueFlaggedAt).HasPrecision(0);
-            entity.Property(e => e.RowVersion).IsRowVersion();
+            entity.Property(e => e.RowVersion).HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
             entity.Property(e => e.DeadlineTime).HasPrecision(0);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
@@ -144,7 +156,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Department).HasMaxLength(20).HasDefaultValue("Service");
             entity.Property(e => e.SourceKey).HasMaxLength(50);
             entity.Property(e => e.Note).HasMaxLength(500);
-            entity.HasIndex(e => new { e.ProjectId, e.SourceKey }, "UQ_DayOf_Project_Source").IsUnique().HasFilter("([SourceKey] IS NOT NULL)");
+            entity.HasIndex(e => new { e.ProjectId, e.SourceKey }, "UQ_DayOf_Project_Source").IsUnique().HasFilter("\"SourceKey\" IS NOT NULL");
 
             entity.HasOne(d => d.CreatedByUser).WithMany()
                 .HasForeignKey(d => d.CreatedBy)
@@ -173,7 +185,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.ContentType).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UploadedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
 
             entity.HasOne(d => d.DayOfTask).WithMany(p => p.ExecutionPhotos)
                 .HasForeignKey(d => d.DayOfTaskId)
@@ -184,6 +196,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.UploaderId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Photo_Uploader");
+
+            entity.HasOne(d => d.File).WithMany()
+                .HasForeignKey(d => d.FileId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Photo_File");
         });
 
         modelBuilder.Entity<Hall>(entity =>
@@ -203,7 +220,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.LinkUrl).HasMaxLength(255);
             entity.Property(e => e.Message).HasMaxLength(300);
             entity.Property(e => e.Type).HasMaxLength(30);
@@ -248,7 +265,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Value).HasColumnType("decimal(5, 2)");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
 
             entity.HasOne(d => d.UpdatedByNavigation).WithMany(p => p.PolicyConfigs)
                 .HasForeignKey(d => d.UpdatedBy)
@@ -264,7 +281,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.MinPrice).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
 
             entity.HasOne(d => d.Item).WithMany(p => p.PriceFrames)
                 .HasForeignKey(d => d.ItemId)
@@ -284,7 +301,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Comment).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.Module).HasMaxLength(10);
 
             entity.HasOne(d => d.Project).WithMany(p => p.Ratings)
@@ -374,7 +391,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.LineTotal)
-                .HasComputedColumnSql("([Quantity]*[UnitPrice])", true)
+                .HasComputedColumnSql("\"Quantity\" * \"UnitPrice\"", true)
                 .HasColumnType("decimal(29, 2)");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
 
@@ -395,8 +412,8 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Email).HasMaxLength(100);
+                .HasDefaultValueSql(UtcNowSql);
+            entity.Property(e => e.Email).HasMaxLength(100).HasColumnType("citext");
             entity.Property(e => e.FullName).HasMaxLength(100);
             entity.Property(e => e.MustChangePassword).HasDefaultValue(true);
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
@@ -420,7 +437,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.HasIndex(e => e.ProjectCode, "UQ_Projects_Code").IsUnique();
 
-            entity.HasIndex(e => new { e.HallId, e.SlotId, e.EventDate }, "UX_Projects_HallSlotDate_Active").IsUnique().HasFilter("([Status]<>'Cancelled')");
+            entity.HasIndex(e => new { e.HallId, e.SlotId, e.EventDate }, "UX_Projects_HallSlotDate_Active").IsUnique().HasFilter("\"Status\" <> 'Cancelled'");
 
             entity.Property(e => e.BaseContractValue).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.LockedAt).HasPrecision(0);
@@ -428,7 +445,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.CancelReason).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.CurrentTotal).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.DepositAmount).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.ProjectCode).HasMaxLength(30);

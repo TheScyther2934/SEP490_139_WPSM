@@ -9,13 +9,9 @@ namespace Infrastructure.Persistence.Repositories;
 /// Stage 3: once services are locked the operator books the outside suppliers and attaches evidence (transfer note,
 /// invoice or contract). The checklist lists every locked service that needs a supplier; no purchase-order tracking.
 /// </summary>
-public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileStorage storage) : ISupplierEvidenceRepository
+public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileService files) : ISupplierEvidenceRepository
 {
     private static readonly HashSet<string> Types = ["Transfer", "Invoice", "Contract", "Other"];
-    private static readonly Dictionary<string, string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".pdf"] = "application/pdf", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".png"] = "image/png"
-    };
 
     public async Task<SupplierBoardView?> GetBoardAsync(string eventCode, CancellationToken cancellationToken = default)
     {
@@ -54,23 +50,12 @@ public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileStorage st
             throw new InvalidOperationException("Dịch vụ không thuộc sự kiện này.");
         if (command.Note is { Length: > 500 }) throw new InvalidOperationException("Ghi chú tối đa 500 ký tự.");
         if (command.Content is not { Length: > 0 }) throw new InvalidOperationException("Hãy chọn tệp minh chứng.");
-        if (command.Content.Length > 10 * 1024 * 1024) throw new InvalidOperationException("Tệp tối đa 10 MB.");
-        var ext = Path.GetExtension(command.FileName ?? "").ToLowerInvariant();
-        if (!AllowedTypes.TryGetValue(ext, out var contentType)) throw new InvalidOperationException("Chỉ nhận tệp PDF, JPG hoặc PNG.");
-
-        var key = $"suppliers/{project.ProjectCode}/{Guid.NewGuid():N}{ext}";
-        using (var stream = new MemoryStream(command.Content)) await storage.UploadAsync(stream, key, cancellationToken);
-        var file = new StoredFile
-        {
-            FileId = Guid.NewGuid(), ProjectId = project.ProjectId, Purpose = "SupplierEvidence", StorageKey = key,
-            OriginalName = Path.GetFileName(command.FileName ?? $"minh-chung{ext}"), ContentType = contentType, SizeBytes = command.Content.Length,
-            UploadedBy = userId, UploadedAt = DateTime.UtcNow
-        };
-        db.StoredFiles.Add(file);
+        // Type (by content), size, photo conversion and the storage key follow the common file rules.
+        var file = await files.StoreAsync(project.ProjectId, "SupplierEvidence", command.FileName ?? "minh-chung", command.Content, userId, cancellationToken);
         var evidence = new SupplierEvidence
         {
             ProjectId = project.ProjectId, SpecItemId = command.SpecItemId, SupplierName = supplier, EvidenceType = command.EvidenceType,
-            FileId = file.FileId, Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim(), UploadedBy = userId, UploadedAt = DateTime.UtcNow
+            FileId = file.Id, Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim(), UploadedBy = userId, UploadedAt = DateTime.UtcNow
         };
         db.SupplierEvidences.Add(evidence);
         await db.SaveChangesAsync(cancellationToken);
@@ -84,10 +69,6 @@ public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileStorage st
         var file = await db.SupplierEvidences.AsNoTracking().Where(e => e.EvidenceId == evidenceId && e.Project.ProjectCode == eventCode)
             .Select(e => e.File).FirstOrDefaultAsync(cancellationToken);
         if (file is null) return null;
-        await using var stream = await storage.OpenReadAsync(file.StorageKey, cancellationToken);
-        if (stream is null) return null;
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms, cancellationToken);
-        return (ms.ToArray(), file.ContentType, file.OriginalName);
+        return await files.ReadAsync(file.StorageKey, cancellationToken) is { } content ? (content, file.ContentType, file.OriginalName) : null;
     }
 }

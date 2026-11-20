@@ -16,6 +16,7 @@ namespace Tests;
 public sealed class CustomerPaymentRepositoryTests : IDisposable
 {
     private readonly WpsmDbContext _db;
+    private readonly TestFileStorage _storage = new();
     private readonly User _customer;
     private readonly User _otherCustomer;
     private readonly User _manager;
@@ -66,8 +67,9 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
             DueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
             PaidDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
             PaymentMethod = "Chuyen khoan",
-            ReceiptContent = new byte[] { 1, 2, 3, 4, 5 }
+            ReceiptFilePath = "WPSM-TEST/receipts/deposit.pdf", ReceiptContentType = "application/pdf"
         });
+        _storage.Files["WPSM-TEST/receipts/deposit.pdf"] = new byte[] { 1, 2, 3, 4, 5 };
 
         // Confirmed addon contract: 5M (counted); one waiting for the customer: 10M (not counted).
         _db.AddonContracts.Add(Addon(1, "PS-1", "Confirmed", 5_000_000m));
@@ -100,7 +102,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
     [Fact]
     public async Task GetPaymentSummaryAsync_ReturnsAccurateSummaryForOwner()
     {
-        var dummyStorage = new DummyFileStorage();
+        var dummyStorage = _storage;
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
         var summary = await repo.GetPaymentSummaryAsync(_customer.UserId);
@@ -117,7 +119,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
     [Fact]
     public async Task GetPaymentSummaryAsync_ReturnsNullForUnrelatedUser()
     {
-        var dummyStorage = new DummyFileStorage();
+        var dummyStorage = _storage;
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
         var summary = await repo.GetPaymentSummaryAsync(_otherCustomer.UserId);
@@ -128,7 +130,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
     [Fact]
     public async Task GetPaymentMilestonesAsync_HasOnlyDepositAndSettlement()
     {
-        var dummyStorage = new DummyFileStorage();
+        var dummyStorage = _storage;
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
         var milestones = await repo.GetPaymentMilestonesAsync(_customer.UserId);
@@ -150,7 +152,7 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
     [Fact]
     public async Task GetPaymentReceiptAsync_ReturnsBytesWhenReceiptExists()
     {
-        var dummyStorage = new DummyFileStorage();
+        var dummyStorage = _storage;
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
         var receipt = await repo.GetPaymentReceiptAsync(_customer.UserId, paymentType: "Deposit");
@@ -163,18 +165,11 @@ public sealed class CustomerPaymentRepositoryTests : IDisposable
     [Fact]
     public async Task FinalSettlementReceipt_DeniedWhenProjectNotSettled()
     {
-        var dummyStorage = new DummyFileStorage();
+        var dummyStorage = _storage;
         var repo = new CustomerPaymentRepository(_db, dummyStorage);
 
         // Project status is "Locked", not "Settled" -> throws InvalidOperationException
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             repo.GetFinalSettlementReceiptAsync(_customer.UserId));
-    }
-
-    private sealed class DummyFileStorage : IFileStorage
-    {
-        public Task UploadAsync(Stream content, string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default) => Task.FromResult<Stream?>(null);
-        public Task DeleteAsync(string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

@@ -176,9 +176,10 @@ public sealed class DayOfTaskService(
             foreach (var photoFile in photos)
             {
                 var ext = Path.GetExtension(photoFile.FileName).ToLowerInvariant();
-                var storageKey = $"proofs/{task.ProjectId}/{task.DayOfTaskId}_{Guid.NewGuid():N}{ext}";
-
-                await storage.UploadAsync(photoFile.Stream, storageKey, cancellationToken);
+                // Same key rule as FileService: "{event}/proof/{id}.ext" (the storage may convert and return another extension).
+                var projectCode = await db.WeddingProjects.AsNoTracking().Where(p => p.ProjectId == task.ProjectId).Select(p => p.ProjectCode).SingleAsync(cancellationToken);
+                var stored = await storage.UploadAsync(photoFile.Stream, $"{projectCode}/proof/{Guid.NewGuid():N}{ext}", ext == ".png" ? "image/png" : "image/jpeg", cancellationToken);
+                var storageKey = stored.Key;
 
                 var executionPhoto = new ExecutionPhoto
                 {

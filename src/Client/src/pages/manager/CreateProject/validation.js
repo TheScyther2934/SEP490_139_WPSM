@@ -12,7 +12,8 @@ export const requiredDeposit = (lines, policy) => Math.round((contractValue(line
 
 export function validateReceipt(file) {
   if (!file) return null;
-  if (file.size <= 0 || file.size > RECEIPT_MAX_BYTES || !/\.(pdf|jpe?g|png)$/i.test(file.name)) return "Biên nhận phải là PDF, JPG hoặc PNG, tối đa 10 MB.";
+  if (file.size <= 0 || file.size > RECEIPT_MAX_BYTES || !/\.(pdf|jpe?g|png|heic|heif|webp|avif)$/i.test(file.name))
+    return "Biên nhận phải là PDF hoặc ảnh (JPG, PNG, HEIC của iPhone, WebP), tối đa 10 MB.";
   return null;
 }
 

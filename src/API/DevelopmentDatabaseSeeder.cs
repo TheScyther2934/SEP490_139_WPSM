@@ -313,8 +313,8 @@ public sealed class DevelopmentDatabaseSeeder(
         };
         var type = item.CatalogItem.Category == "Catering" ? "Contract" : "Transfer";
         var bytes = DemoPdf($"MINH CHUNG {(type == "Contract" ? "HOP DONG" : "CHUYEN KHOAN")} - {p.ProjectCode}", $"{supplier} | {item.CatalogItem.Name}");
-        var key = $"suppliers/{p.ProjectCode}/{Guid.NewGuid():N}.pdf";
-        using (var stream = new MemoryStream(bytes)) await storage.UploadAsync(stream, key, cancellationToken);
+        string key;
+        using (var stream = new MemoryStream(bytes)) key = (await storage.UploadAsync(stream, $"{p.ProjectCode}/suppliers/{Guid.NewGuid():N}.pdf", "application/pdf", cancellationToken)).Key;
         var file = new StoredFile
         {
             FileId = Guid.NewGuid(), ProjectId = p.ProjectId, Purpose = "SupplierEvidence", StorageKey = key, OriginalName = $"minh-chung-{item.CatalogItem.Category.ToLowerInvariant()}.pdf",

@@ -5,9 +5,9 @@ Team onboarding and development workflow: [Dev guide/WPSM_Developer_Guide.md](De
 
 ## Chạy ứng dụng
 
-Giao diện hiện tại là React trong `src/Client` (Vite); API ASP.NET Core chạy riêng. Cần Node.js/npm, .NET 8 SDK và SQL Server LocalDB hoặc SQL Server.
+Giao diện hiện tại là React trong `src/Client` (Vite); API ASP.NET Core chạy riêng. Cần Node.js/npm, .NET 8 SDK và một database PostgreSQL (Supabase).
 
-Trước lần chạy đầu, tạo database theo mục **Local database setup** bên dưới. Sau đó mở hai terminal tại thư mục solution:
+Trước lần chạy đầu, cấu hình database theo mục **Database (PostgreSQL on Supabase)** bên dưới. Sau đó mở hai terminal tại thư mục solution:
 
 Terminal 1 – API:
 
@@ -23,12 +23,29 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api/wpsm/*` to the API at `http://localhost:5128`. For a production build, run `npm run build` from `src/Client`; the built React app is written to `src/API/wwwroot` and served by the API. The API uses SQL Server through the database-first `WpsmDbContext` in `src/Infrastructure`. Persistence contracts are feature-scoped in `src/Application/Persistence`: `IProjectRepository`, `ISpecificationRoadmapRepository`, `IConfigurationRepository`, and `IAccountProfileRepository`. Their EF implementations live in `src/Infrastructure/Persistence/Repositories`; `IWpsmPortalSnapshotReader` composes data for the React bootstrap endpoint. API endpoints should depend on the feature contract they use, not on a catch-all repository or `DbContext`.
+Open `http://localhost:5173`. Vite proxies `/api/wpsm/*` to the API at `http://localhost:5128`. For a production build, run `npm run build` from `src/Client`; the built React app is written to `src/API/wwwroot` and served by the API. The API uses PostgreSQL through `WpsmDbContext` in `src/Infrastructure`. Persistence contracts are feature-scoped in `src/Application/Persistence`: `IProjectRepository`, `ISpecificationRoadmapRepository`, `IConfigurationRepository`, and `IAccountProfileRepository`. Their EF implementations live in `src/Infrastructure/Persistence/Repositories`; `IWpsmPortalSnapshotReader` composes data for the React bootstrap endpoint. API endpoints should depend on the feature contract they use, not on a catch-all repository or `DbContext`.
 
-## Local database setup (Iteration 1)
+## Database (PostgreSQL on Supabase)
 
-1. In SQL Server Management Studio, run `Database/WPSM_DB_Schema.sql` against the local SQL Server instance. The development connection defaults to `(localdb)\MSSQLLocalDB`; change `ConnectionStrings:WpsmDb` with User Secrets if you use SQL Express or another instance.
-2. Set development-only accounts with User Secrets. These secrets create an Admin and Manager on first API start and are not stored in source control:
+The API uses PostgreSQL (hosted on Supabase) through EF Core (`Npgsql.EntityFrameworkCore.PostgreSQL`). The schema is managed with EF Core migrations in `src/Infrastructure/Persistence/Migrations`; rules the EF model does not describe (CHECK constraints, the append-only audit log trigger, row level security) are in `InitialPostgresExtras.cs`. Hangfire stores its jobs in the `hangfire` schema of the same database (created on first start).
+
+1. Put the connection string in User Secrets (never in tracked files). Use the Supabase **Session pooler** string (.NET format, port 5432): the direct connection is IPv6 only.
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:WpsmDb" "Host=aws-0-<region>.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.<project-ref>;Password=<password>;SSL Mode=Require;Trust Server Certificate=true;Maximum Pool Size=10;Keepalive=30" --project src/API
+```
+
+On a server, set the environment variable `ConnectionStrings__WpsmDb` instead (two underscores).
+
+2. Create or update the schema:
+
+```powershell
+dotnet ef database update --project src/Infrastructure --startup-project src/API
+```
+
+After a model change: `dotnet ef migrations add <Name> --project src/Infrastructure --startup-project src/API --output-dir Persistence/Migrations`.
+
+3. Optional development accounts, created on first API start when missing:
 
 ```powershell
 dotnet user-secrets set "Wpsm:SeedDevelopmentData" "true" --project src/API/API.csproj
@@ -38,24 +55,14 @@ dotnet user-secrets set "Wpsm:Seed:Manager:Email" "manager@wpsm.local" --project
 dotnet user-secrets set "Wpsm:Seed:Manager:Password" "<your-manager-password-12-chars-or-more>" --project src/API/API.csproj
 ```
 
-3. Start the API and React client using the commands above. The opt-in development seeder creates halls, lunch/evening slots, baseline Catalog/PriceFrames and initial policy records. Creating a project creates a Customer account; its temporary password is returned once to the Manager for delivery.
+The development seeder adds halls, lunch/evening slots, the service catalog, price frames and policies when missing, and creates the demo events once (guarded by the `DemoEventFlowSeeded` setting). Creating an event creates a Customer account; its temporary password is returned once to the Manager.
 
-### SQL INSERT demo data (alternative to the API seeder)
+Notes for PostgreSQL:
+- `DateTime` columns are `timestamp without time zone` holding UTC (legacy Npgsql timestamp mode, set in `WpsmDbContext`), as `datetime2` did on SQL Server.
+- `Users.Email` is `citext` (case-insensitive). Text search uses `EF.Functions.ILike` with `SqlLike.Contains`.
+- Table and column names are PascalCase: quote them in hand-written SQL (`select * from "WeddingProjects"`).
 
-On an empty development database, run `Database/WPSM_DB_Schema.sql` followed by `Database/WPSM_DB_Seed.sql` in SSMS. The seed script contains explicit INSERT statements for 9 demo users, 4 halls, 8 slots, 5 services, price frames/policies, 7 projects, 35 specification rows, 7 NRD payments and 28 roadmap tasks. It can be run twice without duplicates and does not overwrite existing accounts or projects. If the same sample project codes already belong to other accounts, it rolls back instead of modifying them.
-
-The SQL demo uses `demo.admin@example.invalid`, `demo.manager@example.invalid` and `demo.customer1@example.invalid` through `demo.customer7@example.invalid`. Their initial demo-only password is `WpsmDemo@2026!`, stored as an ASP.NET Identity hash; first login requires a password change. No live SQL login, real account hash, receipt or refresh token is exported. Set `Wpsm:SeedDevelopmentData=false` when using this SQL demo; choose either SQL demo data or the API development seeder.
-
-For an existing database receiving the merge-all features, run `Database/Updates/20261103_Integration.sql` after the portal persistence update. This adds integration tables and baseline protection without deleting existing data.
-
-For the FE-07 Resource Calendar (M-21, M-22), run `Database/Updates/20261109_ResourceCalendar.sql` against an existing database: it adds the `PendingException` allocation state (an over-capacity allocation waiting for the Admin decision) and inserts the demo resource catalog (audio, follow lights, decor frames, technicians, kitchen) when those rows are missing. Fresh databases created from `Database/WPSM_DB_Schema.sql` already allow the state; the development seeder creates the same resources and one allocated demo event.
-
-The NRD policy is enforced at project creation. Bank transfers require a PDF/JPG/PNG receipt (maximum 10 MB); its content and metadata are stored in SQL Server's `Payments` table and downloads require project access. Cash payments are recorded as paid at creation. New projects start with editable v1 specification rows from the five required Catalog categories, and freezing a baseline generates its roadmap.
-
-For an existing SQL Server database, run `Database/Updates/20261102_PortalPersistence.sql` against that database before starting the updated API. It adds receipt content, email delivery storage and compatibility columns without deleting existing data. Use the same SQL Server instance in SSMS and `ConnectionStrings:WpsmDb`; a named instance such as `MACHINE\INSTANCE` is different from `localhost` or LocalDB. Keep SQL passwords in User Secrets, not in tracked configuration.
-
-For an existing database used by React JWT sign-in, also run `Database/Updates/20261104_RefreshTokens.sql`. It creates `dbo.RefreshTokens`; the API stores only token hashes there. New databases created from `Database/WPSM_DB_Schema.sql` already include this table.
-
+The SQL Server scripts in `Database/` (`WPSM_DB_Schema.sql`, `Database/Updates/*.sql`, seeds) are the former SQL Server schema, kept for reference only; they do not run on PostgreSQL.
 Customer credential emails are queued transactionally in `EmailDeliveries`. The temporary credential payload is protected with ASP.NET Core Data Protection, cleared after successful delivery, and never written to application logs. A worker checks the queue every minute, with up to three retries at five-minute intervals. If SMTP is not configured, delivery stays `Pending`; the UI does not claim that an email was sent. Configure these User Secrets to enable delivery:
 
 ```text
@@ -70,11 +77,21 @@ Wpsm:PortalUrl            (public login URL)
 
 Preserve the API's Data Protection key store across restarts so queued credential messages can still be decrypted. For multiple deployed API instances, use a shared key store and a single email dispatcher instance.
 
-Validation: `pwsh -File tests/portal.integration.ps1` exercises API persistence, authentication, project isolation and receipt downloads using a disposable `WPSM_Test_<guid>` database on SQL Server `localhost` (Windows Authentication). `pwsh -File tests/fe05.change-request.ps1` covers the FE-05 Change Request flow (C-05, C-06, M-07, M-08) on a disposable LocalDB database: PriceFrame validation, T-day penalty, counter-proposal, Admin penalty waiver through A-18, mutual approval and addendum generation. `pwsh -File tests/fe07.resource-calendar.ps1` covers the FE-07 Resource Calendar (M-21, M-22): hall/resource grids, GBR-09 over-capacity rejection with the clashing events, the pending-exception state, the A-18 queue and decision audit, rescheduling, substitution and release. `pwsh -File tools/e2e/run.ps1` builds and exercises the React client against a throwaway LocalDB database. All four scripts create and drop only their own test databases; none changes the configured application database.
+Validation: the PowerShell scripts in `tests/` and `tools/e2e/run.ps1` were written for SQL Server/LocalDB (sqlcmd, throwaway databases) and do not run against PostgreSQL yet; they need rewriting.
+
+## File storage (Cloudinary)
+
+Proof photos, receipts and supplier documents are stored on Cloudinary when `Cloudinary__CloudName`, `Cloudinary__ApiKey` and `Cloudinary__ApiSecret` are set (copy `src/API/.env.example` to `src/API/.env`, which is git-ignored, or use User Secrets / environment variables). Without them the API falls back to the local disk (`Files:RootPath`). Rules, all enforced in `FileService` (`src/Infrastructure/Files`):
+
+- The database keeps file metadata in `StoredFiles` and the storage key (`ExecutionPhotos.ImageFilePath`, `Payments.ReceiptFilePath`); never a URL and never the bytes.
+- Key: `{event code}/{proof|receipts|suppliers}/{file id}.{ext}`; Cloudinary adds the environment folder (`wpsm/dev`, `wpsm/prod`, set with `Cloudinary:Folder`).
+- Accepted: JPG, PNG, PDF and phone photos HEIC/HEIF/WebP/AVIF, recognised by content (not extension), 10 MB at most. Phone photos are converted to JPEG and every photo is limited to 2560 px on its long edge (quality auto). JPG/PNG metadata (GPS) is removed.
+- Every asset is private. Photos are shown through a 302 redirect to a Cloudinary download link valid 5 minutes; PDFs and receipts are streamed by the API after the access check. Customers see photos only.
+- Files are kept forever; job-08 (Sundays 03:00) removes only storage files no table refers to.
 
 ## Files, email and background jobs (API-01..04, JOB-07)
 
-Re-run `Database/WPSM_DB_Schema.sql` on existing databases; it adds `StoredFiles` and `EmailOutbox`. Hangfire creates its own `HangFire` schema when WPSM.API starts.
+`StoredFiles` and `EmailOutbox` are part of the EF migrations. Hangfire creates its own `hangfire` schema when WPSM.API starts.
 
 Set these with User Secrets or environment variables on WPSM.API:
 
