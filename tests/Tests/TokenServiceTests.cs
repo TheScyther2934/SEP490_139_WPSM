@@ -13,7 +13,7 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// JWT access token and rotating refresh token (SDS 3.2, III.1.1).
+/// JWT access token, device sessions and rotating refresh tokens (SDS 3.2, III.1.1).
 /// Uses EF Core In-Memory database.
 /// </summary>
 public sealed class TokenServiceTests : IDisposable
@@ -55,13 +55,97 @@ public sealed class TokenServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Rotate_ReusedToken_RevokesEverySession()
+    public async Task Rotate_ReusedAfterGrace_EndsOnlyThatDevice()
+    {
+        var laptop = await _refresh.IssueAsync(7, null, "Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36");
+        var phone = await _refresh.IssueAsync(7, null, "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604.1");
+        var second = await _refresh.RotateAsync(laptop.Token, null);
+        // The copied laptop token comes back after the grace window.
+        _db.RefreshTokens.Single(x => x.TokenHash != null && x.SessionId == laptop.SessionId && x.ReplacedByTokenId != null).RevokedAt = DateTime.UtcNow.AddMinutes(-5);
+        await _db.SaveChangesAsync();
+        Assert.Null(await _refresh.RotateAsync(laptop.Token, null));
+        Assert.Null(await _refresh.RotateAsync(second!.Token, null));
+        Assert.Equal(Application.Auth.SessionEndReasons.TokenReuse, _db.UserSessions.Single(x => x.SessionId == laptop.SessionId).RevokedReason);
+        // The phone is another session: still signed in.
+        Assert.NotNull(await _refresh.RotateAsync(phone.Token, null));
+    }
+
+    [Fact]
+    public async Task Rotate_ReusedWithinGrace_TwoTabsKeepTheSession()
     {
         var first = await _refresh.IssueAsync(7, null);
-        var second = await _refresh.RotateAsync(first.Token, null);
-        Assert.Null(await _refresh.RotateAsync(first.Token, null));
-        Assert.All(_db.RefreshTokens, x => Assert.NotNull(x.RevokedAt));
-        Assert.Null(await _refresh.RotateAsync(second!.Token, null));
+        var tabA = await _refresh.RotateAsync(first.Token, null);
+        var tabB = await _refresh.RotateAsync(first.Token, null);
+        Assert.NotNull(tabA);
+        Assert.NotNull(tabB);
+        Assert.Equal(first.SessionId, tabB!.SessionId);
+        Assert.Null(_db.UserSessions.Single().RevokedAt);
+        Assert.NotNull(await _refresh.RotateAsync(tabB.Token, null));
+    }
+
+    [Fact]
+    public async Task SignIn_TwiceOpensTwoSessions_AndListsThem()
+    {
+        var laptop = await _refresh.IssueAsync(7, "10.0.0.1", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0");
+        var phone = await _refresh.IssueAsync(7, "10.0.0.2", "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36");
+        Assert.NotEqual(laptop.SessionId, phone.SessionId);
+        var list = await _refresh.ListSessionsAsync(7, phone.SessionId);
+        Assert.Equal(2, list.Count);
+        Assert.True(list[0].IsCurrent);
+        Assert.Equal("Chrome · Điện thoại Android", list[0].DeviceName);
+        Assert.Equal("Edge · Windows", list[1].DeviceName);
+    }
+
+    [Fact]
+    public async Task RevokeSession_SignsOutThatDeviceOnly()
+    {
+        var laptop = await _refresh.IssueAsync(7, null);
+        var phone = await _refresh.IssueAsync(7, null);
+        Assert.True(await _refresh.RevokeSessionAsync(7, laptop.SessionId));
+        Assert.False(await _refresh.IsSessionActiveAsync(laptop.SessionId));
+        Assert.Null(await _refresh.RotateAsync(laptop.Token, null));
+        Assert.True(await _refresh.IsSessionActiveAsync(phone.SessionId));
+        Assert.NotNull(await _refresh.RotateAsync(phone.Token, null));
+        // Another user cannot end it, and an ended session cannot be ended twice.
+        Assert.False(await _refresh.RevokeSessionAsync(8, phone.SessionId));
+        Assert.False(await _refresh.RevokeSessionAsync(7, laptop.SessionId));
+    }
+
+    [Fact]
+    public async Task RevokeAll_KeepsTheCurrentDevice()
+    {
+        var current = await _refresh.IssueAsync(7, null);
+        var other1 = await _refresh.IssueAsync(7, null);
+        var other2 = await _refresh.IssueAsync(7, null);
+        await _refresh.RevokeAllAsync(7, "PasswordChanged", current.SessionId);
+        Assert.True(await _refresh.IsSessionActiveAsync(current.SessionId));
+        Assert.False(await _refresh.IsSessionActiveAsync(other1.SessionId));
+        Assert.False(await _refresh.IsSessionActiveAsync(other2.SessionId));
+        Assert.NotNull(await _refresh.RotateAsync(current.Token, null));
+        Assert.Null(await _refresh.RotateAsync(other1.Token, null));
+    }
+
+    [Fact]
+    public async Task SignOut_EndsTheSession()
+    {
+        var issued = await _refresh.IssueAsync(7, null);
+        await _refresh.RevokeAsync(issued.Token);
+        var session = _db.UserSessions.Single();
+        Assert.Equal("SignOut", session.RevokedReason);
+        Assert.Null(await _refresh.RotateAsync(issued.Token, null));
+    }
+
+    [Fact]
+    public async Task AccessToken_CarriesTheSession()
+    {
+        var account = new AccountView(7, "m@test.vn", "Manager", null, "Manager", "Active", "x", MustChangePassword: false);
+        var sid = Guid.NewGuid();
+        var token = new JwtTokenService(_options).CreateAccessToken(account, sid);
+        var result = await new JsonWebTokenHandler().ValidateTokenAsync(token.Token, new TokenValidationParameters
+        {
+            ValidIssuer = JwtOptions.Issuer, ValidAudience = JwtOptions.Audience, IssuerSigningKey = JwtTokenService.SigningKey(_options.Secret)
+        });
+        Assert.Equal(sid.ToString("N"), result.Claims[JwtTokenService.SessionClaim]);
     }
 
     [Fact]
@@ -81,6 +165,7 @@ public sealed class TokenServiceTests : IDisposable
         var row = _db.RefreshTokens.Single();
         row.AbsoluteExpiresAt = DateTime.UtcNow.AddMinutes(5);
         row.ExpiresAt = row.AbsoluteExpiresAt;
+        _db.UserSessions.Single().AbsoluteExpiresAt = row.AbsoluteExpiresAt;
         await _db.SaveChangesAsync();
         var next = await _refresh.RotateAsync(issued.Token, null);
         Assert.NotNull(next);

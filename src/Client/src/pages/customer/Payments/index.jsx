@@ -5,6 +5,7 @@ import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
 import FinancialSummaryCards from "./components/FinancialSummaryCards";
 import PaymentMilestonesTable from "./components/PaymentMilestonesTable";
+import InvoiceCard from "../../../components/InvoiceCard";
 import FinalSettlementReceiptSection from "./components/FinalSettlementReceiptSection";
 import { useAsync } from "../../../hooks/useAsync";
 import { paymentService, saveBlobAsFile } from "../../../services/paymentService";
@@ -37,7 +38,7 @@ export default function Payments() {
       setDownloadingFinal(true);
       const res = await paymentService.downloadFinalReceipt(data?.summary?.projectCode);
       saveBlobAsFile(res.blob, res.fileName);
-      dispatch(notify({ message: "Đã tải xuống biên nhận quyết toán.", severity: "success" }));
+      dispatch(notify({ message: "Đã tải xuống biên nhận tất toán.", severity: "success" }));
     } catch (err) {
       dispatch(notify({ message: errorMessage(err), severity: "error" }));
     } finally {
@@ -53,7 +54,7 @@ export default function Payments() {
       <PageHeader
         code="C-10"
         title="Thanh toán và dư nợ"
-        subtitle={projectCode ? `Dự án: ${projectCode} (${projectStatus})` : undefined}
+        subtitle={projectCode ? `Sự kiện: ${projectCode} (${projectStatus})` : undefined}
       />
 
       <DataState loading={loading} error={error} onRetry={reload}>
@@ -65,13 +66,15 @@ export default function Payments() {
               <FinancialSummaryCards summary={data.summary} />
 
               <Typography variant="h6" component="h2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                Tiến độ thanh toán theo mốc
+                Hai lần thanh toán: đặt cọc và tất toán
               </Typography>
               <PaymentMilestonesTable
                 milestones={data.milestones}
                 onDownloadReceipt={handleDownloadReceipt}
                 downloadingType={downloadingType}
               />
+
+              <Box sx={{ my: 2 }}><InvoiceCard invoice={data.invoice} /></Box>
 
               <FinalSettlementReceiptSection
                 finalReceipt={data.finalReceipt}

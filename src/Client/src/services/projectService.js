@@ -1,29 +1,22 @@
 import axiosClient from "../api/axiosClient";
 import { ENDPOINTS } from "../api/endpoints";
 
-// M-02..M-05 and the shared portal snapshot.
+// Events (list, create, adjust services) and the shared portal snapshot.
 export const projectService = {
   getProjects: () => axiosClient.get(ENDPOINTS.projects).then((r) => r.data),
   getProject: (code) => axiosClient.get(ENDPOINTS.project(code)).then((r) => r.data),
   createProject: (body) => axiosClient.post(ENDPOINTS.projects, body).then((r) => r.data),
-  uploadNrdReceipt: (code, file) => {
+  uploadDepositReceipt: (code, file) => {
     const form = new FormData();
     form.append("receipt", file);
-    return axiosClient.post(ENDPOINTS.nrdReceipt(code), form).then((r) => r.data);
+    return axiosClient.post(ENDPOINTS.depositReceipt(code), form).then((r) => r.data);
   },
-  downloadNrdReceipt: (code) => axiosClient.get(ENDPOINTS.nrdReceipt(code), { responseType: "blob" }).then((r) => r.data),
+  downloadDepositReceipt: (code) => axiosClient.get(ENDPOINTS.depositReceipt(code), { responseType: "blob" }).then((r) => r.data),
   resendCredentials: (code) => axiosClient.post(ENDPOINTS.resendCredentials(code)).then((r) => r.data),
   saveSpecification: (code, body) => axiosClient.put(ENDPOINTS.specification(code), body).then((r) => r.data),
-  freezeBaseline: (code) => axiosClient.post(ENDPOINTS.freeze(code)).then((r) => r.data),
   getHalls: (date) => axiosClient.get(ENDPOINTS.halls, { params: date ? { date } : {} }).then((r) => r.data),
   getSnapshot: (projectCode) => axiosClient.get(ENDPOINTS.bootstrap, { params: projectCode ? { projectCode } : {} }).then((r) => r.data),
-  getAddenda: (projectCode) => axiosClient.get(ENDPOINTS.addenda, { params: projectCode ? { projectCode } : {} }).then((r) => r.data),
 
-  // M-09: Cost Impact & Contract Addendum
-  getChangeRequests: (code) => axiosClient.get(ENDPOINTS.projectChangeRequests(code)).then((r) => r.data),
-  getCostImpact: (code, crCode) => axiosClient.get(ENDPOINTS.projectCostImpact(code, crCode)).then((r) => r.data),
-  generateAddendum: (code, crCode, body = {}) => axiosClient.post(ENDPOINTS.generateAddendum(code, crCode), body).then((r) => r.data),
-  attachSignedAddendum: (code, crCode, fileId) => axiosClient.put(ENDPOINTS.attachSignedAddendum(code, crCode), { fileId }).then((r) => r.data),
   uploadFile: (file, purpose, projectCode) => {
     const form = new FormData();
     form.append("file", file);
@@ -39,7 +32,7 @@ export const projectService = {
   generateDepartmentSheets: (code) => axiosClient.post(ENDPOINTS.beoDepartmentSheets(code)).then((r) => r.data),
   downloadDepartmentPdf: (code, department) =>
     axiosClient.get(ENDPOINTS.beoDepartmentPdf(code, department), { responseType: "blob" }).then((r) => r.data),
-  compileT7Beo: () => axiosClient.post(ENDPOINTS.compileT7Beo).then((r) => r.data),
+  compileBeoDrafts: () => axiosClient.post(ENDPOINTS.compileBeoDrafts).then((r) => r.data),
 
   // M-18, M-19, M-20: Manager Complaints
   getComplaints: (projectCode) =>
@@ -48,9 +41,12 @@ export const projectService = {
   actOnComplaint: (complaintCode, action, note) =>
     axiosClient.post(ENDPOINTS.managerComplaintAction(complaintCode), { action, note }).then((r) => r.data),
 
-  // longtb: Roadmap, Payments, Dashboard, DayOf
-  getRoadmap: (code, owner) => axiosClient.get(ENDPOINTS.manager.roadmap(code), { params: owner ? { owner } : {} }).then((r) => r.data),
-  completeRoadmapTask: (code, taskId, body = {}) => axiosClient.post(ENDPOINTS.manager.completeTask(code, taskId), body ?? {}).then((r) => r.data),
+  // Payments, dashboard, day-of
+  // Co-management (Primary Manager or Admin changes the list; every operator can read it).
+  getProjectManagers: (code) => axiosClient.get(ENDPOINTS.projectManagers(code)).then((r) => r.data),
+  getManagerCandidates: (code) => axiosClient.get(ENDPOINTS.projectManagerCandidates(code)).then((r) => r.data),
+  addProjectManager: (code, managerId, reason) => axiosClient.post(ENDPOINTS.projectManagers(code), { managerId, reason }).then((r) => r.data),
+  removeProjectManager: (code, id, reason) => axiosClient.post(ENDPOINTS.removeProjectManager(code, id), { reason }).then((r) => r.data),
   getManagerPayments: (code) => axiosClient.get(ENDPOINTS.managerPayments.getPayments(code)).then((r) => r.data),
   recordPayment: (code, formData) => axiosClient.post(ENDPOINTS.managerPayments.recordPayment(code), formData).then((r) => r.data),
   getSettlement: (code) => axiosClient.get(ENDPOINTS.managerPayments.getSettlement(code)).then((r) => r.data),

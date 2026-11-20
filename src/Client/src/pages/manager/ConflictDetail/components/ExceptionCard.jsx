@@ -3,7 +3,7 @@ import { Alert, Button, Card, CardContent, Chip, Stack, TextField, Typography } 
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import { errorMessage } from "../../../../utils/format";
 
-// UC-47 escalation from M-22: ask the Admin to accept the over-allocation (A-18).
+// UC-47 escalation from M-22: ask the Admin to accept the over-allocation.
 export default function ExceptionCard({ allocation, onRequest }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);

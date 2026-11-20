@@ -121,9 +121,9 @@ public class DetectOverdueTasksJobTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = targetDate.AddDays(30),
             BaseContractValue = 100_000_000,
-            Nrdamount = 30_000_000,
+            DepositAmount = 30_000_000,
             CurrentTotal = 100_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
         _db.WeddingProjects.Add(project);
@@ -154,9 +154,9 @@ public class DetectOverdueTasksJobTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = targetDate,
             BaseContractValue = 120_000_000,
-            Nrdamount = 36_000_000,
+            DepositAmount = 36_000_000,
             CurrentTotal = 120_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
         _db.WeddingProjects.Add(project);
@@ -227,9 +227,9 @@ public class DetectOverdueTasksJobTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = targetDate,
             BaseContractValue = 100_000_000,
-            Nrdamount = 30_000_000,
+            DepositAmount = 30_000_000,
             CurrentTotal = 100_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
         _db.WeddingProjects.Add(project);

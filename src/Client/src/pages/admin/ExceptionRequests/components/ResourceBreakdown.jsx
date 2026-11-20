@@ -13,14 +13,14 @@ export default function ResourceBreakdown({ resource }) {
 
   return (
     <>
-      <Typography variant="subtitle2" gutterBottom>Hồ sơ xung đột tài nguyên (M-22)</Typography>
+      <Typography variant="subtitle2" gutterBottom>Hồ sơ xung đột tài nguyên</Typography>
       <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, mb: 2 }}>
         <Field label="Tài nguyên">{resource.resourceName}</Field>
         <Field label="Loại">{resource.resourceTypeLabel}</Field>
         <Field label="Số lượng yêu cầu">{resource.quantity} / {resource.totalQuantity}</Field>
         <Field label="Thời gian">{timeVi(resource.startTime)} – {timeVi(resource.endTime)} · {dateVi(resource.startTime)}</Field>
         <Field label="Sảnh">{resource.hallName}</Field>
-        <Field label="Đang giữ bởi dự án khác">{resource.otherQuantity}</Field>
+        <Field label="Đang giữ bởi sự kiện khác">{resource.otherQuantity}</Field>
         <Field label="Thiếu hụt" tone={resource.shortage ? "error.main" : "text.primary"}>{resource.shortage}</Field>
         <Field label="Phân bổ">#{resource.allocationId}</Field>
       </Box>
@@ -30,7 +30,7 @@ export default function ResourceBreakdown({ resource }) {
         <Table size="small" id="a18Clashing">
           <TableHead>
             <TableRow>
-              <TableCell>Dự án đang giữ</TableCell>
+              <TableCell>Sự kiện đang giữ</TableCell>
               <TableCell>Khung giờ</TableCell>
               <TableCell align="center">Số lượng</TableCell>
               <TableCell align="center">Trạng thái</TableCell>

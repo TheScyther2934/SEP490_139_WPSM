@@ -15,7 +15,7 @@ const cellTone = (usage, total) => {
 };
 
 // Lưới 2: shared resources × days. Each cell shows committed quantity / total capacity for that day;
-// red cells are over capacity (GBR-09), amber cells are waiting for the Admin decision.
+// red cells are over capacity, amber cells are waiting for the Admin decision.
 export default function ResourceGrid({ lanes, days, view, onlyConflicts, onOpenUsage }) {
   const visible = onlyConflicts ? lanes.filter((lane) => lane.usages.some((usage) => usage.hasConflict)) : lanes;
 

@@ -27,17 +27,15 @@ public static class FileEndpoints
         {
             if (await files.OpenSignedAsync(id, expires, sig, ct) is not { } file) return Results.StatusCode(StatusCodes.Status403Forbidden);
             context.Response.Headers.XContentTypeOptions = "nosniff";
-            return Results.File(file.Content, file.ContentType, file.OriginalName);
+            return file.RedirectUrl is { } url ? Results.Redirect(url) : Results.File(file.Content!, file.ContentType, file.OriginalName);
         }).AllowAnonymous();
 
         // Proof photo behind a signed URL from PhotoLinks; the signature replaces the Bearer token.
         api.MapGet("/photos/{photoId:int}/content", async (int photoId, long expires, string sig, PhotoLinks links, IAdminRepository photos,
-            IWebHostEnvironment environment, HttpContext context, CancellationToken ct) =>
+            IFileService files, HttpContext context, CancellationToken ct) =>
         {
             if (!links.Verify(photoId, expires, sig)) return Results.StatusCode(StatusCodes.Status403Forbidden);
-            if (await photos.GetPhotoPathAsync(photoId, ct) is not { } path) return Results.NotFound();
-            context.Response.Headers.CacheControl = "private, max-age=300";
-            return PhotoFile(path, environment);
+            return await photos.GetPhotoFileAsync(photoId, ct) is { } file ? await ServeStoredFile(files, file, context, ct) : Results.NotFound();
         }).AllowAnonymous();
 
         api.MapPost("/notifications/email-status", async (HttpRequest request, IEmailDeliveryService delivery, CancellationToken ct) =>

@@ -22,8 +22,10 @@ import AddCardIcon from "@mui/icons-material/AddCard";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
+import InvoiceCard from "../../../components/InvoiceCard";
 import StatusChip from "../../../components/StatusChip";
 import RecordPaymentDialog from "./components/RecordPaymentDialog";
+import CoordinationWarning from "./components/CoordinationWarning";
 import { useAsync } from "../../../hooks/useAsync";
 import { projectService } from "../../../services/projectService";
 import { saveBlobAsFile } from "../../../services/paymentService";
@@ -31,7 +33,7 @@ import { notify } from "../../../store/notifySlice";
 import { dateVi, money, signedMoney, errorMessage } from "../../../utils/format";
 
 // M-13: Payments & Settlement (Manager)
-// Manages contract balance breakdown, milestone payment tracking, payment history, and links to M-14 and M-15.
+// Money of an event: contract after adjustments, confirmed addons, the deposit and the single settlement, the final invoice.
 export default function ManagerPayments() {
   const { projectCode } = useParams();
   const dispatch = useDispatch();
@@ -79,11 +81,10 @@ export default function ManagerPayments() {
   return (
     <Box>
       <PageHeader
-        code="M-13"
-        title="Thanh toán & Quyết toán"
+        title="Thanh toán và công nợ"
         subtitle={
           summary
-            ? `${summary.CoupleName} — Sảnh ${summary.HallName} (${dateVi(summary.EventDate)})`
+            ? `${summary.coupleName} — Sảnh ${summary.hallName} (${dateVi(summary.eventDate)})`
             : undefined
         }
         actions={
@@ -94,7 +95,7 @@ export default function ManagerPayments() {
               onClick={() => setRecordDialogOpen(true)}
               disabled={isSettled}
             >
-              Ghi nhận thanh toán (M-14)
+              Ghi nhận tất toán
             </Button>
             <Button
               variant="outlined"
@@ -103,7 +104,7 @@ export default function ManagerPayments() {
               component={RouterLink}
               to={`/manager/projects/${encodeURIComponent(projectCode)}/payments/settlement-receipt`}
             >
-              Quyết toán hợp đồng (M-15)
+              Biên nhận tất toán
             </Button>
           </Stack>
         }
@@ -112,10 +113,12 @@ export default function ManagerPayments() {
       <DataState loading={loading} error={error} onRetry={reload}>
         {data && (
           <>
-            {isSettled && (
+            {isSettled ? (
               <Alert severity="success" sx={{ mb: 2 }}>
-                Dự án này đã hoàn tất quyết toán hợp đồng (Settled). Toàn bộ nghĩa vụ tài chính đã hoàn tất.
+                Sự kiện đã tất toán. Khách đã thanh toán đủ.
               </Alert>
+            ) : (
+              <CoordinationWarning projectCode={projectCode} />
             )}
 
             {/* 1. Project Financial Summary */}
@@ -129,27 +132,27 @@ export default function ManagerPayments() {
             >
               <Card>
                 <CardContent>
-                  <Typography variant="body2" color="text.secondary">Giá trị hợp đồng gốc</Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>{money(summary.BaseContractValue)}</Typography>
-                  <Typography variant="caption" color="text.secondary">Theo Contract Baseline</Typography>
+                  <Typography variant="body2" color="text.secondary">Hợp đồng sau điều chỉnh</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>{money(summary.baseContractValue)}</Typography>
+                  <Typography variant="caption" color="text.secondary">Tổng các dịch vụ đã đặt</Typography>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardContent>
-                  <Typography variant="body2" color="text.secondary">Chênh lệch CR đã duyệt</Typography>
+                  <Typography variant="body2" color="text.secondary">Phát sinh khách đã xác nhận</Typography>
                   <Typography
                     variant="h5"
                     sx={{
                       fontWeight: 700,
                       mt: 0.5,
-                      color: summary.TotalApprovedCrVariance > 0 ? "warning.main" : summary.TotalApprovedCrVariance < 0 ? "info.main" : "text.secondary",
+                      color: summary.confirmedAddonTotal > 0 ? "warning.main" : "text.secondary",
                     }}
                   >
-                    {signedMoney(summary.TotalApprovedCrVariance)}
+                    {money(summary.confirmedAddonTotal)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {summary.TotalApprovedCrVariance !== 0 ? "Tổng chi phí phát sinh" : "Chưa có phát sinh"}
+                    {summary.confirmedAddonTotal ? "Cộng vào hóa đơn tất toán" : "Chưa có phát sinh"}
                   </Typography>
                 </CardContent>
               </Card>
@@ -158,9 +161,9 @@ export default function ManagerPayments() {
                 <CardContent>
                   <Typography variant="body2" color="text.secondary">Tổng giá trị hiện tại</Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: "primary.main" }}>
-                    {money(summary.CurrentProjectTotal)}
+                    {money(summary.currentProjectTotal)}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">Giá trị gốc + CR được duyệt</Typography>
+                  <Typography variant="caption" color="text.secondary">Hợp đồng + phát sinh</Typography>
                 </CardContent>
               </Card>
 
@@ -168,7 +171,7 @@ export default function ManagerPayments() {
                 <CardContent>
                   <Typography variant="body2" color="text.secondary">Tổng đã thanh toán</Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: "success.main" }}>
-                    {money(summary.TotalAmountPaid)}
+                    {money(summary.totalAmountPaid)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">Tổng các khoản đã thu</Typography>
                 </CardContent>
@@ -177,8 +180,8 @@ export default function ManagerPayments() {
               <Card
                 sx={{
                   border: "1px solid",
-                  borderColor: summary.OutstandingBalance > 0 ? "error.light" : "success.light",
-                  bgcolor: summary.OutstandingBalance > 0 ? "action.hover" : undefined,
+                  borderColor: summary.outstandingBalance > 0 ? "error.light" : "success.light",
+                  bgcolor: summary.outstandingBalance > 0 ? "action.hover" : undefined,
                 }}
               >
                 <CardContent>
@@ -188,13 +191,13 @@ export default function ManagerPayments() {
                     sx={{
                       fontWeight: 700,
                       mt: 0.5,
-                      color: summary.OutstandingBalance > 0 ? "error.main" : "success.main",
+                      color: summary.outstandingBalance > 0 ? "error.main" : "success.main",
                     }}
                   >
-                    {money(summary.OutstandingBalance)}
+                    {money(summary.outstandingBalance)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {summary.OutstandingBalance === 0 ? "Đã thu đủ toàn bộ" : "Dư nợ cần thu"}
+                    {summary.outstandingBalance === 0 ? "Đã thu đủ toàn bộ" : "Dư nợ cần thu"}
                   </Typography>
                 </CardContent>
               </Card>
@@ -202,7 +205,7 @@ export default function ManagerPayments() {
 
             {/* 2. Payment Milestones Table */}
             <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
-              Tiến độ thanh toán theo mốc (Milestones)
+              Hai lần thanh toán: đặt cọc và tất toán
             </Typography>
             <Card sx={{ mb: 3 }}>
               <TableContainer>
@@ -222,52 +225,52 @@ export default function ManagerPayments() {
                   </TableHead>
                   <TableBody>
                     {milestones.map((m) => {
-                      const isDownloading = downloadingType === m.PaymentType;
+                      const isDownloading = downloadingType === m.paymentType;
                       return (
-                        <TableRow key={m.PaymentType} hover>
+                        <TableRow key={m.paymentType} hover>
                           <TableCell>
                             <Stack spacing={0.25}>
                               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {m.MilestoneName}
+                                {m.milestoneName}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                Mã: {m.PaymentType}
+                                {m.paymentType === "Deposit" ? "Khi ký hợp đồng" : "Sau ngày cưới, thanh toán một lần"}
                               </Typography>
                             </Stack>
                           </TableCell>
-                          <TableCell>{dateVi(m.DueDate)}</TableCell>
+                          <TableCell>{dateVi(m.dueDate)}</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600 }}>
-                            {money(m.Amount)}
+                            {money(m.amount)}
                           </TableCell>
                           <TableCell align="right">
-                            {m.PaidAmount > 0 ? (
+                            {m.paidAmount > 0 ? (
                               <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
-                                {money(m.PaidAmount)}
+                                {money(m.paidAmount)}
                               </Typography>
                             ) : (
                               "—"
                             )}
                           </TableCell>
                           <TableCell>
-                            <StatusChip kind="payment" status={m.Status} />
+                            <StatusChip kind="payment" status={m.status} />
                           </TableCell>
-                          <TableCell>{m.PaymentMethod || "—"}</TableCell>
-                          <TableCell>{dateVi(m.PaidDate)}</TableCell>
-                          <TableCell>{m.RecordedByName || "—"}</TableCell>
+                          <TableCell>{m.paymentMethod || "—"}</TableCell>
+                          <TableCell>{dateVi(m.paidDate)}</TableCell>
+                          <TableCell>{m.recordedByName || "—"}</TableCell>
                           <TableCell align="center">
-                            {m.ReceiptAvailable ? (
+                            {m.receiptAvailable ? (
                               <Button
                                 size="small"
                                 variant="outlined"
                                 startIcon={isDownloading ? <CircularProgress size={14} color="inherit" /> : <DownloadIcon />}
                                 disabled={isDownloading}
-                                onClick={() => handleDownloadReceipt(m.PaymentType)}
+                                onClick={() => handleDownloadReceipt(m.paymentType)}
                               >
                                 Tải chứng từ
                               </Button>
                             ) : (
                               <Typography variant="caption" color="text.secondary">
-                                {m.Status === "Paid" ? "Chưa có file" : "Chưa phát hành"}
+                                {m.status === "Paid" ? "Chưa có file" : "Chưa phát hành"}
                               </Typography>
                             )}
                           </TableCell>
@@ -281,7 +284,7 @@ export default function ManagerPayments() {
 
             {/* 3. Payment History */}
             <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
-              Lịch sử ghi nhận thanh toán (Audit History)
+              Lịch sử thanh toán
             </Typography>
             <Card>
               <TableContainer>
@@ -306,22 +309,22 @@ export default function ManagerPayments() {
                       </TableRow>
                     ) : (
                       history.map((h) => {
-                        const isDownloading = downloadingType === h.PaymentType;
+                        const isDownloading = downloadingType === h.paymentType;
                         return (
-                          <TableRow key={h.PaymentId} hover>
-                            <TableCell sx={{ fontWeight: 500 }}>{h.PaymentType}</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>{money(h.Amount)}</TableCell>
-                            <TableCell>{dateVi(h.PaymentDate)}</TableCell>
-                            <TableCell>{h.Method || "—"}</TableCell>
-                            <TableCell><StatusChip kind="payment" status={h.Status} /></TableCell>
-                            <TableCell>{h.RecordedByName || "—"}</TableCell>
+                          <TableRow key={h.paymentId} hover>
+                            <TableCell sx={{ fontWeight: 500 }}>{h.paymentType === "Deposit" ? "Tiền đặt cọc" : "Tất toán"}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600 }}>{money(h.amount)}</TableCell>
+                            <TableCell>{dateVi(h.paymentDate)}</TableCell>
+                            <TableCell>{h.method || "—"}</TableCell>
+                            <TableCell><StatusChip kind="payment" status={h.status} /></TableCell>
+                            <TableCell>{h.recordedByName || "—"}</TableCell>
                             <TableCell align="center">
-                              {h.ReceiptAvailable ? (
+                              {h.receiptAvailable ? (
                                 <Button
                                   size="small"
                                   startIcon={isDownloading ? <CircularProgress size={14} color="inherit" /> : <DownloadIcon />}
                                   disabled={isDownloading}
-                                  onClick={() => handleDownloadReceipt(h.PaymentType)}
+                                  onClick={() => handleDownloadReceipt(h.paymentType)}
                                 >
                                   Tải file
                                 </Button>
@@ -338,7 +341,9 @@ export default function ManagerPayments() {
               </TableContainer>
             </Card>
 
-            {/* Record Payment Dialog (M-14) */}
+            <Box sx={{ mt: 3 }}><InvoiceCard invoice={data.invoice} /></Box>
+
+            {/* Record settlement dialog */}
             <RecordPaymentDialog
               open={recordDialogOpen}
               onClose={() => setRecordDialogOpen(false)}

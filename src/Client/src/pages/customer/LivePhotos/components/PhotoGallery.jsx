@@ -3,7 +3,7 @@ import { Box, Dialog, Typography } from "@mui/material";
 import PhotoCard from "../../../../components/PhotoCard";
 import { dateTimeVi } from "../../../../utils/format";
 
-// Grid of proof photos tagged with the task; a click opens the full-size viewer (C-11). Empty → MSG01.
+// Grid of proof photos tagged with the task; a click opens the full-size viewer. Empty → MSG01.
 export default function PhotoGallery({ photos }) {
   const [open, setOpen] = useState(null);
   if (!photos.length)

@@ -19,13 +19,15 @@ import NotFound from "../pages/errors/NotFound";
 
 import AdminDashboard from "../pages/admin/Dashboard";
 import Catalog from "../pages/admin/Catalog";
+import Accounts from "../pages/admin/Accounts";
 import PriceFrames from "../pages/admin/PriceFrames";
 import Policies from "../pages/admin/Policies";
 import Reports from "../pages/admin/Reports";
 import HallUtilization from "../pages/admin/HallUtilization";
 import NetRevenue from "../pages/admin/NetRevenue";
-import CrStatistics from "../pages/admin/CrStatistics";
-import PhotoFeed from "../pages/admin/PhotoFeed";
+import AdminProjects from "../pages/admin/Projects";
+import AdminProjectDetail from "../pages/admin/ProjectDetail";
+import AuditLogs from "../pages/admin/AuditLogs";
 import PhotoAudit from "../pages/admin/PhotoAudit";
 import AdminOverdueAlerts from "../pages/admin/OverdueAlerts";
 import EscalatedComplaints from "../pages/admin/EscalatedComplaints";
@@ -35,12 +37,11 @@ import ManagerDashboard from "../pages/manager/Dashboard";
 import Projects from "../pages/manager/Projects";
 import CreateProject from "../pages/manager/CreateProject";
 import ProjectHub from "../pages/manager/ProjectHub";
+import Addons from "../pages/manager/Addons";
+import Suppliers from "../pages/manager/Suppliers";
+import BookedEvent from "../pages/customer/BookedEvent";
+import AddonStatistics from "../pages/admin/AddonStatistics";
 import Specification from "../pages/manager/Specification";
-import ManagerRoadmap from "../pages/manager/Roadmap";
-import ManagerChangeRequests from "../pages/manager/ChangeRequests";
-import ManagerCreateChangeRequest from "../pages/manager/CreateChangeRequest";
-import ManagerChangeRequestDetail from "../pages/manager/ChangeRequestDetail";
-import CostImpact from "../pages/manager/CostImpact";
 import Beo from "../pages/manager/Beo";
 import DepartmentSheets from "../pages/manager/DepartmentSheets";
 import ManagerPayments from "../pages/manager/Payments";
@@ -53,12 +54,6 @@ import ConflictDetail from "../pages/manager/ConflictDetail";
 import ManagerOverdueAlerts from "../pages/manager/OverdueAlerts";
 
 import Overview from "../pages/customer/Overview";
-import Contract from "../pages/customer/Contract";
-import Addenda from "../pages/customer/Addenda";
-import CustomerRoadmap from "../pages/customer/Roadmap";
-import CustomerChangeRequests from "../pages/customer/ChangeRequests";
-import CreateChangeRequest from "../pages/customer/CreateChangeRequest";
-import CustomerChangeRequestDetail from "../pages/customer/ChangeRequestDetail";
 import CustomerPayments from "../pages/customer/Payments";
 import LivePhotos from "../pages/customer/LivePhotos";
 import PostEvent from "../pages/customer/PostEvent";
@@ -73,7 +68,7 @@ function Home() {
 }
 
 // One branch per role: each has its own layout and is guarded by RequireRole.
-// Dialogs (A-03, A-05, A-07, A-08, A-17, C-04, C-08, M-12, M-14, M-17, M-20) open on their parent page and have no URL.
+// Dialogs open on their parent page and have no URL.
 export default function AppRoutes() {
   return (
     <Routes>
@@ -100,13 +95,16 @@ export default function AppRoutes() {
           <Route index element={<Reports />} />
           <Route path="hall-utilization" element={<HallUtilization />} />
           <Route path="net-revenue" element={<NetRevenue />} />
-          <Route path="change-requests" element={<CrStatistics />} />
+          <Route path="addons" element={<AddonStatistics />} />
         </Route>
-        <Route path="photo-feed" element={<PhotoFeed />} />
-        <Route path="photo-feed/:photoId" element={<PhotoAudit />} />
+        <Route path="projects" element={<AdminProjects />} />
+        <Route path="projects/:projectCode" element={<AdminProjectDetail />} />
+        <Route path="photos/:photoId" element={<PhotoAudit />} />
         <Route path="overdue-alerts" element={<AdminOverdueAlerts />} />
         <Route path="complaints" element={<EscalatedComplaints />} />
         <Route path="exception-requests" element={<ExceptionRequests />} />
+        <Route path="accounts" element={<Accounts />} />
+        <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="*" element={<NotFound />} />
       </Route>
 
@@ -118,11 +116,8 @@ export default function AppRoutes() {
         <Route path="projects/:projectCode" element={<ProjectLayout />}>
           <Route index element={<ProjectHub />} />
           <Route path="specification" element={<Specification />} />
-          <Route path="roadmap" element={<ManagerRoadmap />} />
-          <Route path="change-requests" element={<ManagerChangeRequests />} />
-          <Route path="change-requests/new" element={<ManagerCreateChangeRequest />} />
-          <Route path="change-requests/:crCode" element={<ManagerChangeRequestDetail />} />
-          <Route path="change-requests/:crCode/cost-impact" element={<CostImpact />} />
+          <Route path="addons" element={<Addons />} />
+          <Route path="suppliers" element={<Suppliers />} />
           <Route path="beo" element={<Beo />} />
           <Route path="beo/department-sheets" element={<DepartmentSheets />} />
           <Route path="payments" element={<ManagerPayments />} />
@@ -140,12 +135,8 @@ export default function AppRoutes() {
       <Route path="/customer" element={<RequireRole roles={[ROLES.CUSTOMER]}><CustomerLayout /></RequireRole>}>
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<Overview />} />
-        <Route path="contract" element={<Contract />} />
-        <Route path="contract/addenda" element={<Addenda />} />
-        <Route path="roadmap" element={<CustomerRoadmap />} />
-        <Route path="change-requests" element={<CustomerChangeRequests />} />
-        <Route path="change-requests/new" element={<CreateChangeRequest />} />
-        <Route path="change-requests/:crCode" element={<CustomerChangeRequestDetail />} />
+        <Route path="event" element={<BookedEvent />} />
+        <Route path="contract" element={<Navigate to="/customer/event" replace />} />
         <Route path="payments" element={<CustomerPayments />} />
         <Route path="live-photos" element={<LivePhotos />} />
         <Route path="post-event" element={<PostEvent />} />

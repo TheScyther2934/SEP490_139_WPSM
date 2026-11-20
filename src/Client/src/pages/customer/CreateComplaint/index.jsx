@@ -46,7 +46,7 @@ export default function CreateComplaint() {
     e.preventDefault();
     const trimmed = description.trim();
     if (!trimmed) {
-      setValidationError("Vui lòng nhập mô tả chi tiết nội dung khiếu nại (MSG25).");
+      setValidationError("Vui lòng nhập mô tả chi tiết nội dung khiếu nại.");
       return;
     }
     setValidationError("");
@@ -75,10 +75,10 @@ export default function CreateComplaint() {
       <PageHeader
         code="C-15"
         title="Gửi Hồ sơ Khiếu nại Dịch vụ"
-        subtitle="Chọn phiên bản BEO cam kết để đối chiếu và mô tả chi tiết sự việc cần Quản lý dự án giải quyết."
+        subtitle="Chọn phiên bản phiếu điều phối cam kết để đối chiếu và mô tả chi tiết sự việc cần Quản lý sự kiện giải quyết."
         actions={
           <Button startIcon={<ArrowBackIcon />} component={RouterLink} to={PATHS.customer.complaints}>
-            Danh sách khiếu nại (C-14)
+            Danh sách khiếu nại
           </Button>
         }
       />
@@ -93,10 +93,10 @@ export default function CreateComplaint() {
                 </Alert>
 
                 <FormControl fullWidth>
-                  <InputLabel id="beo-select-label">Phiên bản BEO đối chiếu cam kết</InputLabel>
+                  <InputLabel id="beo-select-label">Phiên bản phiếu điều phối đối chiếu cam kết</InputLabel>
                   <Select
                     labelId="beo-select-label"
-                    label="Phiên bản BEO đối chiếu cam kết"
+                    label="Phiên bản phiếu điều phối đối chiếu cam kết"
                     value={beoId}
                     onChange={(e) => setBeoId(e.target.value)}
                   >
@@ -107,7 +107,7 @@ export default function CreateComplaint() {
                         </MenuItem>
                       ))
                     ) : (
-                      <MenuItem value="">BEO mặc định của dự án</MenuItem>
+                      <MenuItem value="">BEO mặc định của sự kiện</MenuItem>
                     )}
                   </Select>
                 </FormControl>
@@ -127,7 +127,7 @@ export default function CreateComplaint() {
                     `${description.length}/1000 ký tự · Nêu rõ hạng mục (Sảnh, Thực đơn, Trang trí, Âm thanh/MC) và sai lệch so với cam kết.`
                   }
                   inputProps={{ maxLength: 1000 }}
-                  placeholder="Ví dụ: Số lượng bàn tiệc hoặc hoa tươi khu vực sân khấu thực tế không đúng với cam kết trong BEO..."
+                  placeholder="Ví dụ: Số lượng bàn tiệc hoặc hoa tươi khu vực sân khấu thực tế không đúng với cam kết trong phiếu điều phối..."
                   fullWidth
                 />
 

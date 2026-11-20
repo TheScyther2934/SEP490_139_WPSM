@@ -64,9 +64,9 @@ public sealed class ManagerDashboardTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = today.AddDays(5),
             BaseContractValue = 100_000_000,
-            Nrdamount = 30_000_000,
+            DepositAmount = 30_000_000,
             CurrentTotal = 100_000_000,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -81,9 +81,9 @@ public sealed class ManagerDashboardTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = today.AddDays(2),
             BaseContractValue = 150_000_000,
-            Nrdamount = 45_000_000,
+            DepositAmount = 45_000_000,
             CurrentTotal = 150_000_000,
-            Status = "Active Baseline",
+            Status = "Adjusting",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -128,29 +128,13 @@ public sealed class ManagerDashboardTests : IDisposable
             Status = "Stale"
         });
 
-        // Roadmap task for Manager A
-        _db.RoadmapTasks.Add(new RoadmapTask
-        {
-            TaskId = 101,
-            ProjectId = projA.ProjectId,
-            Milestone = "T-30",
-            Title = "Soạn BEO Manager A",
-            AssigneeRole = "Manager",
-            DueDate = today.AddDays(10),
-            Status = "Pending"
-        });
-
-        // Customer task on Project A (must be excluded from My Tasks)
-        _db.RoadmapTasks.Add(new RoadmapTask
-        {
-            TaskId = 102,
-            ProjectId = projA.ProjectId,
-            Milestone = "T-30",
-            Title = "Khách chọn menu",
-            AssigneeRole = "Customer",
-            DueDate = today.AddDays(10),
-            Status = "Pending"
-        });
+        // Project A is locked and one service needs a supplier but has no evidence yet: a task for Manager A.
+        _db.ServiceCatalogItems.Add(new ServiceCatalogItem { ItemId = 7, Name = "Hoa tươi", Category = "Decor", Unit = "Gói", DefaultPrice = 5_000_000, Status = "Active", RequiresSupplier = true });
+        _db.SpecItems.Add(new SpecItem { SpecItemId = 70, ProjectId = projA.ProjectId, CatalogItemId = 7, Description = "Hoa tươi", Quantity = 1, UnitPrice = 5_000_000 });
+        // Project B (Manager B) has an addon contract waiting for the customer: never shown to Manager A.
+        var addon = new AddonContract { AddonCode = "PS-B-01", ProjectId = projB.ProjectId, Title = "Thêm bàn", Status = "PendingCustomer", CreatedBy = _managerB.UserId, CreatedAt = DateTime.UtcNow };
+        addon.Items.Add(new AddonContractItem { Description = "Bàn", Quantity = 1, UnitPrice = 3_500_000 });
+        _db.AddonContracts.Add(addon);
 
         await _db.SaveChangesAsync();
 
@@ -171,8 +155,16 @@ public sealed class ManagerDashboardTests : IDisposable
         Assert.Equal("WPSM-PROJ-A", dashboardA.StaleBeos[0].ProjectCode);
 
         // MyTasks must only contain Manager A's tasks, never Customer or Manager B tasks
-        Assert.Single(dashboardA.MyTasks);
-        Assert.Equal("Soạn BEO Manager A", dashboardA.MyTasks[0].Title);
-        Assert.Equal("WPSM-PROJ-A", dashboardA.MyTasks[0].ProjectCode);
+        var task = Assert.Single(dashboardA.MyTasks);
+        Assert.Equal("Supplier", task.TaskType);
+        Assert.Contains("nhà cung cấp", task.Title);
+        Assert.Equal("WPSM-PROJ-A", task.ProjectCode);
+        Assert.Equal(0, dashboardA.Kpis.PendingAddons);
+        var next = Assert.Single(dashboardA.UpcomingMilestones);
+        Assert.Equal(1, next.MissingSuppliers);
+
+        var dashboardB = await _service.GetDashboardAsync(_managerB.UserId);
+        Assert.Equal(1, dashboardB.Kpis.PendingAddons);
+        Assert.Contains(dashboardB.MyTasks, t => t.TaskType == "Addon" && t.ProjectCode == "WPSM-PROJ-B");
     }
 }

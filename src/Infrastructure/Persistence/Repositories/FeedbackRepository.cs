@@ -28,7 +28,7 @@ public sealed class FeedbackRepository(WpsmDbContext db) : IFeedbackRepository
     {
         var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
         if (project is null) return null;
-        if (!AfterSettlement.Contains(project.Status)) throw new InvalidOperationException("Chỉ đánh giá được sau khi dự án đã quyết toán (GBR-10).");
+        if (!AfterSettlement.Contains(project.Status)) throw new InvalidOperationException("Chỉ đánh giá được sau khi sự kiện đã tất toán (GBR-10).");
         if (ratings.Count == 0) throw new InvalidOperationException("Hãy chấm sao ít nhất một hạng mục.");
         var existing = await db.Ratings.Where(x => x.ProjectId == project.ProjectId).Select(x => x.Module).ToListAsync(cancellationToken);
         foreach (var rating in ratings)
@@ -62,7 +62,7 @@ public sealed class FeedbackRepository(WpsmDbContext db) : IFeedbackRepository
             .Include(x => x.Beo).ThenInclude(x => x.BeodepartmentSheets)
             .FirstOrDefaultAsync(x => x.ComplaintCode == complaintCode && x.Project.ProjectCode == projectCode, cancellationToken);
         if (complaint is null) return null;
-        var photos = await db.ExecutionPhotos.AsNoTracking().Where(x => x.DayOfTask.ProjectId == complaint.ProjectId).OrderBy(x => x.UploadedAt)
+        var photos = await db.ExecutionPhotos.AsNoTracking().Where(x => x.DayOfTask.ProjectId == complaint.ProjectId && (x.ContentType == null || x.ContentType.StartsWith("image/"))).OrderBy(x => x.UploadedAt)
             .Select(x => new DayOfPhotoView(x.PhotoId, x.UploadedAt)).ToListAsync(cancellationToken);
         return new ComplaintDetailView(complaint.ComplaintCode, complaint.Project.ProjectCode, complaint.Project.Customer.FullName, complaint.Beo.Version,
             complaint.Description, complaint.Status, complaint.EscalationNote, complaint.ResolutionNote, Utc(complaint.CreatedAt),
@@ -74,8 +74,8 @@ public sealed class FeedbackRepository(WpsmDbContext db) : IFeedbackRepository
     public async Task<ComplaintDetailView> FileComplaintAsync(string projectCode, int beoVersion, string description, CancellationToken cancellationToken = default)
     {
         var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken)
-            ?? throw new InvalidOperationException("Không tìm thấy dự án.");
-        if (!AfterSettlement.Contains(project.Status)) throw new InvalidOperationException("Chỉ gửi khiếu nại sau khi dự án đã quyết toán.");
+            ?? throw new InvalidOperationException("Không tìm thấy sự kiện.");
+        if (!AfterSettlement.Contains(project.Status)) throw new InvalidOperationException("Chỉ gửi khiếu nại sau khi sự kiện đã tất toán.");
         description = description?.Trim() ?? "";
         if (description.Length == 0) throw new InvalidOperationException("Trường Mô tả là bắt buộc.");
         if (description.Length > 1000) throw new InvalidOperationException("Vượt quá độ dài tối đa 1000 ký tự.");
@@ -87,7 +87,7 @@ public sealed class FeedbackRepository(WpsmDbContext db) : IFeedbackRepository
             ProjectId = project.ProjectId, Beoid = beo.Beoid, Description = description, Status = "Open", CreatedAt = DateTime.UtcNow
         };
         db.Complaints.Add(complaint);
-        Notify(db, project.ManagerId, "Complaint", $"Khách hàng gửi khiếu nại {complaint.ComplaintCode} cho dự án {project.ProjectCode}.",
+        Notify(db, project.ManagerId, "Complaint", $"Khách hàng gửi khiếu nại {complaint.ComplaintCode} cho sự kiện {project.ProjectCode}.",
             Links.ManagerComplaint(project.ProjectCode, complaint.ComplaintCode));
         await db.SaveChangesAsync(cancellationToken);
         return (await GetComplaintAsync(projectCode, complaint.ComplaintCode, cancellationToken))!;

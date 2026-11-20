@@ -14,7 +14,7 @@ import { useAsync } from "../../../hooks/useAsync";
 import { adminService } from "../../../services/adminService";
 import { notify } from "../../../store/notifySlice";
 
-// A-18 Special Exception Requests (UC-47). A queue of CR penalty waivers and resource conflicts:
+// A-18 Special Exception Requests (UC-47). A queue of resource conflicts escalated by operators:
 // the Admin reviews the source-specific context and decides with a mandatory note.
 export default function ExceptionRequests() {
   const dispatch = useDispatch();

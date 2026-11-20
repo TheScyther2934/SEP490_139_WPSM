@@ -23,19 +23,16 @@ public static class EndpointHelpers
         }
     }
 
-    public static IResult PhotoFile(string filePath, IWebHostEnvironment environment)
+    /// <summary>
+    /// Serves a stored file after the caller checked access: a photo on Cloudinary is a redirect to a download link valid 5 minutes,
+    /// a PDF (or any file on the local disk) is streamed by the API. Shown inline (the browser displays it).
+    /// </summary>
+    public static async Task<IResult> ServeStoredFile(IFileService files, StoredFileRef file, HttpContext context, CancellationToken ct)
     {
-        if (!Path.IsPathRooted(filePath)) filePath = Path.Combine(environment.ContentRootPath, filePath);
-        if (!File.Exists(filePath)) return Results.NotFound();
-        var contentType = Path.GetExtension(filePath).ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            ".gif" => "image/gif",
-            _ => "application/octet-stream"
-        };
-        return Results.File(filePath, contentType, enableRangeProcessing: true);
+        if (await files.OpenAsync(file.StorageKey, file.ContentType, file.FileName, ct) is not { } content) return Results.NotFound();
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        context.Response.Headers.CacheControl = "private, max-age=240";
+        return content.RedirectUrl is { } url ? Results.Redirect(url) : Results.File(content.Content!, content.ContentType, enableRangeProcessing: true);
     }
 
     public static int UserId(ClaimsPrincipal user) => int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var id)

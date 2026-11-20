@@ -53,7 +53,7 @@ export default function SettlementReceipt() {
     try {
       setGenerating(true);
       await projectService.generateReceipt(projectCode);
-      dispatch(notify({ message: "Đã phát hành biên nhận quyết toán thành công.", severity: "success" }));
+      dispatch(notify({ message: "Đã phát hành biên nhận tất toán thành công.", severity: "success" }));
       reload();
     } catch (err) {
       dispatch(notify({ message: errorMessage(err), severity: "error" }));
@@ -67,7 +67,7 @@ export default function SettlementReceipt() {
       setDownloading(true);
       const blob = await projectService.downloadSettlementReceipt(projectCode);
       saveBlobAsFile(blob, `Bien_nhan_quyet_toan_${projectCode}.pdf`);
-      dispatch(notify({ message: "Đã tải xuống file PDF biên nhận quyết toán.", severity: "success" }));
+      dispatch(notify({ message: "Đã tải xuống file PDF biên nhận tất toán.", severity: "success" }));
     } catch (err) {
       dispatch(notify({ message: errorMessage(err), severity: "error" }));
     } finally {
@@ -89,8 +89,8 @@ export default function SettlementReceipt() {
       <Box sx={{ "@media print": { display: "none" } }}>
         <PageHeader
           code="M-15"
-          title="Quyết toán hợp đồng & Biên nhận"
-          subtitle={summary ? `Dự án: ${summary.ProjectCode} — ${summary.CoupleName}` : undefined}
+          title="Tất toán hợp đồng & Biên nhận"
+          subtitle={summary ? `Sự kiện: ${summary.projectCode} — ${summary.coupleName}` : undefined}
           actions={
             <Stack direction="row" spacing={1.5}>
               <Button
@@ -133,7 +133,7 @@ export default function SettlementReceipt() {
               {!isEventCompleted && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
                   Sự kiện cưới chưa diễn ra hoặc chưa hoàn tất (Event Date: {dateVi(summary?.EventDate)}).
-                  Theo quy định hệ thống, quyết toán hợp đồng chỉ được thực hiện sau khi sự kiện cưới hoàn tất.
+                  Theo quy định hệ thống, tất toán hợp đồng chỉ được thực hiện sau khi sự kiện cưới hoàn tất.
                 </Alert>
               )}
 
@@ -147,12 +147,12 @@ export default function SettlementReceipt() {
                       component={RouterLink}
                       to={`/manager/projects/${encodeURIComponent(projectCode)}/payments`}
                     >
-                      Thu Final Payment (M-13)
+                      Thu Final Payment
                     </Button>
                   }
                   sx={{ mb: 2 }}
                 >
-                  Dự án còn số dư chưa thanh toán ({money(finalAmountDue)}). Cần thu đủ số dư trước khi phát hành biên nhận quyết toán.
+                  Sự kiện còn số dư chưa thanh toán ({money(finalAmountDue)}). Cần thu đủ số dư trước khi phát hành biên nhận tất toán.
                 </Alert>
               )}
 
@@ -169,12 +169,12 @@ export default function SettlementReceipt() {
                       startIcon={generating ? <CircularProgress size={14} color="inherit" /> : <ReceiptLongIcon />}
                       onClick={handleGenerateReceipt}
                     >
-                      {generating ? "Đang phát hành..." : "Phát hành biên nhận quyết toán"}
+                      {generating ? "Đang phát hành..." : "Phát hành biên nhận tất toán"}
                     </Button>
                   }
                   sx={{ mb: 2 }}
                 >
-                  Sự kiện đã hoàn tất và số dư đã đối soát = 0 đ. Dự án đủ điều kiện quyết toán chính thức!
+                  Sự kiện đã hoàn tất và số dư đã đối soát = 0 đ. Sự kiện đủ điều kiện tất toán chính thức!
                 </Alert>
               )}
             </Box>
@@ -182,7 +182,7 @@ export default function SettlementReceipt() {
             {/* 1. Settlement Calculation Table (hidden on print) */}
             <Box sx={{ mb: 4, "@media print": { display: "none" } }}>
               <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600 }}>
-                Bảng đối soát quyết toán (Settlement Calculation)
+                Bảng đối soát tất toán (Settlement Calculation)
               </Typography>
               <Card>
                 <TableContainer>
@@ -196,69 +196,62 @@ export default function SettlementReceipt() {
                     </TableHead>
                     <TableBody>
                       <TableRow>
-                        <TableCell>Giá trị hợp đồng gốc (Base Contract Value)</TableCell>
+                        <TableCell>Hợp đồng sau điều chỉnh</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>
-                          {money(settlement.BaseContractValue)}
+                          {money(settlement.baseContractValue)}
                         </TableCell>
-                        <TableCell color="text.secondary">Giá trị cố định từ Contract Baseline</TableCell>
+                        <TableCell color="text.secondary">Tổng các dịch vụ đã đặt sau giai đoạn điều chỉnh</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell>Chênh lệch CR đã duyệt (Approved CR Variance)</TableCell>
+                        <TableCell>Hợp đồng phát sinh khách đã xác nhận</TableCell>
                         <TableCell
                           align="right"
                           sx={{
                             fontWeight: 600,
-                            color: settlement.ApprovedCrVariance > 0 ? "warning.main" : settlement.ApprovedCrVariance < 0 ? "info.main" : "text.secondary",
+                            color: settlement.confirmedAddonTotal > 0 ? "warning.main" : "text.secondary",
                           }}
                         >
-                          {signedMoney(settlement.ApprovedCrVariance)}
+                          {money(settlement.confirmedAddonTotal)}
                         </TableCell>
-                        <TableCell color="text.secondary">Tổng phát sinh từ các CR trạng thái Approved</TableCell>
+                        <TableCell color="text.secondary">Chỉ tính phát sinh khách đã bấm xác nhận</TableCell>
                       </TableRow>
                       <TableRow sx={{ bgcolor: "action.hover" }}>
-                        <TableCell sx={{ fontWeight: 700 }}>Tổng giá trị dự án hiện tại (Current Project Total)</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Tổng phải thanh toán</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: "primary.main" }}>
-                          {money(settlement.CurrentProjectTotal)}
+                          {money(settlement.currentProjectTotal)}
                         </TableCell>
-                        <TableCell color="text.secondary">Giá trị gốc + Chênh lệch CR</TableCell>
+                        <TableCell color="text.secondary">Hợp đồng + phát sinh</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell>Đặt cọc NRD đã thu (NRD Paid)</TableCell>
+                        <TableCell>Tiền đặt cọc đã thu</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600, color: "success.main" }}>
-                          - {money(settlement.NrdPaid)}
+                          - {money(settlement.depositPaid)}
                         </TableCell>
-                        <TableCell color="text.secondary">Thu tại bước khởi tạo dự án</TableCell>
+                        <TableCell color="text.secondary">Thu tại bước khởi tạo sự kiện</TableCell>
                       </TableRow>
-                      <TableRow>
-                        <TableCell>Đợt hai T-30 đã thu (T-30 Paid)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, color: "success.main" }}>
-                          - {money(settlement.T30Paid)}
-                        </TableCell>
-                        <TableCell color="text.secondary">Thu tại mốc T-30 ngày trước tiệc</TableCell>
-                      </TableRow>
-                      {settlement.OtherRecordedPayments > 0 && (
+                      {settlement.otherRecordedPayments > 0 && (
                         <TableRow>
-                          <TableCell>Các khoản đã thu khác / Final Payment</TableCell>
+                          <TableCell>Tất toán đã thu</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 600, color: "success.main" }}>
-                            - {money(settlement.OtherRecordedPayments)}
+                            - {money(settlement.otherRecordedPayments)}
                           </TableCell>
-                          <TableCell color="text.secondary">Các đợt ghi nhận thanh toán bổ sung</TableCell>
+                          <TableCell color="text.secondary">Thanh toán một lần sau ngày cưới</TableCell>
                         </TableRow>
                       )}
-                      <TableRow sx={{ bgcolor: settlement.FinalAmountDue > 0 ? "error.light" : "success.light" }}>
-                        <TableCell sx={{ fontWeight: 800 }}>Số tiền quyết toán còn lại (Final Amount Due)</TableCell>
+                      <TableRow sx={{ bgcolor: settlement.finalAmountDue > 0 ? "error.light" : "success.light" }}>
+                        <TableCell sx={{ fontWeight: 800 }}>Số tiền tất toán còn lại (Final Amount Due)</TableCell>
                         <TableCell
                           align="right"
                           sx={{
                             fontWeight: 800,
                             fontSize: "1.1rem",
-                            color: settlement.FinalAmountDue > 0 ? "error.main" : "success.dark",
+                            color: settlement.finalAmountDue > 0 ? "error.main" : "success.dark",
                           }}
                         >
-                          {money(settlement.FinalAmountDue)}
+                          {money(settlement.finalAmountDue)}
                         </TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>
-                          {settlement.FinalAmountDue === 0 ? "ĐÃ ĐỐI SOÁT XONG (0 VND)" : "CẦN THANH TOÁN TIẾP"}
+                          {settlement.finalAmountDue === 0 ? "ĐÃ ĐỐI SOÁT XONG (0 VND)" : "CẦN THANH TOÁN TIẾP"}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -270,7 +263,7 @@ export default function SettlementReceipt() {
             {/* 2. Official Final Settlement Receipt Preview (Always visible, styled for print) */}
             <Box sx={{ mt: 3 }}>
               <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 600, "@media print": { display: "none" } }}>
-                Mẫu biên nhận quyết toán chính thức (Preview)
+                Mẫu biên nhận tất toán chính thức (Preview)
               </Typography>
 
               <Card
@@ -306,7 +299,7 @@ export default function SettlementReceipt() {
                       Số biên nhận: <strong>FSR-{projectCode}</strong>
                     </Typography>
                     <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
-                      Ngày phát hành: {dateTimeVi(settlement.CalculatedAt)}
+                      Ngày phát hành: {dateTimeVi(settlement.calculatedAt)}
                     </Typography>
                   </Box>
                 </Stack>
@@ -325,12 +318,12 @@ export default function SettlementReceipt() {
                 {/* Customer info */}
                 <Box sx={{ my: 3, p: 2, bgcolor: "action.hover", borderRadius: 1 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, textTransform: "uppercase" }}>
-                    Thông tin dự án & Khách hàng
+                    Thông tin sự kiện & Khách hàng
                   </Typography>
                   <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2}>
                     <Box>
                       <Typography variant="body2">Cặp đôi: <strong>{summary?.CoupleName}</strong></Typography>
-                      <Typography variant="body2">Mã dự án: <strong>{projectCode}</strong></Typography>
+                      <Typography variant="body2">Mã sự kiện: <strong>{projectCode}</strong></Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2">Ngày cưới: <strong>{dateVi(summary?.EventDate)}</strong></Typography>
@@ -341,30 +334,30 @@ export default function SettlementReceipt() {
 
                 {/* Itemized summary */}
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, textTransform: "uppercase" }}>
-                  Tổng kết quyết toán tài chính
+                  Tổng kết tất toán tài chính
                 </Typography>
                 <Table size="small" sx={{ mb: 3 }}>
                   <TableBody>
                     <TableRow>
-                      <TableCell sx={{ pl: 0 }}>1. Giá trị hợp đồng gốc (Base Contract Value)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>{money(settlement.BaseContractValue)}</TableCell>
+                      <TableCell sx={{ pl: 0 }}>1. Hợp đồng sau điều chỉnh</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>{money(settlement.baseContractValue)}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell sx={{ pl: 0 }}>2. Tổng chênh lệch Change Requests đã phê duyệt</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600 }}>{signedMoney(settlement.ApprovedCrVariance)}</TableCell>
+                      <TableCell sx={{ pl: 0 }}>2. Hợp đồng phát sinh đã xác nhận</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>{money(settlement.confirmedAddonTotal)}</TableCell>
                     </TableRow>
                     <TableRow sx={{ borderTop: "2px solid #ccc" }}>
-                      <TableCell sx={{ pl: 0, fontWeight: 700 }}>Tổng giá trị quyết toán thực tế</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, color: "primary.main" }}>{money(settlement.CurrentProjectTotal)}</TableCell>
+                      <TableCell sx={{ pl: 0, fontWeight: 700 }}>Tổng giá trị tất toán thực tế</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: "primary.main" }}>{money(settlement.currentProjectTotal)}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell sx={{ pl: 0 }}>3. Tổng số tiền đã thanh toán (Recorded Payments)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600, color: "success.main" }}>{money(settlement.TotalRecordedPayments)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, color: "success.main" }}>{money(settlement.totalRecordedPayments)}</TableCell>
                     </TableRow>
                     <TableRow sx={{ borderTop: "2px solid #333", bgcolor: "#f8f9fa" }}>
                       <TableCell sx={{ pl: 0, fontWeight: 800 }}>4. Dư nợ còn lại (Final Outstanding Balance)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 800, color: settlement.FinalAmountDue === 0 ? "success.dark" : "error.main" }}>
-                        {money(settlement.FinalAmountDue)} {settlement.FinalAmountDue === 0 ? "(HOÀN TẤT)" : ""}
+                      <TableCell align="right" sx={{ fontWeight: 800, color: settlement.finalAmountDue === 0 ? "success.dark" : "error.main" }}>
+                        {money(settlement.finalAmountDue)} {settlement.finalAmountDue === 0 ? "(HOÀN TẤT)" : ""}
                       </TableCell>
                     </TableRow>
                   </TableBody>

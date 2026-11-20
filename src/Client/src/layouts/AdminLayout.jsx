@@ -4,10 +4,12 @@ import CategoryIcon from "@mui/icons-material/Category";
 import PriceChangeIcon from "@mui/icons-material/PriceChange";
 import GavelIcon from "@mui/icons-material/Gavel";
 import AssessmentIcon from "@mui/icons-material/Assessment";
-import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
+import FolderSharedIcon from "@mui/icons-material/FolderShared";
 import WarningIcon from "@mui/icons-material/Warning";
 import ReportProblemIcon from "@mui/icons-material/ReportProblem";
 import RuleIcon from "@mui/icons-material/Rule";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
+import HistoryIcon from "@mui/icons-material/History";
 import TopNavShell from "./TopNavShell";
 import adminTheme, { NAVY } from "../adminTheme";
 import { PATHS } from "../routes/paths";
@@ -16,14 +18,16 @@ const A = PATHS.admin;
 // Order of the A-01 navigation (SRS 10.1): catalog → price frames → policies → reports → monitoring screens.
 const ITEMS = [
   { label: "Tổng quan", icon: DashboardIcon, to: A.dashboard },
-  { label: "Danh mục", icon: CategoryIcon, to: A.catalog },
+  { label: "Sự kiện", icon: FolderSharedIcon, to: A.projects },
+  { label: "Bảng dịch vụ", icon: CategoryIcon, to: A.catalog },
   { label: "Khung giá", icon: PriceChangeIcon, to: A.priceFrames },
   { label: "Chính sách", icon: GavelIcon, to: A.policies },
   { label: "Báo cáo", icon: AssessmentIcon, to: A.reports },
-  { label: "Ảnh minh chứng", icon: PhotoLibraryIcon, to: A.photoFeed },
-  { label: "Cảnh báo quá hạn", icon: WarningIcon, to: A.overdueAlerts },
+  { label: "Việc trễ hạn", icon: WarningIcon, to: A.overdueAlerts },
   { label: "Khiếu nại", icon: ReportProblemIcon, to: A.complaints },
-  { label: "Ngoại lệ", icon: RuleIcon, to: A.exceptionRequests },
+  { label: "Yêu cầu đặc biệt", icon: RuleIcon, to: A.exceptionRequests },
+  { label: "Tài khoản", icon: ManageAccountsIcon, to: A.accounts },
+  { label: "Nhật ký", icon: HistoryIcon, to: A.auditLogs },
 ];
 
 export default function AdminLayout() {

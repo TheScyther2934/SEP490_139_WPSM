@@ -1,73 +1,76 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
 import { isoDate } from "../../../../utils/format";
 
-// A-07 (kind "deposit": NRD and T-30 ratios); A-08 ranges live in PenaltyRulesDialog. SRS 10.4:
-// ratios 0–100, days integer ≥ 0, effective from today or later.
-const FIELDS = {
-  deposit: [
-    { key: "nrdRatio", label: "Tỷ lệ NRD (%)", max: 100 },
-    { key: "t30Ratio", label: "Tỷ lệ cộng dồn đến T-30 (%)", max: 100 },
-  ],
-  penalty: [
-    { key: "crPenaltyDays", label: "Số ngày trước tiệc", integer: true },
-    { key: "crPenaltyPercent", label: "Mức phạt (%)", max: 100 },
-  ],
-};
+const FIELDS = [
+  { key: "depositRatio", label: "Tiền đặt cọc (%)", min: 1, max: 100 },
+  { key: "maxDecreaseRatio", label: "Giảm tối đa trong giai đoạn điều chỉnh (%)", min: 0, max: 99 },
+  { key: "bookingMinDays", label: "Ký hợp đồng: ngày cưới cách tối thiểu (ngày)", min: 1, max: 365, integer: true },
+  { key: "bookingMaxDays", label: "Ký hợp đồng: ngày cưới cách tối đa (ngày)", min: 1, max: 365, integer: true },
+  { key: "lockDays", label: "Tự khóa dịch vụ trước ngày cưới (ngày)", min: 1, max: 365, integer: true },
+  { key: "supplierDeadlineDays", label: "Hạn đặt nhà cung cấp trước ngày cưới (ngày)", min: 1, max: 365, integer: true },
+  { key: "settlementDueDays", label: "Hạn tất toán sau ngày cưới (ngày)", min: 0, max: 90, integer: true },
+];
+const HOTLINE = /^[0-9 .+]{6,20}$/;
 
-export function validatePolicy(kind, values) {
+export function validatePolicy(v) {
   const errors = {};
-  for (const f of FIELDS[kind]) {
-    const raw = values[f.key];
-    const n = Number(raw);
-    if (raw === "" || raw == null) errors[f.key] = `Trường ${f.label} là bắt buộc.`;
-    else if (Number.isNaN(n) || n < 0 || (f.max != null && n > f.max)) errors[f.key] = f.max != null ? "Giá trị từ 0 đến 100." : "Giá trị phải từ 0 trở lên.";
-    else if (f.integer && !Number.isInteger(n)) errors[f.key] = "Giá trị phải là số nguyên.";
+  for (const f of FIELDS) {
+    const n = Number(v[f.key]);
+    if (v[f.key] === "" || v[f.key] == null) errors[f.key] = "Bắt buộc.";
+    else if (Number.isNaN(n) || n < f.min || n > f.max) errors[f.key] = `Từ ${f.min} đến ${f.max}.`;
+    else if (f.integer && !Number.isInteger(n)) errors[f.key] = "Phải là số nguyên.";
   }
-  if (kind === "deposit" && !errors.nrdRatio && !errors.t30Ratio && Number(values.t30Ratio) < Number(values.nrdRatio))
-    errors.t30Ratio = "Tỷ lệ T-30 là tỷ lệ cộng dồn nên không nhỏ hơn tỷ lệ NRD.";
-  if (!values.effectiveFrom) errors.effectiveFrom = "Trường Hiệu lực từ là bắt buộc.";
-  else if (values.effectiveFrom < isoDate(new Date())) errors.effectiveFrom = "Ngày hiệu lực phải từ hôm nay trở đi.";
+  if (!errors.bookingMaxDays && Number(v.bookingMaxDays) < Number(v.bookingMinDays)) errors.bookingMaxDays = "Phải lớn hơn hoặc bằng số ngày tối thiểu.";
+  if (!errors.lockDays && Number(v.lockDays) < Number(v.supplierDeadlineDays)) errors.lockDays = "Mốc khóa phải sớm hơn hoặc bằng hạn đặt nhà cung cấp.";
+  if (!errors.lockDays && Number(v.lockDays) >= Number(v.bookingMinDays)) errors.lockDays = "Mốc khóa phải nhỏ hơn số ngày ký tối thiểu.";
+  if (!errors.maxDecreaseRatio && 100 - Number(v.maxDecreaseRatio) < Number(v.depositRatio)) errors.maxDecreaseRatio = "Giá trị sau khi giảm phải luôn lớn hơn tiền đặt cọc.";
+  if (!HOTLINE.test(String(v.hotline ?? "").trim())) errors.hotline = "Chỉ gồm chữ số (6–20 ký tự).";
+  if (!v.effectiveFrom) errors.effectiveFrom = "Bắt buộc.";
+  else if (v.effectiveFrom < isoDate(new Date())) errors.effectiveFrom = "Ngày hiệu lực phải từ hôm nay trở đi.";
   return errors;
 }
 
-export default function PolicyDialog({ kind, policy, onClose, onSave }) {
+export default function PolicyDialog({ open, policy, onClose, onSave }) {
   const [values, setValues] = useState({});
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    if (kind) {
-      setValues({ ...Object.fromEntries(FIELDS[kind].map((f) => [f.key, String(policy[f.key])])), effectiveFrom: isoDate(new Date()) });
+    if (open && policy) {
+      setValues({ ...Object.fromEntries(FIELDS.map((f) => [f.key, String(policy[f.key])])), hotline: policy.hotline, effectiveFrom: isoDate(new Date()) });
       setErrors({});
       setServerError("");
     }
-  }, [kind, policy]);
+  }, [open, policy]);
 
   const save = async () => {
-    const next = validatePolicy(kind, values);
+    const next = validatePolicy(values);
     setErrors(next);
     if (Object.keys(next).length) return;
     setSaving(true);
-    const changed = Object.fromEntries(FIELDS[kind].map((f) => [f.key, Number(values[f.key])]));
-    const message = await onSave({ ...policy, ...changed, effectiveFrom: values.effectiveFrom });
+    const message = await onSave({ ...Object.fromEntries(FIELDS.map((f) => [f.key, Number(values[f.key])])), hotline: values.hotline.trim(), effectiveFrom: values.effectiveFrom });
     setSaving(false);
     setServerError(message ?? "");
   };
 
   return (
-    <Dialog open={!!kind} onClose={saving ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{kind === "deposit" ? "Tỷ lệ đặt cọc và thanh toán (A-07)" : "Quy tắc phạt CR theo T-day (A-08)"}</DialogTitle>
+    <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
+      <DialogTitle>Chính sách sự kiện</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          {serverError && <Alert severity="error">{serverError}</Alert>}
-          {kind && FIELDS[kind].map((f) => (
+        {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { md: "1fr 1fr" }, pt: 1 }}>
+          {FIELDS.map((f) => (
             <TextField key={f.key} id={f.key} label={f.label} type="number" value={values[f.key] ?? ""}
               onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} error={!!errors[f.key]} helperText={errors[f.key]} />
           ))}
+          <TextField id="hotline" label="Hotline" value={values.hotline ?? ""} onChange={(e) => setValues((v) => ({ ...v, hotline: e.target.value }))}
+            error={!!errors.hotline} helperText={errors.hotline} />
+        </Box>
+        <Stack sx={{ mt: 2 }}>
           <TextField id="effectiveFrom" label="Hiệu lực từ" type="date" value={values.effectiveFrom ?? ""}
             onChange={(e) => setValues((v) => ({ ...v, effectiveFrom: e.target.value }))} error={!!errors.effectiveFrom}
-            helperText={errors.effectiveFrom ?? "Không ảnh hưởng hợp đồng và phụ lục đã tạo trước ngày này."} slotProps={{ inputLabel: { shrink: true } }} />
+            helperText={errors.effectiveFrom ?? "Hotline đổi ngay khi lưu."} slotProps={{ inputLabel: { shrink: true } }} />
         </Stack>
       </DialogContent>
       <DialogActions>

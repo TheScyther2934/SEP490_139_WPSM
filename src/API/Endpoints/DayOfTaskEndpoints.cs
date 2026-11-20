@@ -23,7 +23,7 @@ public static class DayOfTaskEndpoints
             var tasks = await service.GetDayOfTasksAsync(id, UserId(user), Role(user), ct);
             if (tasks is null)
             {
-                return Results.NotFound(new { message = "Không tìm thấy dự án hoặc bạn không có quyền truy cập." });
+                return Results.NotFound(new { message = "Không tìm thấy sự kiện hoặc bạn không có quyền truy cập." });
             }
 
             return Results.Ok(tasks);

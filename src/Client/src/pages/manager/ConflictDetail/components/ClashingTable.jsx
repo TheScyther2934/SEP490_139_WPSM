@@ -11,7 +11,7 @@ export default function ClashingTable({ clashing }) {
       <CardContent>
         <Typography variant="h6" gutterBottom>Sự kiện chồng lấn</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Các dự án đang giữ cùng tài nguyên trong khoảng thời gian giao nhau.
+          Các sự kiện đang giữ cùng tài nguyên trong khoảng thời gian giao nhau.
         </Typography>
         {clashing.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 2 }}>Không có phân bổ nào chồng lấn — tài nguyên đang đủ cho khung giờ này.</Typography>
@@ -19,7 +19,7 @@ export default function ClashingTable({ clashing }) {
           <Table size="small" id="clashing-table">
             <TableHead>
               <TableRow>
-                <TableCell>Dự án</TableCell>
+                <TableCell>Sự kiện</TableCell>
                 <TableCell>Khung giờ</TableCell>
                 <TableCell align="center">Số lượng</TableCell>
                 <TableCell align="center">Trạng thái</TableCell>

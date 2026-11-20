@@ -16,7 +16,7 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
             .Select(x => new ResourceView(x.ResourceId, x.Name, x.Type, x.TotalQuantity)).ToListAsync(cancellationToken);
         var bookings = await db.WeddingProjects.AsNoTracking().Where(x => x.EventDate >= from && x.EventDate <= to && x.Status != "Closed" && (hallId == null || x.HallId == hallId))
             .OrderBy(x => x.EventDate).ThenBy(x => x.Slot.StartTime)
-            .Select(x => new HallBookingView(x.ProjectCode, x.Hall.Name, x.Slot.SlotName, x.EventDate, x.Status, x.ManagerId == managerId))
+            .Select(x => new HallBookingView(x.ProjectCode, x.Hall.Name, x.Slot.SlotName, x.EventDate, x.Status, (x.ManagerId == managerId || x.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null))))
             .ToListAsync(cancellationToken);
         var start = VnToUtc(from, TimeOnly.MinValue);
         var end = VnToUtc(to.AddDays(1), TimeOnly.MinValue);
@@ -49,7 +49,7 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
     public async Task<AllocationResult?> UpdateAsync(int managerId, int allocationId, AllocationCommand command, CancellationToken cancellationToken = default)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        var allocation = await db.ResourceAllocations.Include(x => x.Project).FirstOrDefaultAsync(x => x.AllocationId == allocationId && x.Project.ManagerId == managerId, cancellationToken);
+        var allocation = await db.ResourceAllocations.Include(x => x.Project).FirstOrDefaultAsync(x => x.AllocationId == allocationId && (x.Project.ManagerId == managerId || x.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (allocation is null) return null;
         if (allocation.Status == "Released") throw new InvalidOperationException("Phân bổ đã được giải phóng.");
         if (await HasOpenExceptionAsync(allocationId, cancellationToken)) throw new InvalidOperationException("Phân bổ đang chờ Admin quyết định ngoại lệ.");
@@ -70,7 +70,7 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
 
     public async Task<bool> ReleaseAsync(int managerId, int allocationId, CancellationToken cancellationToken = default)
     {
-        var allocation = await db.ResourceAllocations.FirstOrDefaultAsync(x => x.AllocationId == allocationId && x.Project.ManagerId == managerId, cancellationToken);
+        var allocation = await db.ResourceAllocations.FirstOrDefaultAsync(x => x.AllocationId == allocationId && (x.Project.ManagerId == managerId || x.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (allocation is null) return false;
         allocation.Status = "Released";
         await db.SaveChangesAsync(cancellationToken);
@@ -120,8 +120,8 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
         var resource = await db.Resources.AsNoTracking().FirstOrDefaultAsync(x => x.ResourceId == command.ResourceId, cancellationToken)
             ?? throw new InvalidOperationException("Trường Tài nguyên là bắt buộc.");
         if (command.Quantity > resource.TotalQuantity) throw new InvalidOperationException($"Số lượng vượt tổng số {resource.TotalQuantity} của tài nguyên.");
-        var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == command.ProjectCode && x.ManagerId == managerId, cancellationToken);
-        if (project is not null && project.Status is "Settled" or "Closed") throw new InvalidOperationException("Dự án đã kết thúc.");
+        var project = await db.WeddingProjects.FirstOrDefaultAsync(x => x.ProjectCode == command.ProjectCode && (x.ManagerId == managerId || x.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
+        if (project is not null && project.Status is "Settled" or "Closed") throw new InvalidOperationException("Sự kiện đã kết thúc.");
         return (project, resource);
     }
 
@@ -139,9 +139,10 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
             : [];
     }
 
-    // sp_getapplock keeps two Managers from both passing the capacity check for the same resource (SDS III.2.2).
+    // A transaction-scoped advisory lock keeps two Managers from both passing the capacity check for the same resource (SDS III.2.2).
+    // Key (4201, resourceId): 4201 marks resource locks; waits at most 10 s like the former sp_getapplock timeout.
     private Task LockAsync(int resourceId, CancellationToken cancellationToken) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"EXEC sp_getapplock @Resource = {"resource:" + resourceId}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000", cancellationToken);
+        db.Database.ExecuteSqlInterpolatedAsync($"SELECT set_config('lock_timeout', '10s', true), pg_advisory_xact_lock(4201, {resourceId})", cancellationToken);
 
     private Task<bool> HasOpenExceptionAsync(int allocationId, CancellationToken cancellationToken) =>
         db.ExceptionRequests.AnyAsync(x => x.AllocationId == allocationId && x.Status == "Pending", cancellationToken);
@@ -152,7 +153,7 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
     private static ResourceView ToView(Resource x) => new(x.ResourceId, x.Name, x.Type, x.TotalQuantity);
 
     private Task<AllocationView?> FindAsync(int managerId, int allocationId, CancellationToken cancellationToken) =>
-        Project(db.ResourceAllocations.AsNoTracking().Where(x => x.AllocationId == allocationId && x.Project.ManagerId == managerId), managerId)
+        Project(db.ResourceAllocations.AsNoTracking().Where(x => x.AllocationId == allocationId && (x.Project.ManagerId == managerId || x.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null))), managerId)
             .FirstOrDefaultAsync(cancellationToken);
 
     private IQueryable<AllocationView> Project(IQueryable<ResourceAllocation> query, int managerId) =>
@@ -160,5 +161,5 @@ public sealed class ResourceRepository(WpsmDbContext db) : IResourceRepository
             x.Project.ProjectCode, x.Hall.Name, DateTime.SpecifyKind(x.StartTime, DateTimeKind.Utc), DateTime.SpecifyKind(x.EndTime, DateTimeKind.Utc),
             x.AllocatedQuantity, x.Status,
             db.ExceptionRequests.Where(e => e.AllocationId == x.AllocationId).OrderByDescending(e => e.CreatedAt).Select(e => e.Status).FirstOrDefault(),
-            x.Project.ManagerId == managerId));
+            (x.Project.ManagerId == managerId || x.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null))));
 }

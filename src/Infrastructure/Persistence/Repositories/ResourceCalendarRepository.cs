@@ -73,14 +73,14 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
 
         var bookings = await db.WeddingProjects.AsNoTracking()
             .Include(p => p.Customer).Include(p => p.Hall).Include(p => p.Slot)
-            .Where(p => p.ManagerId == managerId && p.EventDate >= from && p.EventDate <= to && (hallId == null || p.HallId == hallId))
+            .Where(p => (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) && p.EventDate >= from && p.EventDate <= to && (hallId == null || p.HallId == hallId))
             .OrderBy(p => p.EventDate).ThenBy(p => p.Hall.Name)
             .ToListAsync(cancellationToken);
 
         // The project picker of the allocation dialog: the Manager's upcoming, still-open projects.
         var projects = await db.WeddingProjects.AsNoTracking()
             .Include(p => p.Customer).Include(p => p.Hall).Include(p => p.Slot)
-            .Where(p => p.ManagerId == managerId && p.EventDate >= from && p.Status != "Closed" && p.Status != "Settled")
+            .Where(p => (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) && p.EventDate >= from && p.Status != "Closed" && p.Status != "Settled")
             .OrderBy(p => p.EventDate).ThenBy(p => p.Hall.Name)
             .Take(200)
             .ToListAsync(cancellationToken);
@@ -99,7 +99,7 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
             .Include(a => a.Resource)
             .Include(a => a.Project).ThenInclude(p => p.Customer)
             .Include(a => a.Hall)
-            .Where(a => a.Project.ManagerId == managerId && a.Status != "Released"
+            .Where(a => (a.Project.ManagerId == managerId || a.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) && a.Status != "Released"
                 && a.StartTime < rangeEnd && a.EndTime > rangeStart)
             .OrderBy(a => a.StartTime)
             .ToListAsync(cancellationToken);
@@ -108,8 +108,8 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
         var pendingIds = allocationIds.Count == 0
             ? new HashSet<int>()
             : (await db.ExceptionRequests.AsNoTracking()
-                .Where(e => e.AllocationId != null && allocationIds.Contains(e.AllocationId.Value) && e.Status == "Pending")
-                .Select(e => e.AllocationId!.Value)
+                .Where(e => allocationIds.Contains(e.AllocationId) && e.Status == "Pending")
+                .Select(e => e.AllocationId)
                 .ToListAsync(cancellationToken)).ToHashSet();
         var pendingRequests = pendingIds.Count;
 
@@ -174,7 +174,7 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
         var allocation = await db.ResourceAllocations.AsNoTracking()
             .Include(a => a.Resource).Include(a => a.Hall)
             .Include(a => a.Project).ThenInclude(p => p.Customer)
-            .FirstOrDefaultAsync(a => a.AllocationId == allocationId && a.Project.ManagerId == managerId, cancellationToken);
+            .FirstOrDefaultAsync(a => a.AllocationId == allocationId && (a.Project.ManagerId == managerId || a.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (allocation is null) return null;
 
         var clashing = await db.ResourceAllocations.AsNoTracking()
@@ -188,8 +188,8 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
         var clashingPending = clashingIds.Count == 0
             ? new HashSet<int>()
             : (await db.ExceptionRequests.AsNoTracking()
-                .Where(e => e.AllocationId != null && clashingIds.Contains(e.AllocationId.Value) && e.Status == "Pending")
-                .Select(e => e.AllocationId!.Value)
+                .Where(e => clashingIds.Contains(e.AllocationId) && e.Status == "Pending")
+                .Select(e => e.AllocationId)
                 .ToListAsync(cancellationToken)).ToHashSet();
 
         var request = await db.ExceptionRequests.AsNoTracking()
@@ -223,13 +223,13 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
     public async Task<SaveAllocationResult?> SaveAsync(int? allocationId, ResourceAllocationCommand command, int managerId, CancellationToken cancellationToken = default)
     {
         var project = await db.WeddingProjects.Include(p => p.Slot)
-            .FirstOrDefaultAsync(p => p.ProjectId == command.ProjectId && p.ManagerId == managerId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.ProjectId == command.ProjectId && (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (project is null) return null;
         var resource = await db.Resources.FirstOrDefaultAsync(r => r.ResourceId == command.ResourceId, cancellationToken);
         if (resource is null) return null;
 
         if (project.Status is "Settled" or "Closed")
-            throw new InvalidOperationException("Dự án đã quyết toán hoặc đã đóng nên không thể phân bổ tài nguyên.");
+            throw new InvalidOperationException("Sự kiện đã tất toán hoặc đã đóng nên không thể phân bổ tài nguyên.");
         if (command.Quantity <= 0)
             throw new InvalidOperationException("Số lượng phân bổ phải lớn hơn 0.");
         if (command.Quantity > resource.TotalQuantity)
@@ -245,7 +245,7 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
         if (allocationId is { } id)
         {
             allocation = await db.ResourceAllocations.Include(a => a.Project)
-                .FirstOrDefaultAsync(a => a.AllocationId == id && a.Project.ManagerId == managerId, cancellationToken);
+                .FirstOrDefaultAsync(a => a.AllocationId == id && (a.Project.ManagerId == managerId || a.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
             if (allocation is null) return null;
             if (allocation.Status == "Released")
                 throw new InvalidOperationException("Phân bổ này đã được thu hồi nên không thể chỉnh sửa.");
@@ -318,7 +318,7 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
     public async Task<ResourceAllocationDetailView?> ReleaseAsync(int allocationId, int managerId, CancellationToken cancellationToken = default)
     {
         var allocation = await db.ResourceAllocations.Include(a => a.Project)
-            .FirstOrDefaultAsync(a => a.AllocationId == allocationId && a.Project.ManagerId == managerId, cancellationToken);
+            .FirstOrDefaultAsync(a => a.AllocationId == allocationId && (a.Project.ManagerId == managerId || a.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (allocation is null) return null;
         if (allocation.Status == "Released") throw new InvalidOperationException("Phân bổ này đã được thu hồi.");
         if (allocation.Status == "PendingException")
@@ -332,7 +332,7 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
     public async Task<ResourceAllocationDetailView?> RequestExceptionAsync(int allocationId, string note, int managerId, CancellationToken cancellationToken = default)
     {
         var allocation = await db.ResourceAllocations.Include(a => a.Resource).Include(a => a.Project)
-            .FirstOrDefaultAsync(a => a.AllocationId == allocationId && a.Project.ManagerId == managerId, cancellationToken);
+            .FirstOrDefaultAsync(a => a.AllocationId == allocationId && (a.Project.ManagerId == managerId || a.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (allocation is null) return null;
         if (allocation.Status != "Reserved")
             throw new InvalidOperationException("Chỉ phân bổ đang hiệu lực mới có thể đề nghị Admin chấp thuận ngoại lệ.");
@@ -405,8 +405,8 @@ public sealed class ResourceCalendarRepository(WpsmDbContext db) : IResourceCale
         var pending = clashingIds.Count == 0
             ? new HashSet<int>()
             : (await db.ExceptionRequests.AsNoTracking()
-                .Where(e => e.AllocationId != null && clashingIds.Contains(e.AllocationId.Value) && e.Status == "Pending")
-                .Select(e => e.AllocationId!.Value)
+                .Where(e => clashingIds.Contains(e.AllocationId) && e.Status == "Pending")
+                .Select(e => e.AllocationId)
                 .ToListAsync(cancellationToken)).ToHashSet();
 
         return new ResourceConflictView(resource.ResourceId, resource.Name, TypeLabel(resource.Type), resource.TotalQuantity,

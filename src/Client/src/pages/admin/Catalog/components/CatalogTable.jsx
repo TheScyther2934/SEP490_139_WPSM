@@ -1,7 +1,7 @@
 import { Box, Button, Chip, Pagination, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { money } from "../../../../utils/format";
 
-// A-02 rows with Edit (A-03) and the active toggle; deactivated items stay in old specifications (UC-37).
+// A-02 rows with Edit and the active toggle; deactivated items stay in old specifications (UC-37).
 // The toggle stays the last button of the row (e2e clicks `[data-item] button:last-child`).
 export default function CatalogTable({ items, total, page, pages, pageSize, onPage, busy, onEdit, onToggle }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;

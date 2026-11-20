@@ -51,7 +51,7 @@ public sealed class LoadDayOfTimelineService(
         else
         {
             // Default JOB-04 scope: projects taking place today or within next 3 days
-            var today = RoadmapRules.GetVietnamToday();
+            var today = VietnamTime.GetVietnamToday();
             var maxDate = today.AddDays(3);
             query = query.Where(p => p.EventDate >= today && p.EventDate <= maxDate);
         }
@@ -88,19 +88,19 @@ public sealed class LoadDayOfTimelineService(
                 var slotStartTime = project.Slot?.StartTime ?? new TimeOnly(11, 0);
                 var slotEndTime = project.Slot?.EndTime ?? slotStartTime.AddHours(4);
 
-                var setupDeadlineUtc = RoadmapRules.ConvertVietnamToUtc(
+                var setupDeadlineUtc = VietnamTime.ConvertVietnamToUtc(
                     project.EventDate,
                     slotStartTime.AddHours(-1));
 
-                var welcomeDeadlineUtc = RoadmapRules.ConvertVietnamToUtc(
+                var welcomeDeadlineUtc = VietnamTime.ConvertVietnamToUtc(
                     project.EventDate,
                     slotStartTime);
 
-                var serviceDeadlineUtc = RoadmapRules.ConvertVietnamToUtc(
+                var serviceDeadlineUtc = VietnamTime.ConvertVietnamToUtc(
                     project.EventDate,
                     slotStartTime.AddHours(1));
 
-                var settlementDeadlineUtc = RoadmapRules.ConvertVietnamToUtc(
+                var settlementDeadlineUtc = VietnamTime.ConvertVietnamToUtc(
                     project.EventDate,
                     slotEndTime.AddMinutes(-30));
 

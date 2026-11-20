@@ -1,32 +1,32 @@
 import { Box, Card, CardContent, Typography } from "@mui/material";
-import { money, signedMoney } from "../../../../utils/format";
+import { money } from "../../../../utils/format";
 
 export default function FinancialSummaryCards({ summary }) {
   if (!summary) return null;
 
   const cards = [
     {
-      label: "Giá trị hợp đồng gốc",
+      label: "Hợp đồng sau điều chỉnh",
       value: money(summary.baseContractValue),
-      hint: "Giá trị theo Contract Baseline",
+      hint: "Tổng các dịch vụ đã đặt",
       tone: "text.primary",
     },
     {
-      label: "Chênh lệch CR đã duyệt",
-      value: signedMoney(summary.totalApprovedCrVariance),
-      hint: summary.totalApprovedCrVariance !== 0 ? "Tổng chi phí phát sinh CR" : "Chưa có phát sinh",
-      tone: summary.totalApprovedCrVariance > 0 ? "warning.main" : summary.totalApprovedCrVariance < 0 ? "info.main" : "text.secondary",
+      label: "Phát sinh đã xác nhận",
+      value: money(summary.confirmedAddonTotal),
+      hint: summary.confirmedAddonTotal ? "Cộng vào hóa đơn tất toán" : "Chưa có phát sinh",
+      tone: summary.confirmedAddonTotal > 0 ? "warning.main" : "text.secondary",
     },
     {
       label: "Tổng giá trị hiện tại",
       value: money(summary.currentProjectTotal),
-      hint: "Giá trị gốc + CR được duyệt",
+      hint: "Hợp đồng + phát sinh",
       tone: "primary.main",
     },
     {
       label: "Đã thanh toán",
       value: money(summary.totalAmountPaid),
-      hint: "Tổng các đợt đã xác nhận thu",
+      hint: "Đặt cọc và tất toán đã thu",
       tone: "success.main",
     },
     {

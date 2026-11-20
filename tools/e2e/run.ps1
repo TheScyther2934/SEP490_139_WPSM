@@ -25,6 +25,8 @@ dotnet build src\API\API.csproj -c Release -o "$Out\api" -v q --nologo | Select-
 $Client = Join-Path $Root "src\Client"
 if (-not (Test-Path "$Client\node_modules")) { Push-Location $Client; npm install --no-audit --no-fund | Out-Null; Pop-Location }
 Push-Location $Client; npx vite build --outDir "$Out\api\wwwroot" --emptyOutDir --logLevel error; "client build exit $LASTEXITCODE"; Pop-Location
+# In Development this manifest makes the API serve src\API\wwwroot (an older `npm run build`) instead of the build above (I-019).
+Remove-Item "$Out\api\API.staticwebassets.runtime.json" -ErrorAction SilentlyContinue
 
 sqlcmd -S $Sql -b -Q "CREATE DATABASE $Db"
 $schema = [IO.File]::ReadAllText("$Root\Database\WPSM_DB_Schema.sql").Replace("WPSM_DB", $Db)
@@ -40,6 +42,10 @@ $env:Wpsm__SeedDevelopmentData = "true"
 $env:Wpsm__Seed__Admin__Email = "admin@test.local"; $env:Wpsm__Seed__Admin__Password = $pw
 $env:Wpsm__Seed__Manager__Email = "manager@test.local"; $env:Wpsm__Seed__Manager__Password = $pw
 $env:Files__RootPath = "$Out\files"; $env:Smtp__PickupDirectory = "$Out\mail"; $env:Smtp__WebhookSecret = $hook
+# The test API runs as Development, so it also loads the developer's User Secrets (e.g. Brevo SMTP).
+# Tests must never send real email: a blank Host/User (whitespace; PowerShell cannot set an empty variable)
+# forces the pickup directory and overrides any secret (I-021).
+$env:Smtp__Host = " "; $env:Smtp__User = " "; $env:Smtp__Password = " "; $env:Smtp__From = "no-reply@test.local"
 # Every suite signs in from 127.0.0.1; the production limit (5/min, SDS III.1.1) would reject later suites with 429.
 $env:Auth__SignInPermitLimit = "1000"
 
@@ -68,7 +74,7 @@ node "$Here\operations.js" | Select-String 'FAIL|passed'; if ($LASTEXITCODE) { $
 "--- Seeder restart when a sample slot is taken (I-018)"
 # Another project now holds the hall slot of sample WPSM-2026-014; a restart with seeding on must still start.
 sqlcmd -S $Sql -d $Db -I -b -Q "UPDATE dbo.WeddingProjects SET ProjectCode = 'WPSM-2026-USER1' WHERE ProjectCode = 'WPSM-2026-014'" | Out-Null
-$env:ASPNETCORE_URLS = "http://localhost:5303"; $env:Wpsm__SeedDevelopmentData = "true"; Remove-Item Env:\Smtp__Host -ErrorAction SilentlyContinue
+$env:ASPNETCORE_URLS = "http://localhost:5303"; $env:Wpsm__SeedDevelopmentData = "true"; $env:Smtp__Host = " "; $env:Smtp__Port = "587"
 Start-Process "$Out\api\API.exe" -WorkingDirectory "$Out\api" -WindowStyle Hidden -RedirectStandardError "$Out\seed.err" | Out-Null
 $seedUp = $false
 foreach ($i in 1..30) { try { Invoke-WebRequest "http://localhost:5303/api/wpsm/projects" -UseBasicParsing -TimeoutSec 3 | Out-Null } catch { if ($_.Exception.Response) { $seedUp = $true; break } }; Start-Sleep 1 }

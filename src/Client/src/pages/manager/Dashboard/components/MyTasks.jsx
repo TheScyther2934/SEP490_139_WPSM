@@ -35,25 +35,31 @@ const statusLabel = (status) => {
   }
 };
 
-// M-01: My Tasks (Manager-assigned tasks only)
+// Next actions derived from each event's stage: lock soon, supplier evidence missing, addon to confirm, settlement to collect.
+const TASK_LINK = {
+  Lock: PATHS.manager.specification,
+  Supplier: PATHS.manager.suppliers,
+  Addon: PATHS.manager.addons,
+  Settlement: PATHS.manager.payments,
+};
 export default function MyTasks({ tasks = [] }) {
   return (
     <Card sx={{ height: "100%" }}>
       <CardContent>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
           <AssignmentIcon color="primary" fontSize="small" />
-          <Typography variant="h6">Nhiệm vụ của tôi</Typography>
+          <Typography variant="h6">Việc cần làm</Typography>
         </Stack>
 
         {tasks.length === 0 ? (
-          <Typography color="text.secondary">Bạn không có nhiệm vụ tồn đọng nào.</Typography>
+          <Typography color="text.secondary">Không có việc cần làm.</Typography>
         ) : (
           <List dense disablePadding>
             {tasks.map((t) => (
               <ListItemButton
                 key={`${t.taskType}-${t.taskId}`}
                 component={RouterLink}
-                to={`${PATHS.manager.roadmap(t.projectCode)}`}
+                to={TASK_LINK[t.taskType]?.(t.projectCode) ?? PATHS.manager.project(t.projectCode)}
                 sx={{ borderRadius: 1.5, mb: 0.5, border: "1px solid", borderColor: "divider" }}
               >
                 <ListItemText

@@ -35,7 +35,7 @@ export default function Projects() {
 
   return (
     <>
-      <PageHeader code="M-02" title="Dự án đám cưới" subtitle={data ? `${projects.length} dự án được phân công` : "Danh sách đám cưới bạn đang phụ trách."}
+      <PageHeader code="M-02" title="Sự kiện đám cưới" subtitle={data ? `${projects.length} sự kiện được phân công` : "Danh sách đám cưới bạn đang phụ trách."}
         actions={<Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to={PATHS.manager.newProject}>Khởi tạo hợp đồng gốc</Button>} />
       <ProjectFilters filters={filters} halls={halls} months={months}
         onChange={(key, value) => update({ ...filters, [key]: value })} onReset={() => update({})} />

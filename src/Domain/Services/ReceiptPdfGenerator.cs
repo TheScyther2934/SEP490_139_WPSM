@@ -14,7 +14,7 @@ public sealed record FinalSettlementReceiptPdfModel(
     DateOnly EventDate,
     string HallName,
     decimal BaseContractValue,
-    decimal TotalApprovedCrVariance,
+    decimal ConfirmedAddonTotal,
     decimal CurrentProjectTotal,
     decimal TotalAmountPaid,
     decimal FinalBalance,
@@ -65,15 +65,15 @@ public static class ReceiptPdfGenerator
         sb.AppendLine($"/F2 10 Tf -150 -14 Td (Ngay cuoi: ) Tj /F1 10 Tf ({model.EventDate:dd/MM/yyyy}) Tj /F2 10 Tf 150 0 Td (Sanh tiec: ) Tj /F1 10 Tf ({EscapePdf(StripDiacritics(model.HallName))}) Tj");
 
         // Financial Summary
-        sb.AppendLine("/F2 11 Tf -150 -25 Td (TONG KET TAI CHINH (ITEMIZED FINANCIAL SUMMARY)) Tj");
-        sb.AppendLine($"/F1 10 Tf 0 -15 Td (- Gia tri hop dong goc (Base Contract): ) Tj /F2 10 Tf ({model.BaseContractValue:N0} VND) Tj");
-        sb.AppendLine($"/F1 10 Tf 0 -14 Td (- Chenh lech CR duoc duyet (CR Variance): ) Tj /F2 10 Tf ({model.TotalApprovedCrVariance:+ #,##0;- #,##0;0} VND) Tj");
-        sb.AppendLine($"/F1 10 Tf 0 -14 Td (- Tong gia tri du an sau dieu chinh (Project Total): ) Tj /F2 10 Tf ({model.CurrentProjectTotal:N0} VND) Tj");
-        sb.AppendLine($"/F1 10 Tf 0 -14 Td (- Tong so tien da thanh toan (Total Paid): ) Tj /F2 10 Tf ({model.TotalAmountPaid:N0} VND) Tj");
-        sb.AppendLine($"/F2 10 Tf 0 -14 Td (- Du no con lai (Final Outstanding Balance): ) Tj /F2 10 Tf ({model.FinalBalance:N0} VND - DA QUYET TOAN) Tj");
+        sb.AppendLine("/F2 11 Tf -150 -25 Td (TONG KET TAI CHINH) Tj");
+        sb.AppendLine($"/F1 10 Tf 0 -15 Td (- Gia tri hop dong sau dieu chinh: ) Tj /F2 10 Tf ({model.BaseContractValue:N0} VND) Tj");
+        sb.AppendLine($"/F1 10 Tf 0 -14 Td (- Hop dong phat sinh da xac nhan: ) Tj /F2 10 Tf ({model.ConfirmedAddonTotal:N0} VND) Tj");
+        sb.AppendLine($"/F1 10 Tf 0 -14 Td (- Tong gia tri phai thanh toan: ) Tj /F2 10 Tf ({model.CurrentProjectTotal:N0} VND) Tj");
+        sb.AppendLine($"/F1 10 Tf 0 -14 Td (- Tong so tien da thanh toan: ) Tj /F2 10 Tf ({model.TotalAmountPaid:N0} VND) Tj");
+        sb.AppendLine($"/F2 10 Tf 0 -14 Td (- Con lai: ) Tj /F2 10 Tf ({model.FinalBalance:N0} VND - DA TAT TOAN) Tj");
 
         // Payment History
-        sb.AppendLine("/F2 11 Tf 0 -25 Td (LICH SU THANH TOAN (PAYMENT HISTORY)) Tj");
+        sb.AppendLine("/F2 11 Tf 0 -25 Td (LICH SU THANH TOAN) Tj");
         foreach (var p in model.Payments)
         {
             var dateStr = p.Date.HasValue ? p.Date.Value.ToString("dd/MM/yyyy") : "---";

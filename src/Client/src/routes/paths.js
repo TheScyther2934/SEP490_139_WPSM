@@ -21,12 +21,15 @@ export const PATHS = {
     reports: "/admin/reports", // A-09
     hallUtilization: "/admin/reports/hall-utilization", // A-10
     netRevenue: "/admin/reports/net-revenue", // A-11
-    crStatistics: "/admin/reports/change-requests", // A-12
-    photoFeed: "/admin/photo-feed", // A-13
-    photo: (photoId) => `/admin/photo-feed/${seg(photoId)}`, // A-14
+    addonStatistics: "/admin/reports/addons", // addon contracts and events by status
+    projects: "/admin/projects", // Admin oversight of every event
+    project: (code, tab) => `/admin/projects/${seg(code)}${tab ? `?tab=${tab}` : ""}`,
+    photo: (photoId) => `/admin/photos/${seg(photoId)}`, // A-14, opened from the project evidence tab
     overdueAlerts: "/admin/overdue-alerts", // A-15
     complaints: "/admin/complaints", // A-16, A-17
     exceptionRequests: "/admin/exception-requests", // A-18
+    accounts: "/admin/accounts", // A-19 (outside the SRS: account management)
+    auditLogs: "/admin/audit-logs", // Audit log (outside the SRS: who changed what)
   },
 
   manager: {
@@ -35,13 +38,9 @@ export const PATHS = {
     projects: "/manager/projects", // M-02
     newProject: "/manager/projects/new", // M-03
     project, // M-04
-    specification: (code) => `${project(code)}/specification`, // M-05
-    roadmap: (code) => `${project(code)}/roadmap`, // M-06
-    changeRequests: (code) => `${project(code)}/change-requests`, // M-07
-    newChangeRequest: (code) => `${project(code)}/change-requests/new`, // M-07 (create on behalf of the Customer)
-    editChangeRequest: (code, crCode) => `${project(code)}/change-requests/new?crCode=${seg(crCode)}`, // C-06 for a draft
-    changeRequest: (code, crCode) => `${project(code)}/change-requests/${seg(crCode)}`, // M-08
-    costImpact: (code, crCode) => `${project(code)}/change-requests/${seg(crCode)}/cost-impact`, // M-09
+    specification: (code) => `${project(code)}/specification`, // services booked, adjusted in stage 2
+    addons: (code) => `${project(code)}/addons`, // addon contracts (after the lock)
+    suppliers: (code) => `${project(code)}/suppliers`, // supplier evidence (stage 3)
     beo: (code) => `${project(code)}/beo`, // M-10, M-12
     departmentSheets: (code) => `${project(code)}/beo/department-sheets`, // M-11
     payments: (code) => `${project(code)}/payments`, // M-13, M-14
@@ -54,17 +53,11 @@ export const PATHS = {
     overdueAlerts: "/manager/overdue-alerts", // M-23
   },
 
-  // The API resolves the customer's own project (GBR-12), so no :projectCode here.
+  // The API resolves the customer's own events, so no :projectCode here.
   customer: {
     root: "/customer",
     overview: "/customer/overview", // C-01
-    contract: "/customer/contract", // C-02
-    addenda: "/customer/contract/addenda", // C-09
-    roadmap: "/customer/roadmap", // C-03, C-04
-    changeRequests: "/customer/change-requests", // C-05
-    newChangeRequest: "/customer/change-requests/new", // C-06
-    editChangeRequest: (crCode) => `/customer/change-requests/new?crCode=${seg(crCode)}`, // C-06 for a draft
-    changeRequest: (crCode) => `/customer/change-requests/${seg(crCode)}`, // C-07, C-08
+    event: "/customer/event", // booked services, stages, addon contracts to confirm, contacts
     payments: "/customer/payments", // C-10
     livePhotos: "/customer/live-photos", // C-11
     postEvent: "/customer/post-event", // C-12

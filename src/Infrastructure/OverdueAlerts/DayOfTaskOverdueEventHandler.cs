@@ -28,8 +28,8 @@ public sealed class DayOfTaskOverdueEventHandler(
 {
     public async Task HandleAsync(DayOfTaskOverdueEvent domainEvent, CancellationToken cancellationToken = default)
     {
-        var deadlineVn = RoadmapRules.ConvertUtcToVietnam(domainEvent.DeadlineTime);
-        var msg21 = $"[MSG21] Task \"{domainEvent.TaskName}\" is overdue since {deadlineVn:HH:mm dd/MM/yyyy}. Dự án {domainEvent.ProjectCode} ({domainEvent.HallName}) ngày {domainEvent.EventDate:dd/MM/yyyy}.";
+        var deadlineVn = VietnamTime.ConvertUtcToVietnam(domainEvent.DeadlineTime);
+        var msg21 = $"[MSG21] Task \"{domainEvent.TaskName}\" is overdue since {deadlineVn:HH:mm dd/MM/yyyy}. Sự kiện {domainEvent.ProjectCode} ({domainEvent.HallName}) ngày {domainEvent.EventDate:dd/MM/yyyy}.";
 
         var baseUrl = emailOptions.PublicBaseUrl?.TrimEnd('/') ?? "http://localhost:5173";
 

@@ -24,11 +24,6 @@ public sealed class FinalSettlementService(
     EmailOptions emailOptions,
     ILogger<FinalSettlementService> logger) : IFinalSettlementService
 {
-    private static readonly HashSet<string> InactiveProjectStatuses = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Closed", "Settled", "Cancelled"
-    };
-
     public async Task<FinalSettlementResult> PrepareFinalSettlementsAsync(
         PrepareFinalSettlementCommand? command = null,
         CancellationToken cancellationToken = default)
@@ -43,188 +38,71 @@ public sealed class FinalSettlementService(
             executionId, yesterday, today);
 
         // Query projects whose event was yesterday, baseline frozen, active
+        // Every locked event whose day has passed (catches up if the job missed a day).
         var candidateProjects = await db.WeddingProjects
             .Include(p => p.Customer)
-            .Include(p => p.Manager)
             .Include(p => p.Payments)
-            .Include(p => p.ChangeRequests)
-            .Where(p => p.EventDate == yesterday
-                     && !InactiveProjectStatuses.Contains(p.Status)
-                     && p.BaselineFrozenAt != null
-                     && p.BaseContractValue > 0)
+            .Where(p => p.EventDate <= yesterday && p.Status == EventStatus.Locked)
             .OrderBy(p => p.ProjectId)
             .ToListAsync(cancellationToken);
 
-        int totalFound = candidateProjects.Count;
-        int eventsCompleted = 0;
-        int settlementsPrepared = 0;
-        int finalMilestonesCreated = 0;
-        int emailsQueued = 0;
-        int notificationsCreated = 0;
-        int skipped = 0;
-        int failed = 0;
+        int totalFound = candidateProjects.Count, eventsCompleted = 0, settlementsPrepared = 0, finalMilestonesCreated = 0;
+        int emailsQueued = 0, notificationsCreated = 0, skipped = 0, failed = 0;
         var errors = new List<string>();
-
         var baseUrl = emailOptions.PublicBaseUrl?.TrimEnd('/') ?? "http://localhost:5173";
+        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
 
         foreach (var project in candidateProjects)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
             try
             {
-                // 1. Validate Manager account
-                var manager = project.Manager;
-                if (manager == null ||
-                    manager.UserId != project.ManagerId ||
-                    !string.Equals(manager.Role, "Manager", StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(manager.Status, "Active", StringComparison.OrdinalIgnoreCase))
-                {
-                    logger.LogWarning("Project {ProjectCode} has invalid assigned manager (ManagerId: {ManagerId}). Skipping.",
-                        project.ProjectCode, project.ManagerId);
-                    skipped++;
-                    continue;
-                }
-
-                // 2. Mark Event Completed (SDS IV.5 / Report 4)
-                // Note: Only mark Event Completed; NEVER mark Settled in JOB-06.
-                if (!string.Equals(project.Status, "Event Completed", StringComparison.OrdinalIgnoreCase))
-                {
-                    project.Status = "Event Completed";
-                    eventsCompleted++;
-                }
-
-                // 3. Final Settlement Calculation using BalanceCalculator
-                var crTuples = project.ChangeRequests.Select(c => (c.Status, c.TotalVariance, c.CostImpact, c.PenaltyFee));
-                var approvedCrVariance = PaymentCalculator.CalculateApprovedCrVariance(crTuples);
-                var currentTotal = PaymentCalculator.CalculateCurrentTotal(project.BaseContractValue, approvedCrVariance);
-
-                var paymentTuples = project.Payments.Select(p => (p.Status, p.Amount));
-                var totalPaid = PaymentCalculator.CalculateTotalPaid(paymentTuples);
-                var outstandingBalance = PaymentCalculator.CalculateOutstandingBalance(currentTotal, totalPaid);
-                var finalAmountDue = Math.Round(outstandingBalance, 0, MidpointRounding.AwayFromZero);
-
-                project.CurrentTotal = currentTotal;
-
-                if (currentTotal - totalPaid < 0)
-                {
-                    logger.LogWarning(
-                        "Project {ProjectCode} has negative balance / overpayment ({Balance} VND). Manager verification required.",
-                        project.ProjectCode, currentTotal - totalPaid);
-                }
-
-                // 4. Create or Update FINAL Payment Milestone
-                var finalPayment = project.Payments.FirstOrDefault(p =>
-                    string.Equals(p.PaymentType, "FINAL", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(p.PaymentType, "Final", StringComparison.OrdinalIgnoreCase));
-
-                if (finalAmountDue > 0)
-                {
-                    if (finalPayment == null)
-                    {
-                        finalPayment = new Payment
-                        {
-                            ProjectId = project.ProjectId,
-                            PaymentType = "FINAL",
-                            Status = "Due",
-                            DueDate = today,
-                            Amount = finalAmountDue
-                        };
-                        db.Payments.Add(finalPayment);
-                        finalMilestonesCreated++;
-                    }
-                    else if (!string.Equals(finalPayment.Status, "Paid", StringComparison.OrdinalIgnoreCase))
-                    {
-                        finalPayment.Amount = finalAmountDue;
-                        finalPayment.Status = "Due";
-                        finalPayment.DueDate = today;
-                    }
-                }
-                else
-                {
-                    logger.LogInformation(
-                        "Project {ProjectCode} final amount due is {Amount} VND. Not creating new non-positive payment record.",
-                        project.ProjectCode, finalAmountDue);
-                }
-
+                // Stage 5: the event is held, the final invoice fixes what is left to pay.
+                project.Status = EventStatus.Completed;
+                eventsCompleted++;
+                var hadSettlement = project.Payments.Any(p => p.PaymentType == PaymentKinds.Settlement);
+                var invoice = await EventFlowSupport.IssueInvoiceAsync(db, project, null, policy, cancellationToken);
+                if (!hadSettlement) finalMilestonesCreated++;
                 await db.SaveChangesAsync(cancellationToken);
                 settlementsPrepared++;
 
-                // 5. Manager Notification (G-04)
-                var encodedCode = Uri.EscapeDataString(project.ProjectCode);
-                var customerName = project.Customer?.FullName ?? "Khách hàng";
-                var settlementUrl = $"{baseUrl}/manager/projects/{encodedCode}/payments";
-                var managerLink = $"/manager/projects/{encodedCode}/payments";
-
-                var marker = $"[{project.ProjectCode}] Quyết toán sự kiện";
-                var todayUtc = DateTime.UtcNow.Date;
-                var alreadyNotified = await db.Notifications.AsNoTracking().AnyAsync(n =>
-                    n.RecipientId == manager.UserId &&
-                    n.Type == NotificationTypes.Payment &&
-                    n.Message.Contains(marker) &&
-                    n.CreatedAt >= todayUtc, cancellationToken);
-
-                if (!alreadyNotified)
+                var amountDue = invoice.ContractTotal + invoice.AddonTotal - invoice.DepositPaid;
+                var code = Uri.EscapeDataString(project.ProjectCode);
+                var message = $"[{project.ProjectCode}] Hóa đơn tất toán {invoice.InvoiceCode}: cần thu {EventStageRules.Vnd(amountDue)}, hạn {invoice.DueDate:dd/MM/yyyy}.";
+                foreach (var operatorId in await EventFlowSupport.OperatorIdsAsync(db, project.ProjectId, cancellationToken))
                 {
-                    var managerMsg = $"[{project.ProjectCode}] Quyết toán sự kiện ({customerName} - {project.EventDate:dd/MM/yyyy}): Tổng HĐ {currentTotal:N0} VND, đã thu {totalPaid:N0} VND, còn lại {finalAmountDue:N0} VND. Vui lòng kiểm tra và hoàn tất quyết toán.";
-
-                    await notificationRepository.CreateNotificationAsync(
-                        recipientId: manager.UserId,
-                        type: NotificationTypes.Payment,
-                        message: managerMsg,
-                        linkUrl: managerLink,
-                        relatedEntityType: "Payment",
-                        relatedEntityId: finalPayment?.PaymentId.ToString(),
-                        cancellationToken: cancellationToken);
-
+                    await notificationRepository.CreateNotificationAsync(operatorId, NotificationTypes.Payment, message,
+                        $"/manager/projects/{code}/payments", "Payment", invoice.InvoiceCode, cancellationToken);
                     notificationsCreated++;
                 }
+                await notificationRepository.CreateNotificationAsync(project.CustomerId, NotificationTypes.Payment,
+                    $"Sự kiện {project.ProjectCode} đã hoàn tất. Hóa đơn tất toán {EventStageRules.Vnd(amountDue)}, hạn {invoice.DueDate:dd/MM/yyyy}.",
+                    "/customer/payments", "Payment", invoice.InvoiceCode, cancellationToken);
+                notificationsCreated++;
 
-                // 6. Queue Email via JOB-07 (Isolated error handling)
                 try
                 {
-                    var emailSubject = $"[{project.ProjectCode}] Chuẩn bị quyết toán sự kiện cưới (Final Settlement)";
-                    var emailBody = EmailTemplates.FinalSettlementPreparation(
-                        managerName: manager.FullName,
-                        projectCode: project.ProjectCode,
-                        customerName: customerName,
-                        eventDate: project.EventDate,
-                        baseContractValue: project.BaseContractValue,
-                        approvedCrVariance: approvedCrVariance,
-                        currentTotal: currentTotal,
-                        totalPaid: totalPaid,
-                        finalAmountDue: finalAmountDue,
-                        settlementUrl: settlementUrl);
-
-                    emailOutbox.Enqueue(
-                        toEmail: manager.Email,
-                        subject: emailSubject,
-                        bodyHtml: emailBody,
-                        kind: "PaymentRequest",
-                        projectId: project.ProjectId);
-
-                    emailsQueued++;
+                    emailOutbox.Enqueue(project.Customer.Email, $"Hóa đơn tất toán sự kiện {project.ProjectCode}",
+                        EmailTemplates.SettlementInvoice(project.Customer.FullName, project.ProjectCode, invoice.ContractTotal, invoice.AddonTotal,
+                            invoice.DepositPaid, amountDue, invoice.DueDate, $"{baseUrl}/customer/payments"), "PaymentRequest", project.ProjectId);
                     await db.SaveChangesAsync(cancellationToken);
+                    emailsQueued++;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    logger.LogWarning(
-                        ex,
-                        "Failed to queue settlement preparation email for project {ProjectCode} to {Email}. Settlement preparation was successfully saved.",
-                        project.ProjectCode, manager.Email);
+                    logger.LogWarning(ex, "Could not queue the settlement invoice email of {ProjectCode}; the invoice is saved.", project.ProjectCode);
                 }
             }
             catch (DbUpdateException dbEx)
             {
-                logger.LogWarning(dbEx, "Concurrency collision or DB constraint violation while preparing settlement for {ProjectCode}. Skipping.", project.ProjectCode);
+                logger.LogWarning(dbEx, "Database conflict while preparing the settlement of {ProjectCode}. Skipping.", project.ProjectCode);
                 skipped++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 failed++;
-                var errorMsg = $"Project {project.ProjectCode} error: {ex.Message}";
-                errors.Add(errorMsg);
-                logger.LogError(ex, "Unexpected error preparing settlement for project {ProjectCode}.", project.ProjectCode);
+                errors.Add($"Project {project.ProjectCode} error: {ex.Message}");
+                logger.LogError(ex, "Unexpected error preparing the settlement of {ProjectCode}.", project.ProjectCode);
             }
         }
 

@@ -36,7 +36,7 @@ public sealed class CustomerDashboardRepository(WpsmDbContext db) : ICustomerDas
             .Include(p => p.Hall)
             .Include(p => p.Slot)
             .Include(p => p.Payments)
-            .Include(p => p.ChangeRequests)
+            .Include(p => p.AddonContracts).ThenInclude(a => a.Items)
             .FirstOrDefaultAsync(
                 p => p.ProjectCode == projectCode && p.CustomerId == customerId,
                 cancellationToken);
@@ -55,59 +55,21 @@ public sealed class CustomerDashboardRepository(WpsmDbContext db) : ICustomerDas
             _ => $"Còn {countdownDays} ngày"
         };
 
-        // ── 3. Upcoming tasks (max 5, ordered by DueDate) ───────────────────
-        var allTasks = await db.RoadmapTasks
-            .AsNoTracking()
-            .Where(t => t.ProjectId == project.ProjectId)
-            .OrderBy(t => t.DueDate)
-            .ToListAsync(cancellationToken);
-
-        var taskViews = allTasks
-            .Select(t => new DashboardTaskView(
-                t.TaskId,
-                t.Milestone,
-                t.Title,
-                t.AssigneeRole,
-                t.DueDate,
-                ResolveTaskStatus(t.Status, t.DueDate, today)))
-            // Prioritise incomplete (Overdue first, then Pending), Done last
-            .OrderBy(t => t.Status == "Done" ? 2 : t.Status == "Overdue" ? 0 : 1)
-            .ThenBy(t => t.DueDate)
-            .Take(5)
-            .ToList();
-
-        // ── 4. Open CRs (Draft or Negotiating — same rule as ProjectReadModel) ──
-        var openCrCount = project.ChangeRequests
-            .Count(cr => cr.Status is "Draft" or "Negotiating");
-
-        // ── 5. Outstanding Balance ───────────────────────────────────────────
-        // Formula: BaseContractValue + ΣApproved CR TotalVariance - ΣPaid Payments
-        // "Approved" CR = CustomerApproved status (committed to contract)
-        var approvedVariance = project.ChangeRequests
-            .Where(cr => cr.Status == "CustomerApproved")
-            .Sum(cr => cr.TotalVariance ?? 0m);
-
-        var totalPaid = project.Payments
-            .Where(p => p.Status == "Paid")
-            .Sum(p => p.Amount ?? 0m);
-
-        var outstandingBalance = Math.Max(
-            0m,
-            project.BaseContractValue + approvedVariance - totalPaid);
-
-        // ── 6. Roadmap progress ──────────────────────────────────────────────
-        var totalTaskCount = allTasks.Count;
-        var doneCount = allTasks.Count(t => t.Status == "Done");
-        var progress = totalTaskCount == 0
-            ? 0
-            : (int)Math.Round(doneCount * 100d / totalTaskCount);
+        // ── 3. Stages, money, addon contracts waiting for the customer ──────
+        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var stages = Domain.Services.EventStageRules.Timeline(project.Status, project.EventDate, DateOnly.FromDateTime(project.CreatedAt), today, policy);
+        var currentStage = Domain.Services.EventStageRules.CurrentStage(project.Status, project.EventDate, today);
+        var pendingAddons = project.AddonContracts.Count(a => a.Status == "PendingCustomer");
+        var addonTotal = project.AddonContracts.Where(a => a.Status == "Confirmed").Sum(a => a.Items.Sum(i => i.Quantity * i.UnitPrice));
+        var totalPaid = project.Payments.Where(p => p.Status == "Paid").Sum(p => p.Amount ?? 0m);
+        var outstandingBalance = Math.Max(0m, project.CurrentTotal + addonTotal - totalPaid);
 
         // ── 7. Latest proof-of-execution photo ──────────────────────────────
         var latestPhoto = await db.ExecutionPhotos
             .AsNoTracking()
             .Include(ep => ep.DayOfTask)
             .Include(ep => ep.Uploader)
-            .Where(ep => ep.DayOfTask.ProjectId == project.ProjectId)
+            .Where(ep => ep.DayOfTask.ProjectId == project.ProjectId && (ep.ContentType == null || ep.ContentType.StartsWith("image/")))
             .OrderByDescending(ep => ep.UploadedAt)
             .Select(ep => new
             {
@@ -135,18 +97,19 @@ public sealed class CustomerDashboardRepository(WpsmDbContext db) : ICustomerDas
             project.EventDate,
             countdownDays,
             countdownLabel,
-            taskViews,
-            openCrCount,
+            stages,
+            pendingAddons,
             outstandingBalance,
             project.BaseContractValue,
             totalPaid,
-            progress,
-            photoView);
+            currentStage,
+            photoView)
+        {
+            Status = project.Status,
+            StatusLabel = Domain.Services.EventStatus.Label(project.Status),
+            CurrentTotal = project.CurrentTotal + addonTotal,
+            Contacts = await EventFlowSupport.LoadContactsAsync(db, project.ProjectId, cancellationToken),
+            Hotline = await EventFlowSupport.LoadHotlineAsync(db, cancellationToken)
+        };
     }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    private static string ResolveTaskStatus(string dbStatus, DateOnly dueDate, DateOnly today) =>
-        dbStatus == "Done" ? "Done"
-        : dueDate < today ? "Overdue"
-        : "Pending";
 }

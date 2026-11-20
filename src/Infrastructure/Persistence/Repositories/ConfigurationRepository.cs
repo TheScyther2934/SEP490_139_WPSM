@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Domain.Services;
 using Application.Persistence;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Entities;
@@ -66,47 +67,70 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
 
     public async Task<PolicyView> GetPoliciesAsync(CancellationToken cancellationToken = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var active = await db.PolicyConfigs.AsNoTracking().Where(x => x.EffectiveFrom <= today)
-            .OrderByDescending(x => x.EffectiveFrom).ToListAsync(cancellationToken);
-        var nrd = active.FirstOrDefault(x => x.PolicyType == "NRD_RATIO")?.RatePercent ?? 30m;
-        var t30 = active.FirstOrDefault(x => x.PolicyType == "T30_RATIO")?.RatePercent ?? 70m;
-        var cr = active.Where(x => x.PolicyType == "CR_PENALTY").OrderBy(x => x.TdayMin).FirstOrDefault();
-        return new PolicyView(nrd, t30, Math.Max(0, 100m - t30), cr?.TdayMax ?? 14, cr?.RatePercent ?? 5m);
+        var p = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        return new PolicyView(p.DepositRatio, p.MaxDecreaseRatio, p.BookingMinDays, p.BookingMaxDays, p.LockDays, p.SupplierDeadlineDays,
+            p.SettlementDueDays, await EventFlowSupport.LoadHotlineAsync(db, cancellationToken));
     }
 
+    /// <summary>Saves a new version of the event rules (effective from a date, never in the past) and the hotline.</summary>
     public async Task<PolicyView> UpdatePoliciesAsync(PolicyCommand command, int updatedBy, CancellationToken cancellationToken = default)
     {
-        var effective = command.EffectiveFrom ?? DateOnly.FromDateTime(DateTime.Today);
-        if (effective < DateOnly.FromDateTime(DateTime.Today)) throw new InvalidOperationException("Ngày hiệu lực không được ở trong quá khứ.");
-        if (command.NrdRatio < 0 || command.T30Ratio < command.NrdRatio || command.T30Ratio > 100 || command.CrPenaltyDays < 0 || command.CrPenaltyPercent is < 0 or > 100)
-            throw new InvalidOperationException("Tỷ lệ hoặc ngưỡng phạt chính sách không hợp lệ.");
-        await UpsertPolicyAsync("NRD_RATIO", null, null, command.NrdRatio, effective, updatedBy, cancellationToken);
-        await UpsertPolicyAsync("T30_RATIO", null, null, command.T30Ratio, effective, updatedBy, cancellationToken);
-        // A-08 owns the T-day ranges; this single-range form only writes when its values change, so it does not add a range that overlaps an A-08 rule set.
-        var current = await GetPoliciesAsync(cancellationToken);
-        if (current.CrPenaltyDays != command.CrPenaltyDays || current.CrPenaltyPercent != command.CrPenaltyPercent)
-            await UpsertPolicyAsync("CR_PENALTY", 0, command.CrPenaltyDays, command.CrPenaltyPercent, effective, updatedBy, cancellationToken);
+        var today = VietnamTime.GetVietnamToday();
+        var effective = command.EffectiveFrom ?? today;
+        if (effective < today) throw new InvalidOperationException("Ngày hiệu lực không được ở trong quá khứ.");
+        if (command.DepositRatio is <= 0 or > 100 || command.MaxDecreaseRatio is < 0 or >= 100)
+            throw new InvalidOperationException("Tỷ lệ đặt cọc phải trong khoảng 1–100%, mức giảm tối đa trong khoảng 0–99%.");
+        if (100 - command.MaxDecreaseRatio < command.DepositRatio)
+            throw new InvalidOperationException("Mức giảm tối đa quá lớn: giá trị sau khi giảm phải luôn lớn hơn tiền đặt cọc.");
+        if (command.BookingMinDays < 1 || command.BookingMaxDays < command.BookingMinDays || command.BookingMaxDays > 365)
+            throw new InvalidOperationException("Khoảng ngày ký hợp đồng không hợp lệ (tối thiểu ≥ 1, tối đa ≥ tối thiểu và ≤ 365).");
+        if (command.SupplierDeadlineDays < 1 || command.LockDays < command.SupplierDeadlineDays || command.LockDays >= command.BookingMinDays)
+            throw new InvalidOperationException("Mốc khóa phải ≥ hạn đặt nhà cung cấp và nhỏ hơn số ngày ký tối thiểu.");
+        if (command.SettlementDueDays is < 0 or > 90)
+            throw new InvalidOperationException("Hạn tất toán phải từ 0 đến 90 ngày sau ngày cưới.");
+
+        var values = new Dictionary<string, decimal>
+        {
+            [EventPolicy.Keys.DepositRatio] = command.DepositRatio,
+            [EventPolicy.Keys.MaxDecreaseRatio] = command.MaxDecreaseRatio,
+            [EventPolicy.Keys.BookingMinDays] = command.BookingMinDays,
+            [EventPolicy.Keys.BookingMaxDays] = command.BookingMaxDays,
+            [EventPolicy.Keys.LockDays] = command.LockDays,
+            [EventPolicy.Keys.SupplierDeadlineDays] = command.SupplierDeadlineDays,
+            [EventPolicy.Keys.SettlementDueDays] = command.SettlementDueDays
+        };
+        var current = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var currentValues = new Dictionary<string, decimal>
+        {
+            [EventPolicy.Keys.DepositRatio] = current.DepositRatio, [EventPolicy.Keys.MaxDecreaseRatio] = current.MaxDecreaseRatio,
+            [EventPolicy.Keys.BookingMinDays] = current.BookingMinDays, [EventPolicy.Keys.BookingMaxDays] = current.BookingMaxDays,
+            [EventPolicy.Keys.LockDays] = current.LockDays, [EventPolicy.Keys.SupplierDeadlineDays] = current.SupplierDeadlineDays,
+            [EventPolicy.Keys.SettlementDueDays] = current.SettlementDueDays
+        };
+        foreach (var (type, value) in values)
+        {
+            if (currentValues[type] == value && effective == today) continue;   // unchanged: no new version
+            var row = await db.PolicyConfigs.FirstOrDefaultAsync(x => x.PolicyType == type && x.EffectiveFrom == effective, cancellationToken);
+            if (row is null)
+                db.PolicyConfigs.Add(new PolicyConfig { PolicyType = type, Value = value, EffectiveFrom = effective, UpdatedBy = updatedBy, UpdatedAt = DateTime.UtcNow });
+            else
+            {
+                row.Value = value;
+                row.UpdatedBy = updatedBy;
+                row.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        var hotline = command.Hotline?.Trim();
+        if (!string.IsNullOrEmpty(hotline))
+        {
+            if (hotline.Length > 20 || hotline.Any(c => !char.IsDigit(c) && c is not (' ' or '.' or '+')))
+                throw new InvalidOperationException("Số hotline chỉ gồm chữ số (tối đa 20 ký tự).");
+            var setting = await db.SystemSettings.FirstOrDefaultAsync(x => x.SettingKey == EventFlowSupport.HotlineKey, cancellationToken);
+            if (setting is null) db.SystemSettings.Add(new SystemSetting { SettingKey = EventFlowSupport.HotlineKey, SettingValue = hotline, UpdatedBy = updatedBy, UpdatedAt = DateTime.UtcNow });
+            else if (setting.SettingValue != hotline) { setting.SettingValue = hotline; setting.UpdatedBy = updatedBy; setting.UpdatedAt = DateTime.UtcNow; }
+        }
         await db.SaveChangesAsync(cancellationToken);
         return await GetPoliciesAsync(cancellationToken);
-    }
-
-    private async Task UpsertPolicyAsync(string type, int? min, int? max, decimal rate, DateOnly effective, int updatedBy, CancellationToken cancellationToken)
-    {
-        var policy = await db.PolicyConfigs.FirstOrDefaultAsync(x => x.PolicyType == type && x.TdayMin == min && x.TdayMax == max && x.EffectiveFrom == effective, cancellationToken);
-        if (policy is null)
-        {
-            db.PolicyConfigs.Add(new PolicyConfig
-            {
-                PolicyType = type, TdayMin = min, TdayMax = max, RatePercent = rate,
-                EffectiveFrom = effective, UpdatedBy = updatedBy, UpdatedAt = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            policy.RatePercent = rate;
-            policy.UpdatedBy = updatedBy;
-            policy.UpdatedAt = DateTime.UtcNow;
-        }
     }
 }

@@ -25,15 +25,15 @@ export default function OverdueTable({ alerts }) {
         <Table id="a15Table">
           <TableHead>
             <TableRow>
-              <TableCell>Dự án</TableCell>
+              <TableCell>Sự kiện</TableCell>
               <TableCell>Nhiệm vụ</TableCell>
               <TableCell>Sảnh tiệc</TableCell>
               <TableCell>Quản lý phụ trách</TableCell>
-              <TableCell>Ngày sự kiện</TableCell>
+              <TableCell>Ngày cưới</TableCell>
               <TableCell>Hạn chót</TableCell>
               <TableCell>Quá hạn</TableCell>
               <TableCell align="center">Trạng thái</TableCell>
-              <TableCell align="right">Minh chứng (A-13)</TableCell>
+              <TableCell align="right">Minh chứng</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -67,7 +67,7 @@ export default function OverdueTable({ alerts }) {
                     color="primary"
                     startIcon={<PhotoLibraryIcon />}
                     component={RouterLink}
-                    to={`${PATHS.admin.photoFeed}?projectCode=${encodeURIComponent(a.projectCode)}`}
+                    to={PATHS.admin.project(a.projectCode, "evidence")}
                   >
                     Xem ảnh minh chứng
                   </Button>

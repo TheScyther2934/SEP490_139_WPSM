@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button, Card, InputAdornment, MenuItem, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import { SOURCE_CR, SOURCE_RESOURCE, sourceLabel } from "../exceptionMeta";
+import { SOURCE_RESOURCE, sourceLabel } from "../exceptionMeta";
 
 const TABS = [
   { value: "Pending", label: "Chờ duyệt" },
@@ -22,13 +22,12 @@ export default function ExceptionFilters({ filters, summary, total, onChange, on
         {TABS.map((tab) => <Tab key={tab.value} value={tab.value} label={`${tab.label} (${count(tab.value)})`} />)}
       </Tabs>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ p: 2, alignItems: { md: "center" } }}>
-        <TextField id="a18Search" size="small" label="Tìm mã yêu cầu, mã dự án, quản lý, tài nguyên" value={query} sx={{ flex: 1 }}
+        <TextField id="a18Search" size="small" label="Tìm mã yêu cầu, mã sự kiện, người phụ trách, thiết bị" value={query} sx={{ flex: 1 }}
           onChange={(event) => search(event.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> } }} />
         <TextField select size="small" label="Phân loại" value={filters.type} sx={{ minWidth: 220 }}
           onChange={(event) => onChange({ type: event.target.value })}>
           <MenuItem value="">Tất cả loại ngoại lệ</MenuItem>
-          <MenuItem value={SOURCE_CR}>{sourceLabel(SOURCE_CR)}</MenuItem>
           <MenuItem value={SOURCE_RESOURCE}>{sourceLabel(SOURCE_RESOURCE)}</MenuItem>
         </TextField>
         <Button onClick={() => { setQuery(""); onReset(); }}>Xóa bộ lọc</Button>

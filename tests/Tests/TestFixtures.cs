@@ -82,7 +82,7 @@ internal static class TestFixtures
         int hallId = 1,
         int slotId = 1,
         DateOnly? eventDate = null,
-        string status = "Active Baseline",
+        string status = "Adjusting",
         decimal baseValue = 100_000_000m,
         bool frozen = false) => new()
     {
@@ -94,10 +94,10 @@ internal static class TestFixtures
         SlotId = slotId,
         EventDate = eventDate ?? Today.AddDays(30),
         BaseContractValue = baseValue,
-        Nrdamount = baseValue * 0.3m,
+        DepositAmount = baseValue * 0.3m,
         CurrentTotal = baseValue,
         Status = status,
-        BaselineFrozenAt = frozen ? DateTime.UtcNow.AddDays(-5) : null,
+        LockedAt = frozen || status != "Adjusting" ? DateTime.UtcNow.AddDays(-5) : null,
         CreatedAt = DateTime.UtcNow.AddDays(-10)
     };
 
@@ -107,36 +107,19 @@ internal static class TestFixtures
         int catalogItemId,
         string description,
         int quantity,
-        decimal unitPrice,
-        bool baseline = true,
-        int version = 1) => new()
+        decimal unitPrice) => new()
     {
         SpecItemId = id,
         ProjectId = projectId,
         CatalogItemId = catalogItemId,
         Description = description,
         Quantity = quantity,
-        UnitPrice = unitPrice,
-        IsBaseline = baseline,
-        Version = version
+        UnitPrice = unitPrice
     };
 
-    public static PolicyConfig NewPenaltyRule(int id, int tdayMin, int tdayMax, decimal rate, int updatedBy = 1) => new()
-    {
-        PolicyId = id,
-        PolicyType = "CR_PENALTY",
-        TdayMin = tdayMin,
-        TdayMax = tdayMax,
-        RatePercent = rate,
-        EffectiveFrom = Today.AddDays(-30),
-        UpdatedBy = updatedBy,
-        UpdatedAt = DateTime.UtcNow
-    };
+    public static SpecificationRepository NewSpecificationRepository(WpsmDbContext db) => new(db, new ProjectReadModel(db));
 
-    public static SpecificationRoadmapRepository NewSpecificationRepository(WpsmDbContext db, IEmailOutbox outbox) =>
-        new(db, new ProjectReadModel(db), outbox, new EmailOptions { PublicBaseUrl = "http://test.local" });
-
-    /// <summary>Captures the credential/roadmap e-mails the repositories enqueue.</summary>
+    /// <summary>Captures the e-mails the repositories enqueue.</summary>
     public sealed class RecordingEmailOutbox : IEmailOutbox
     {
         public List<(string To, string Subject, string Kind, int? ProjectId)> Messages { get; } = [];

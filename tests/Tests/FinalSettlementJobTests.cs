@@ -4,10 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Application.Payments;
 using Application.Persistence;
-using Domain.Enums;
-using Domain.Services;
 using Infrastructure.Email;
 using Infrastructure.Jobs;
 using Infrastructure.Payments;
@@ -18,392 +15,148 @@ using Xunit;
 
 namespace Tests;
 
+/// <summary>
+/// Stage 5: the day after the event the job marks every locked event Completed and issues its final invoice
+/// (contract after adjustments + confirmed addon contracts - deposit, due 7 days after the event).
+/// </summary>
 public sealed class FinalSettlementJobTests : IDisposable
 {
     private readonly WpsmDbContext _db;
-    private readonly INotificationRepository _notificationRepo;
-    private readonly IEmailOutbox _emailOutbox;
-    private readonly EmailOptions _emailOptions;
     private readonly FinalSettlementService _service;
     private readonly User _customer;
     private readonly User _manager;
-    private readonly Hall _hall;
-    private readonly Slot _slot;
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
 
     public FinalSettlementJobTests()
     {
-        var options = new DbContextOptionsBuilder<WpsmDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _db = new WpsmDbContext(options);
-        _notificationRepo = new NotificationRepository(_db);
-        _emailOutbox = new EmailOutbox(_db);
-        _emailOptions = new EmailOptions { PublicBaseUrl = "http://localhost:5173" };
-
-        _service = new FinalSettlementService(
-            _db,
-            _notificationRepo,
-            _emailOutbox,
-            _emailOptions,
-            NullLogger<FinalSettlementService>.Instance);
-
-        _customer = new User
-        {
-            UserId = 1,
-            Email = "customer@wedding.vn",
-            FullName = "Nguyễn Văn Chú Rể",
-            Role = "Customer",
-            Status = "Active",
-            PasswordHash = "hash",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _manager = new User
-        {
-            UserId = 2,
-            Email = "manager@wedding.vn",
-            FullName = "Lê Thị Quản Lý",
-            Role = "Manager",
-            Status = "Active",
-            PasswordHash = "hash",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _hall = new Hall { HallId = 1, Name = "Sảnh Hoàng Kim", Status = "Active" };
-        _slot = new Slot { SlotId = 1, HallId = 1, SlotName = "Evening" };
-
+        _db = new WpsmDbContext(new DbContextOptionsBuilder<WpsmDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        _service = NewService(new EmailOutbox(_db));
+        _customer = new User { UserId = 1, Email = "customer@wedding.vn", FullName = "Nguyễn Văn Chú Rể", Role = "Customer", Status = "Active", PasswordHash = "h", CreatedAt = DateTime.UtcNow };
+        _manager = new User { UserId = 2, Email = "manager@wedding.vn", FullName = "Lê Thị Quản Lý", Role = "Manager", Status = "Active", PasswordHash = "h", CreatedAt = DateTime.UtcNow };
         _db.Users.AddRange(_customer, _manager);
-        _db.Halls.Add(_hall);
-        _db.Slots.Add(_slot);
+        _db.Halls.Add(new Hall { HallId = 1, Name = "Sảnh Hoàng Kim", Status = "Active" });
+        _db.Slots.Add(new Slot { SlotId = 1, HallId = 1, SlotName = "Evening" });
         _db.SaveChanges();
     }
 
     public void Dispose() => _db.Dispose();
 
-    private WeddingProject CreateProject(
-        string code,
-        DateOnly eventDate,
-        decimal baseValue = 100_000_000m,
-        decimal nrd = 30_000_000m,
-        string status = "Baseline Frozen",
-        bool hasBaseline = true)
+    private FinalSettlementService NewService(IEmailOutbox outbox) => new(_db, new NotificationRepository(_db), outbox,
+        new EmailOptions { PublicBaseUrl = "http://localhost:5173" }, NullLogger<FinalSettlementService>.Instance);
+
+    private WeddingProject CreateEvent(string code, DateOnly eventDate, decimal total = 100_000_000m, decimal deposit = 30_000_000m, string status = "Locked")
     {
         var p = new WeddingProject
         {
-            ProjectCode = code,
-            CustomerId = _customer.UserId,
-            ManagerId = _manager.UserId,
-            HallId = _hall.HallId,
-            SlotId = _slot.SlotId,
-            EventDate = eventDate,
-            BaseContractValue = baseValue,
-            Nrdamount = nrd,
-            CurrentTotal = baseValue,
-            Status = status,
-            BaselineFrozenAt = hasBaseline ? DateTime.UtcNow.AddDays(-100) : null,
-            CreatedAt = DateTime.UtcNow.AddDays(-100)
+            ProjectCode = code, CustomerId = _customer.UserId, ManagerId = _manager.UserId, HallId = 1, SlotId = 1, EventDate = eventDate,
+            BaseContractValue = total, DepositAmount = deposit, CurrentTotal = total, Status = status,
+            LockedAt = status == "Adjusting" ? null : DateTime.UtcNow.AddDays(-12), CreatedAt = DateTime.UtcNow.AddDays(-60)
         };
         _db.WeddingProjects.Add(p);
         _db.SaveChanges();
-
-        // Recorded NRD payment
-        var nrdPayment = new Payment
-        {
-            ProjectId = p.ProjectId,
-            PaymentType = "NRD",
-            Status = "Paid",
-            DueDate = eventDate.AddDays(-90),
-            Amount = nrd,
-            PaymentMethod = "Bank",
-            PaidDate = eventDate.AddDays(-90),
-            RecordedBy = _manager.UserId
-        };
-        _db.Payments.Add(nrdPayment);
+        _db.ProjectManagers.Add(new ProjectManager { ProjectId = p.ProjectId, ManagerId = _manager.UserId, Role = "Primary", AssignedAt = DateTime.UtcNow });
+        _db.Payments.Add(new Payment { ProjectId = p.ProjectId, PaymentType = "Deposit", Status = "Paid", Amount = deposit, DueDate = eventDate.AddDays(-60),
+            PaymentMethod = "Bank", PaidDate = eventDate.AddDays(-60), RecordedBy = _manager.UserId });
         _db.SaveChanges();
-
         return p;
     }
 
-    [Fact]
-    public async Task PrepareFinalSettlement_EventYesterday_SetsEventCompleted_CreatesFinalMilestone_NotifiesManager()
+    private void AddAddon(WeddingProject p, string code, string status, decimal amount)
     {
-        // Arrange: Today is 2026-11-07 -> Yesterday was 2026-11-06
-        var today = new DateOnly(2026, 11, 7);
-        var yesterday = today.AddDays(-1);
+        var addon = new AddonContract { AddonCode = code, ProjectId = p.ProjectId, Title = code, Status = status, CreatedBy = _manager.UserId,
+            CreatedAt = DateTime.UtcNow, ConfirmedAt = status == "Confirmed" ? DateTime.UtcNow : null };
+        addon.Items.Add(new AddonContractItem { Description = code, Quantity = 1, UnitPrice = amount });
+        _db.AddonContracts.Add(addon);
+        _db.SaveChanges();
+    }
 
-        var project = CreateProject("PRJ-SETTLE-001", yesterday, baseValue: 100_000_000m, nrd: 30_000_000m);
+    [Fact]
+    public async Task EventYesterday_IsCompleted_AndGetsTheInvoice()
+    {
+        var p = CreateEvent("WPSM-T-1", Today.AddDays(-1));
+        AddAddon(p, "PS-1", "Confirmed", 8_000_000m);
+        AddAddon(p, "PS-2", "PendingCustomer", 5_000_000m);   // not confirmed: not billed
 
-        // Add T30 payment paid = 40M
-        _db.Payments.Add(new Payment
-        {
-            ProjectId = project.ProjectId,
-            PaymentType = "T30",
-            Status = "Paid",
-            DueDate = yesterday.AddDays(-30),
-            Amount = 40_000_000m,
-            PaymentMethod = "Bank",
-            PaidDate = yesterday.AddDays(-30),
-            RecordedBy = _manager.UserId
-        });
+        var result = await _service.PrepareFinalSettlementsAsync();
 
-        // Add Approved CR = +10M
-        _db.ChangeRequests.Add(new ChangeRequest
-        {
-            Crcode = "CR-01",
-            ProjectId = project.ProjectId,
-            CreatedBy = _customer.UserId,
-            Type = "ScopeAddition",
-            Description = "Thêm trang trí bàn gallery",
-            CostImpact = 10_000_000m,
-            PenaltyFee = 0m,
-            TotalVariance = 10_000_000m,
-            Status = "CustomerApproved",
-            CreatedAt = DateTime.UtcNow.AddDays(-15)
-        });
-        await _db.SaveChangesAsync();
-
-        // Total = 100M + 10M = 110M. Paid = 30M + 40M = 70M. Final Due = 40M.
-
-        // Act
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        // Assert
-        Assert.Equal(1, result.TotalProjectsFound);
         Assert.Equal(1, result.TotalEventsCompleted);
-        Assert.Equal(1, result.TotalSettlementsPrepared);
-        Assert.Equal(1, result.TotalFinalMilestonesCreated);
-        Assert.Equal(1, result.TotalNotificationsCreated);
-        Assert.Equal(1, result.TotalEmailsQueued);
-        Assert.Equal(0, result.TotalProjectsSkipped);
-        Assert.Equal(0, result.TotalFailed);
-
-        // Verify Project status transitioned to "Event Completed" and NOT "Settled"
-        var dbProject = await _db.WeddingProjects.FindAsync(project.ProjectId);
-        Assert.Equal("Event Completed", dbProject!.Status);
-        Assert.Equal(110_000_000m, dbProject.CurrentTotal);
-
-        // Verify FINAL Payment created
-        var finalPayment = await _db.Payments
-            .FirstOrDefaultAsync(p => p.ProjectId == project.ProjectId && p.PaymentType == "FINAL");
-
-        Assert.NotNull(finalPayment);
-        Assert.Equal("Due", finalPayment!.Status);
-        Assert.Equal(today, finalPayment.DueDate);
-        Assert.Equal(40_000_000m, finalPayment.Amount);
-
-        // Verify Manager Notification
-        var notification = await _db.Notifications.SingleAsync();
-        Assert.Equal(_manager.UserId, notification.RecipientId);
-        Assert.Equal(NotificationTypes.Payment, notification.Type);
-        Assert.Contains("PRJ-SETTLE-001", notification.Message);
-        Assert.Contains("Nguyễn Văn Chú Rể", notification.Message);
-        Assert.Contains("110,000,000", notification.Message);
-        Assert.Contains("70,000,000", notification.Message);
-        Assert.Contains("40,000,000", notification.Message);
-        Assert.Equal("/manager/projects/PRJ-SETTLE-001/payments", notification.LinkUrl);
-
-        // Verify Email in outbox
-        var email = await _db.EmailOutbox.SingleAsync();
-        Assert.Equal(_manager.Email, email.ToEmail);
-        Assert.Equal("PaymentRequest", email.Kind);
-        Assert.Contains("PRJ-SETTLE-001", email.Subject);
-        Assert.Contains("40,000,000", email.BodyHtml);
-        Assert.Contains("/manager/projects/PRJ-SETTLE-001/payments", email.BodyHtml);
+        var loaded = await _db.WeddingProjects.SingleAsync(x => x.ProjectId == p.ProjectId);
+        Assert.Equal("Completed", loaded.Status);
+        var invoice = await _db.SettlementInvoices.Include(i => i.Lines).SingleAsync(i => i.ProjectId == p.ProjectId);
+        Assert.Equal(100_000_000m, invoice.ContractTotal);
+        Assert.Equal(8_000_000m, invoice.AddonTotal);
+        Assert.Equal(30_000_000m, invoice.DepositPaid);
+        Assert.Equal(Today.AddDays(6), invoice.DueDate);   // event + 7 days
+        Assert.Equal(3, invoice.Lines.Count);
+        Assert.Equal(-30_000_000m, invoice.Lines.Single(l => l.LineType == "Deposit").Amount);
+        var settlement = await _db.Payments.SingleAsync(x => x.ProjectId == p.ProjectId && x.PaymentType == "Settlement");
+        Assert.Equal("Due", settlement.Status);
+        Assert.Equal(78_000_000m, settlement.Amount);
+        Assert.True(await _db.Notifications.AnyAsync(n => n.RecipientId == _manager.UserId && n.Type == "Payment"));
+        Assert.True(await _db.Notifications.AnyAsync(n => n.RecipientId == _customer.UserId && n.Type == "Payment"));
+        Assert.Contains(await _db.EmailOutbox.ToListAsync(), e => e.ToEmail == _customer.Email && e.Kind == "PaymentRequest");
     }
 
     [Fact]
-    public async Task PrepareFinalSettlement_EventNotYesterday_Ignored()
+    public async Task MissedDays_AreCaughtUp()
     {
-        var today = new DateOnly(2026, 11, 7);
-        // Event was 2 days ago or is today
-        CreateProject("PRJ-PAST", today.AddDays(-2));
-        CreateProject("PRJ-TODAY", today);
-
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(0, result.TotalProjectsFound);
-        Assert.Equal(0, result.TotalSettlementsPrepared);
-        Assert.Empty(_db.Notifications);
-        Assert.Empty(_db.EmailOutbox);
-    }
-
-    [Fact]
-    public async Task PrepareFinalSettlement_ProjectWithoutBaseline_Ignored()
-    {
-        var today = new DateOnly(2026, 11, 7);
-        CreateProject("PRJ-NO-BASELINE", today.AddDays(-1), hasBaseline: false);
-
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(0, result.TotalProjectsFound);
-        Assert.Equal(0, result.TotalSettlementsPrepared);
-    }
-
-    [Fact]
-    public async Task PrepareFinalSettlement_InactiveOrSettledProjects_Ignored()
-    {
-        var today = new DateOnly(2026, 11, 7);
-        CreateProject("PRJ-SETTLED", today.AddDays(-1), status: "Settled");
-        CreateProject("PRJ-CLOSED", today.AddDays(-1), status: "Closed");
-
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(0, result.TotalProjectsFound);
-    }
-
-    [Fact]
-    public async Task PrepareFinalSettlement_ExistingFinalMilestone_UpdatedWithoutDuplication()
-    {
-        var today = new DateOnly(2026, 11, 7);
-        var yesterday = today.AddDays(-1);
-        var project = CreateProject("PRJ-UPDATE-FINAL", yesterday, baseValue: 100_000_000m, nrd: 30_000_000m);
-
-        // Pre-existing FINAL milestone with estimated amount or Upcoming
-        _db.Payments.Add(new Payment
-        {
-            ProjectId = project.ProjectId,
-            PaymentType = "FINAL",
-            Status = "Upcoming",
-            Amount = 10_000_000m,
-            DueDate = yesterday
-        });
-        await _db.SaveChangesAsync();
-
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(1, result.TotalProjectsFound);
-        Assert.Equal(0, result.TotalFinalMilestonesCreated); // Already existed, so 0 created
-        Assert.Equal(1, result.TotalSettlementsPrepared);
-
-        // Total payments with PaymentType == "FINAL" should still be 1
-        var finalPayments = await _db.Payments
-            .Where(p => p.ProjectId == project.ProjectId && p.PaymentType == "FINAL")
-            .ToListAsync();
-
-        Assert.Single(finalPayments);
-        Assert.Equal("Due", finalPayments[0].Status);
-        Assert.Equal(70_000_000m, finalPayments[0].Amount); // 100M - 30M = 70M
-    }
-
-    [Fact]
-    public async Task PrepareFinalSettlement_ZeroBalance_DoesNotCreatePaymentRecord()
-    {
-        var today = new DateOnly(2026, 11, 7);
-        var yesterday = today.AddDays(-1);
-        // Base = 100M, NRD = 100M (Fully paid)
-        var project = CreateProject("PRJ-ZERO-BALANCE", yesterday, baseValue: 100_000_000m, nrd: 100_000_000m);
-
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(1, result.TotalProjectsFound);
+        CreateEvent("WPSM-T-2", Today.AddDays(-4));
+        var result = await _service.PrepareFinalSettlementsAsync();
         Assert.Equal(1, result.TotalEventsCompleted);
-        Assert.Equal(1, result.TotalSettlementsPrepared);
-        Assert.Equal(0, result.TotalFinalMilestonesCreated); // 0 payment not created in DB
-
-        // Project must remain Event Completed, NOT Settled (Manager must perform settlement action)
-        var dbProject = await _db.WeddingProjects.FindAsync(project.ProjectId);
-        Assert.Equal("Event Completed", dbProject!.Status);
-
-        // Manager still notified that final due is 0 and needs verification
-        var notification = await _db.Notifications.SingleAsync();
-        Assert.Contains("0 VND", notification.Message);
     }
 
     [Fact]
-    public async Task PrepareFinalSettlement_IgnoresDraftAndNegotiatingCRs()
+    public async Task EventTodayOrLater_IsIgnored()
     {
-        var today = new DateOnly(2026, 11, 7);
-        var yesterday = today.AddDays(-1);
-        var project = CreateProject("PRJ-CR-FILTER", yesterday, baseValue: 100_000_000m, nrd: 30_000_000m);
+        CreateEvent("WPSM-T-3", Today);
+        CreateEvent("WPSM-T-4", Today.AddDays(3));
+        var result = await _service.PrepareFinalSettlementsAsync();
+        Assert.Equal(0, result.TotalProjectsFound);
+        Assert.False(await _db.SettlementInvoices.AnyAsync());
+    }
 
-        // Add Draft CR (+15M) and Negotiating CR (+25M)
-        _db.ChangeRequests.AddRange(
-            new ChangeRequest
-            {
-                Crcode = "CR-DRAFT",
-                ProjectId = project.ProjectId,
-                CreatedBy = _customer.UserId,
-                Type = "ScopeAddition",
-                Description = "Bản nháp",
-                CostImpact = 15_000_000m,
-                Status = "Draft",
-                CreatedAt = DateTime.UtcNow
-            },
-            new ChangeRequest
-            {
-                Crcode = "CR-NEGOTIATE",
-                ProjectId = project.ProjectId,
-                CreatedBy = _customer.UserId,
-                Type = "ScopeAddition",
-                Description = "Đang đàm phán",
-                CostImpact = 25_000_000m,
-                Status = "Negotiating",
-                CreatedAt = DateTime.UtcNow
-            }
-        );
-        await _db.SaveChangesAsync();
-
-        var result = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(1, result.TotalSettlementsPrepared);
-
-        // Final Due must be 100M - 30M = 70M (Draft and Negotiating CRs ignored)
-        var finalPayment = await _db.Payments.SingleAsync(p => p.ProjectId == project.ProjectId && p.PaymentType == "FINAL");
-        Assert.Equal(70_000_000m, finalPayment.Amount);
+    [Theory]
+    [InlineData("Adjusting")]
+    [InlineData("Settled")]
+    [InlineData("Closed")]
+    [InlineData("Cancelled")]
+    public async Task OnlyLockedEvents_AreSettled(string status)
+    {
+        var p = CreateEvent("WPSM-T-5", Today.AddDays(-1), status: status);
+        if (status == "Cancelled") { p.CancelledAt = DateTime.UtcNow; p.CancelReason = "Khách hủy"; await _db.SaveChangesAsync(); }
+        var result = await _service.PrepareFinalSettlementsAsync();
+        Assert.Equal(0, result.TotalProjectsFound);
     }
 
     [Fact]
-    public async Task PrepareFinalSettlement_EmailOutage_DoesNotRollbackSettlement()
+    public async Task NothingLeftToPay_IssuesTheInvoiceWithoutASettlementPayment()
     {
-        var today = new DateOnly(2026, 11, 7);
-        var yesterday = today.AddDays(-1);
-        var project = CreateProject("PRJ-EMAIL-ERR", yesterday);
+        var p = CreateEvent("WPSM-T-6", Today.AddDays(-1), total: 30_000_000m, deposit: 30_000_000m);
+        await _service.PrepareFinalSettlementsAsync();
+        var invoice = await _db.SettlementInvoices.SingleAsync(i => i.ProjectId == p.ProjectId);
+        Assert.Equal(0m, invoice.ContractTotal + invoice.AddonTotal - invoice.DepositPaid);
+        Assert.False(await _db.Payments.AnyAsync(x => x.ProjectId == p.ProjectId && x.PaymentType == "Settlement"));
+    }
 
-        var failingEmailOutbox = new FailingEmailOutbox();
-        var customService = new FinalSettlementService(
-            _db,
-            _notificationRepo,
-            failingEmailOutbox,
-            _emailOptions,
-            NullLogger<FinalSettlementService>.Instance);
-
-        var result = await customService.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-
-        Assert.Equal(1, result.TotalProjectsFound);
+    [Fact]
+    public async Task EmailOutage_DoesNotUndoTheInvoice()
+    {
+        var p = CreateEvent("WPSM-T-7", Today.AddDays(-1));
+        var result = await NewService(new FailingEmailOutbox()).PrepareFinalSettlementsAsync();
         Assert.Equal(1, result.TotalSettlementsPrepared);
         Assert.Equal(0, result.TotalEmailsQueued);
-        Assert.Equal(0, result.TotalFailed);
-
-        var dbProject = await _db.WeddingProjects.FindAsync(project.ProjectId);
-        Assert.Equal("Event Completed", dbProject!.Status);
-        Assert.Single(_db.Notifications);
+        Assert.True(await _db.SettlementInvoices.AnyAsync(i => i.ProjectId == p.ProjectId));
     }
 
     [Fact]
-    public async Task PrepareFinalSettlement_Idempotency_RunningTwiceDoesNotDuplicate()
+    public async Task RunningTwice_DoesNotDuplicate()
     {
-        var today = new DateOnly(2026, 11, 7);
-        var yesterday = today.AddDays(-1);
-        var project = CreateProject("PRJ-IDEMPOTENT-SETTLE", yesterday);
-
-        // First run
-        var run1 = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-        Assert.Equal(1, run1.TotalProjectsFound);
-        Assert.Equal(1, run1.TotalSettlementsPrepared);
-        Assert.Equal(1, run1.TotalFinalMilestonesCreated);
-        Assert.Equal(1, run1.TotalNotificationsCreated);
-
-        // Second run
-        var run2 = await _service.PrepareFinalSettlementsAsync(new PrepareFinalSettlementCommand(today));
-        Assert.Equal(1, run2.TotalProjectsFound);
-        Assert.Equal(0, run2.TotalEventsCompleted); // Already completed
-        Assert.Equal(0, run2.TotalFinalMilestonesCreated); // Not duplicated
-        Assert.Equal(0, run2.TotalNotificationsCreated); // Not duplicated
-
-        // Assert counts in DB
-        Assert.Equal(1, await _db.Payments.CountAsync(p => p.ProjectId == project.ProjectId && p.PaymentType == "FINAL"));
-        Assert.Equal(1, await _db.Notifications.CountAsync());
+        var p = CreateEvent("WPSM-T-8", Today.AddDays(-1));
+        await _service.PrepareFinalSettlementsAsync();
+        var second = await _service.PrepareFinalSettlementsAsync();
+        Assert.Equal(0, second.TotalProjectsFound);   // already Completed
+        Assert.Equal(1, await _db.SettlementInvoices.CountAsync(i => i.ProjectId == p.ProjectId));
+        Assert.Equal(1, await _db.Payments.CountAsync(x => x.ProjectId == p.ProjectId && x.PaymentType == "Settlement"));
     }
 
     [Fact]
@@ -415,9 +168,7 @@ public sealed class FinalSettlementJobTests : IDisposable
 
     private sealed class FailingEmailOutbox : IEmailOutbox
     {
-        public void Enqueue(string toEmail, string subject, string bodyHtml, string kind, int? projectId)
-        {
+        public void Enqueue(string toEmail, string subject, string bodyHtml, string kind, int? projectId) =>
             throw new InvalidOperationException("Email queue unavailable.");
-        }
     }
 }

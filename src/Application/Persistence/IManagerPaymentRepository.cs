@@ -14,7 +14,7 @@ public sealed record ManagerPaymentSummaryView(
     DateOnly EventDate,
     string ProjectStatus,
     decimal BaseContractValue,
-    decimal TotalApprovedCrVariance,
+    decimal ConfirmedAddonTotal,
     decimal CurrentProjectTotal,
     decimal TotalAmountPaid,
     decimal OutstandingBalance,
@@ -50,10 +50,9 @@ public sealed record ManagerPaymentHistoryItemView(
 
 public sealed record SettlementCalculationView(
     decimal BaseContractValue,
-    decimal ApprovedCrVariance,
+    decimal ConfirmedAddonTotal,
     decimal CurrentProjectTotal,
-    decimal NrdPaid,
-    decimal T30Paid,
+    decimal DepositPaid,
     decimal OtherRecordedPayments,
     decimal TotalRecordedPayments,
     decimal FinalAmountDue,
@@ -78,7 +77,7 @@ public sealed record FinalSettlementReceiptView(
     DateOnly EventDate,
     string HallName,
     decimal BaseContractValue,
-    decimal TotalApprovedCrVariance,
+    decimal ConfirmedAddonTotal,
     decimal CurrentProjectTotal,
     decimal TotalAmountPaid,
     decimal FinalBalance,
@@ -92,7 +91,11 @@ public sealed record ManagerPaymentOverviewView(
     ManagerPaymentSummaryView Summary,
     IReadOnlyList<ManagerPaymentMilestoneView> Milestones,
     IReadOnlyList<ManagerPaymentHistoryItemView> History,
-    SettlementCalculationView Settlement);
+    SettlementCalculationView Settlement)
+{
+    /// <summary>Final invoice (issued the day after the event): contract + confirmed addon contracts - deposit.</summary>
+    public SettlementInvoiceView? Invoice { get; init; }
+}
 
 public sealed record RecordPaymentCommand(
     string PaymentType,

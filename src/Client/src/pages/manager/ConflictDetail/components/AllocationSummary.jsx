@@ -21,13 +21,13 @@ export default function AllocationSummary({ allocation }) {
           {allocation.isExceptionApproved && <Chip size="small" color="info" label="Ngoại lệ đã duyệt" />}
         </Stack>
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" } }}>
-          <Field label="Dự án">{allocation.projectCode}</Field>
+          <Field label="Sự kiện">{allocation.projectCode}</Field>
           <Field label="Khách hàng">{allocation.coupleName}</Field>
           <Field label="Sảnh">{allocation.hallName}</Field>
           <Field label="Ngày diễn ra">{dateVi(allocation.eventDate)}</Field>
           <Field label="Khung giờ">{timeVi(allocation.startTime)} – {timeVi(allocation.endTime)}</Field>
           <Field label="Số lượng phân bổ">{allocation.quantity} / {allocation.totalQuantity} tổng công suất</Field>
-          <Field label="Đang giữ bởi dự án khác">{allocation.otherQuantity}</Field>
+          <Field label="Đang giữ bởi sự kiện khác">{allocation.otherQuantity}</Field>
           <Field label="Thiếu hụt">{allocation.shortage}</Field>
         </Box>
         {allocation.isExceptionApproved && (
