@@ -60,6 +60,8 @@ public sealed class ProjectReadModel(WpsmDbContext db)
             OpenComplaints = x.Complaints.Count(c => c.Status != "Resolved"),
             DayOfTotal = x.DayOfTasks.Count,
             DayOfCompleted = x.DayOfTasks.Count(t => t.Status == "Done"),
+            DayOfOverdue = x.DayOfTasks.Count(t => t.Status == "Overdue"),
+            DayOfMissingProof = x.DayOfTasks.Count(t => t.Status == "Done" && t.PhotoRequired && !t.ExecutionPhotos.Any()),
             Payments = payments,
             Addons = x.AddonContracts.OrderByDescending(a => a.CreatedAt)
                 .Select(a => new ProjectModuleItem(a.AddonCode, a.Status, a.Title)).ToList(),

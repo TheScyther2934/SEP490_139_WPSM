@@ -4,6 +4,12 @@ import { statusLabel } from "../../../../components/StatusChip";
 import { PATHS } from "../../../../routes/paths";
 import { dateVi, money } from "../../../../utils/format";
 
+const coordinationHint = (p) => {
+  if (!p.dayOfTotal) return p.status === "Adjusting" ? "Tạo sau khi khóa dịch vụ" : "Tạo từ các dịch vụ đã khóa";
+  const parts = [p.dayOfOverdue && `${p.dayOfOverdue} quá hạn`, p.dayOfMissingProof && `${p.dayOfMissingProof} thiếu minh chứng`].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Theo 4 bộ phận, có ảnh minh chứng";
+};
+
 // One tile per area of the event; each opens its tab.
 export default function ModuleCards({ project }) {
   const M = PATHS.manager;
@@ -24,7 +30,9 @@ export default function ModuleCards({ project }) {
         to={M.beo(code)} tone={project.beoStatus === "Stale" ? "error" : "primary"} />
       <StatCard label="Còn phải thu" value={money(project.outstandingBalance)}
         hint={`Đặt cọc: ${deposit?.status === "Paid" ? "đã thu" : "chưa xác nhận"} · Phát sinh đã xác nhận: ${money(project.confirmedAddonTotal)}`} to={M.payments(code)} />
-      <StatCard label="Ngày cưới" value={project.dayOfTotal ? `${project.dayOfCompleted}/${project.dayOfTotal} việc xong` : "Chưa có công việc"} to={M.dayOf(code)} />
+      <StatCard label="Điều phối" value={project.dayOfTotal ? `${project.dayOfCompleted}/${project.dayOfTotal} nhiệm vụ xong` : "Chưa có nhiệm vụ"}
+        hint={coordinationHint(project)} to={M.departmentSheets(code)}
+        tone={project.dayOfOverdue ? "error" : project.dayOfMissingProof ? "warning" : "primary"} />
       <StatCard label="Khiếu nại đang mở" value={project.openComplaints || 0} hint={project.openComplaints ? "Cần phản hồi" : "Chưa có khiếu nại"} to={M.complaints(code)} />
     </Box>
   );

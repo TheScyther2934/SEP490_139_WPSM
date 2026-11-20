@@ -116,7 +116,7 @@ public sealed class AdminProjectRepository(WpsmDbContext db) : IAdminProjectRepo
         var evidence = p.DayOfTasks.OrderBy(x => x.DeadlineTime)
             .Select(t => new AdminEvidenceTask(t.DayOfTaskId, t.TaskName, Utc(t.DeadlineTime), t.Status, t.PhotoRequired, Utc(t.CompletedAt),
                 t.CompletedByUser?.FullName,
-                t.ExecutionPhotos.OrderBy(x => x.UploadedAt)
+                t.ExecutionPhotos.Where(x => x.ContentType == null || x.ContentType.StartsWith("image/")).OrderBy(x => x.UploadedAt)
                     .Select(x => new AdminEvidencePhoto(x.PhotoId, Utc(x.UploadedAt), x.Uploader.FullName, x.UploadedAt > t.DeadlineTime)).ToList()))
             .ToList();
         var complaints = p.Complaints.OrderByDescending(x => x.CreatedAt)

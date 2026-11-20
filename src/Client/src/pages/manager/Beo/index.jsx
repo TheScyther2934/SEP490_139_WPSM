@@ -31,12 +31,13 @@ import DataState from "../../../components/DataState";
 import StatusChip from "../../../components/StatusChip";
 import ReapproveBeoDialog from "./components/ReapproveBeoDialog";
 import { useAsync } from "../../../hooks/useAsync";
+import { useProject } from "../../../hooks/useProject";
 import { projectService } from "../../../services/projectService";
 import { notify } from "../../../store/notifySlice";
 import { PATHS } from "../../../routes/paths";
 import { dateTimeVi, dateVi, errorMessage, money, slotLabel } from "../../../utils/format";
 
-// M-10, M-12: Master BEO & Re-approve Stale BEO (UC-27, UC-29 | GBR-05 | MSG18/22 | BF-04)
+// Coordination sheet: freeze it, and re-approve it after a confirmed addon contract.| GBR-05 | MSG18/22 | BF-04)
 export default function Beo() {
   const { projectCode } = useParams();
   const dispatch = useDispatch();
@@ -48,6 +49,11 @@ export default function Beo() {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { project } = useProject();
+  // The sheet is frozen only while the event is locked (same check as the API). Addon contracts waiting for the customer do not block.
+  const blocker = project.status === "Locked" ? null : project.status === "Adjusting" ? "adjusting" : "closed";
+  const newLines = beo?.items?.filter((i) => i.isNew).length || 0;
+  const addonLines = beo?.items?.filter((i) => i.changedByAddon).length || 0;
 
   useEffect(() => {
     if (beo) setNotes(beo.notes || "");
@@ -88,7 +94,6 @@ export default function Beo() {
   return (
     <>
       <PageHeader
-        code={beo?.status === "Stale" ? "M-12" : "M-10"}
         title={`Phiếu điều phối tiệc (${projectCode})`}
         subtitle="Tổng hợp dịch vụ đã chốt và các hợp đồng phát sinh khách đã xác nhận thành kế hoạch cho 4 bộ phận."
         actions={
@@ -110,7 +115,7 @@ export default function Beo() {
                 color={beo.status === "Stale" ? "warning" : "primary"}
                 startIcon={beo.status === "Stale" ? <AutorenewIcon /> : <LockOutlinedIcon />}
                 onClick={() => setDialogOpen(true)}
-                disabled={saving}
+                disabled={saving || !!blocker}
                 id="openFreezeBeoBtn"
               >
                 {beo.status === "Stale"
@@ -127,7 +132,20 @@ export default function Beo() {
       <DataState loading={loading} error={error} onRetry={reload} empty={!beo} emptyText="Không tìm thấy dữ liệu phiếu điều phối.">
         {beo && (
           <Stack spacing={3}>
-            {beo.status === "Stale" && (
+            {!blocker && project.pendingAddons > 0 && (
+              <Alert severity="info"
+                action={<Button color="inherit" size="small" component={RouterLink} to={PATHS.manager.addons(projectCode)}>Xem hợp đồng phát sinh</Button>}>
+                Còn {project.pendingAddons} hợp đồng phát sinh đang chờ khách xác nhận. Phiếu điều phối vẫn chốt được bình thường; hợp đồng đó chỉ
+                được đưa vào phiếu khi khách xác nhận, lúc đó phiếu sẽ cần duyệt lại thêm một lần.
+              </Alert>
+            )}
+            {blocker === "adjusting" && (
+              <Alert severity="info">Sự kiện còn trong giai đoạn điều chỉnh. Phiếu điều phối được chốt sau khi khóa dịch vụ ({dateVi(project.lockDate)}).</Alert>
+            )}
+            {blocker === "closed" && (
+              <Alert severity="info">Sự kiện đã diễn ra, đã tất toán hoặc đã hủy. Phiếu điều phối chỉ còn để xem.</Alert>
+            )}
+            {beo.status === "Stale" && !blocker && (
               <Alert
                 severity="warning"
                 action={
@@ -136,12 +154,12 @@ export default function Beo() {
                   </Button>
                 }
               >
-                <strong>Cần duyệt lại:</strong> BEO v{beo.version} đã chuyển sang trạng thái <strong>cần duyệt lại</strong> do có hợp đồng phát sinh khách vừa xác nhận sau khi chốt. Vui lòng kiểm tra các hạng mục thay đổi và duyệt lại BEO để phát hành phiên bản v{beo.version + 1}.
+                <strong>Cần duyệt lại:</strong> khách đã xác nhận hợp đồng phát sinh sau khi chốt phiếu v{beo.version}{newLines ? `, có ${newLines} dòng dịch vụ mới (đánh dấu "Mới" bên dưới)` : ""}. Các bộ phận chưa nhận được phần này. Hãy kiểm tra và duyệt lại để phát hành phiếu v{beo.version + 1}.
               </Alert>
             )}
 
             <Grid container spacing={2.5}>
-              <Grid item xs={12} md={8}>
+              <Grid size={{ xs: 12, md: 8 }}>
                 <Card variant="outlined" sx={{ height: "100%" }}>
                   <CardContent>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
@@ -155,33 +173,33 @@ export default function Beo() {
                     </Stack>
                     <Divider sx={{ mb: 2 }} />
                     <Grid container spacing={2}>
-                      <Grid item xs={6} sm={4}>
+                      <Grid size={{ xs: 6, sm: 4 }}>
                         <Typography variant="caption" color="text.secondary">Cặp đôi khách hàng</Typography>
                         <Typography fontWeight={700}>{beo.coupleName}</Typography>
                       </Grid>
-                      <Grid item xs={6} sm={4}>
+                      <Grid size={{ xs: 6, sm: 4 }}>
                         <Typography variant="caption" color="text.secondary">Sảnh & Ca tiệc</Typography>
                         <Typography fontWeight={700}>
-                          {beo.hallName} · Ca {slotLabel(beo.slotName)} ({beo.slotTime})
+                          {beo.hall} · Ca {slotLabel(beo.slot)}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6} sm={4}>
+                      <Grid size={{ xs: 6, sm: 4 }}>
                         <Typography variant="caption" color="text.secondary">Ngày tổ chức</Typography>
                         <Typography fontWeight={700}>
                           {dateVi(beo.eventDate)} ({beo.daysUntilEvent >= 0 ? `T-${beo.daysUntilEvent}` : "Đã diễn ra"})
                         </Typography>
                       </Grid>
-                      <Grid item xs={6} sm={4}>
+                      <Grid size={{ xs: 6, sm: 4 }}>
                         <Typography variant="caption" color="text.secondary">Số bàn / Quy mô</Typography>
                         <Typography fontWeight={700}>{beo.guestCount} bàn</Typography>
                       </Grid>
-                      <Grid item xs={6} sm={4}>
+                      <Grid size={{ xs: 6, sm: 4 }}>
                         <Typography variant="caption" color="text.secondary">Phát sinh đã tích hợp</Typography>
                         <Typography fontWeight={700} color="primary.main">
-                          {beo.approvedCrCount} yêu cầu thay đổi
+                          {addonLines} dòng dịch vụ
                         </Typography>
                       </Grid>
-                      <Grid item xs={6} sm={4}>
+                      <Grid size={{ xs: 6, sm: 4 }}>
                         <Typography variant="caption" color="text.secondary">Lần chốt gần nhất</Typography>
                         <Typography fontWeight={600}>
                           {beo.frozenAt ? `${dateTimeVi(beo.frozenAt)} (${beo.approvedByName || "Manager"})` : "Chưa chốt"}
@@ -192,7 +210,7 @@ export default function Beo() {
                 </Card>
               </Grid>
 
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card variant="outlined" sx={{ height: "100%" }}>
                   <CardContent>
                     <Typography variant="subtitle1" fontWeight={800} mb={1.5}>
@@ -248,11 +266,11 @@ export default function Beo() {
                   </TableHead>
                   <TableBody>
                     {beo.items?.map((item) => (
-                      <TableRow key={item.specItemId} hover>
+                      <TableRow key={item.specItemId} hover sx={item.isNew ? { bgcolor: "rgba(237, 108, 2, 0.06)" } : undefined}>
                         <TableCell>
                           <Chip size="small" label={item.department} variant="outlined" />
                         </TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>{item.itemName}</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>{item.name}</TableCell>
                         <TableCell>{item.description}</TableCell>
                         <TableCell align="right">
                           {item.contractQuantity} {item.unit}
@@ -265,11 +283,14 @@ export default function Beo() {
                           {money(item.lineTotal)}
                         </TableCell>
                         <TableCell align="center">
-                          <Chip
-                            size="small"
-                            color={item.changedByAddon ? "warning" : "default"}
-                            label={item.changedByAddon ? "Từ hợp đồng phát sinh" : "Theo hợp đồng"}
-                          />
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <Chip
+                              size="small"
+                              color={item.changedByAddon ? "warning" : "default"}
+                              label={item.changedByAddon ? "Từ hợp đồng phát sinh" : "Theo hợp đồng"}
+                            />
+                            {item.isNew && <Chip size="small" color="error" label="Mới" />}
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -12,6 +12,7 @@ public sealed record ComplaintRequest(int BeoVersion, string Description);
 public sealed record ResponseRequest(string Response);
 public sealed record AllocationRequest(int ResourceId, string ProjectCode, DateTime StartTime, DateTime EndTime, int Quantity, string? Note = null);
 public sealed record CatalogStatusRequest(bool Active);
+public sealed record CoordinationTaskRequest(string? TaskName, string? Department, DateTime Deadline, bool PhotoRequired, string? Note);
 
 // Day-of, feedback, resources and admin catalog configuration.
 // Notifications, Manager dashboard/overdue alerts and payments have their own endpoint classes (one route, one handler).
@@ -39,30 +40,42 @@ public static class OperationsEndpoints
 
         manager.MapGet("/day-of", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.GetBoardAsync(id, ct), links)));
         manager.MapPost("/day-of/load", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.LoadTimelineAsync(id, ct), links)));
+        // Coordination tasks by department, open from the lock: added by hand, edited (deadline, proof required), deleted.
+        manager.MapPost("/day-of/tasks", async (string id, CoordinationTaskRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await repo.CreateTaskAsync(id, UserId(user), ToCommand(request), ct), links)));
+        manager.MapPut("/day-of/{taskId:int}", async (string id, int taskId, CoordinationTaskRequest request, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await repo.UpdateTaskAsync(id, taskId, ToCommand(request), ct), links)));
+        manager.MapDelete("/day-of/{taskId:int}", async (string id, int taskId, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await repo.DeleteTaskAsync(id, taskId, ct), links)));
         manager.MapPost("/day-of/{taskId:int}/complete", async (string id, int taskId, HttpRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            var (photos, error) = await ReadProofPhotosAsync(request, ct);
-            return error ?? OkOrNotFound(WithUrls(await repo.CompleteTaskAsync(id, taskId, UserId(user), photos, ct), links));
+            var (photos, note, error) = await ReadProofPhotosAsync(request, ct);
+            return error ?? OkOrNotFound(WithUrls(await repo.CompleteTaskAsync(id, taskId, UserId(user), photos, note, ct), links));
         }).DisableAntiforgery();
-        // Adds proof photos to a task afterwards (a task completed without them, or more angles of the same work).
+        // Adds proof to a task afterwards (a task completed without it, or more angles of the same work).
         manager.MapPost("/day-of/{taskId:int}/photos", async (string id, int taskId, HttpRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            var (photos, error) = await ReadProofPhotosAsync(request, ct);
+            var (photos, _, error) = await ReadProofPhotosAsync(request, ct);
             return error ?? OkOrNotFound(WithUrls(await repo.AddPhotosAsync(id, taskId, UserId(user), photos, ct), links));
         }).DisableAntiforgery();
     }
 
-    private static async Task<(List<ProofPhotoUpload> Photos, IResult? Error)> ReadProofPhotosAsync(HttpRequest request, CancellationToken ct)
+    private static CoordinationTaskCommand ToCommand(CoordinationTaskRequest x) =>
+        new(x.TaskName ?? "", x.Department ?? "", x.Deadline, x.PhotoRequired, x.Note);
+
+    // Proof files (photos or PDF documents) plus an optional note from a multipart form.
+    private static async Task<(List<ProofPhotoUpload> Photos, string? Note, IResult? Error)> ReadProofPhotosAsync(HttpRequest request, CancellationToken ct)
     {
         var photos = new List<ProofPhotoUpload>();
-        if (request.ContentLength > 3 * UploadLimit) return (photos, Results.BadRequest(new { message = "Mỗi lần tải lên 1–3 ảnh, tối đa 10 MB mỗi ảnh." }));
+        if (request.ContentLength > 3 * UploadLimit) return (photos, null, Results.BadRequest(new { message = "Mỗi lần tải lên 1–3 tệp, tối đa 10 MB mỗi tệp." }));
         var form = request.HasFormContentType ? await request.ReadFormAsync(ct) : null;
         foreach (var file in form?.Files ?? (IReadOnlyList<IFormFile>)[])
         {
-            if (file.Length is <= 0 or > 10 * 1024 * 1024) return (photos, Results.BadRequest(new { message = "Ảnh minh chứng chỉ nhận JPG hoặc PNG, tối đa 10 MB." }));
+            if (file.Length is <= 0 or > 10 * 1024 * 1024) return (photos, null, Results.BadRequest(new { message = "Minh chứng chỉ nhận ảnh JPG, PNG hoặc tài liệu PDF, tối đa 10 MB." }));
             photos.Add(new ProofPhotoUpload(await ReadAsync(file, ct), file.FileName));
         }
-        return (photos, null);
+        var note = form?["note"].ToString();
+        return (photos, string.IsNullOrWhiteSpace(note) ? null : note, null);
     }
 
     private static void MapFeedback(RouteGroupBuilder api)

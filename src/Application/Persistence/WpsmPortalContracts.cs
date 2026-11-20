@@ -50,6 +50,9 @@ public sealed record WeddingProjectView(
     public int OpenComplaints { get; init; }
     public int DayOfTotal { get; init; }
     public int DayOfCompleted { get; init; }
+    public int DayOfOverdue { get; init; }
+    /// <summary>Coordination tasks done without the proof they require.</summary>
+    public int DayOfMissingProof { get; init; }
     public IReadOnlyList<PaymentView> Payments { get; init; } = [];
     public IReadOnlyList<ProjectModuleItem> Addons { get; init; } = [];
     public IReadOnlyList<ProjectModuleItem> Beos { get; init; } = [];

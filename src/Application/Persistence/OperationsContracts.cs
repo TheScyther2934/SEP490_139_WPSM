@@ -4,27 +4,41 @@ namespace Application.Persistence;
 // Payments: IManagerPaymentRepository / ICustomerPaymentRepository; notifications: INotificationRepository.
 // Project access (GBR-12) is checked by the /projects/{id} filter.
 
-// ── Day-of (UC-30..UC-32, SDS IV.4.3) ──────────────────────────────────────
+// ── Coordination tasks (UC-30..UC-32, SDS IV.4.3) ──────────────────────────
+// Every coordination task of an event by department: preparation tasks between the lock and the event day, the event-day
+// timeline and tasks added by the operator. Proof is a photo (JPG/PNG) or a document (PDF); customers only see photos.
 public sealed record DayOfPhotoView(int PhotoId, DateTime UploadedAt)
 {
     public string ImageUrl { get; init; } = "";
     public string? UploaderName { get; init; }
+    public string? FileName { get; init; }
+    /// <summary>False for a PDF proof (opened in a new tab instead of the photo viewer).</summary>
+    public bool IsImage { get; init; } = true;
 }
-/// <summary>MissingProof: the task is done but has no photo although it requires one (photos can still be added).</summary>
+/// <summary>MissingProof: the task is done but has no proof although it requires one (proof can still be added).</summary>
 public sealed record DayOfTaskView(int TaskId, string TaskName, DateTime Deadline, string Status, bool PhotoRequired, DateTime? CompletedAt,
     bool IsLate, IReadOnlyList<DayOfPhotoView> Photos)
 {
     public string? CompletedBy { get; init; }
     public bool MissingProof => Status == "Done" && PhotoRequired && Photos.Count == 0;
+    public string Department { get; init; } = "Service";
+    public string? Note { get; init; }
+    /// <summary>Added by an operator (can be deleted while not done); otherwise generated from the services.</summary>
+    public bool IsCustom { get; init; }
+    /// <summary>Deadline on the event day (the event-day board shows these).</summary>
+    public bool IsEventDay { get; init; }
 }
-/// <summary>CanAddPhotos: proof photos can be added from the event day until the event is settled.</summary>
+/// <summary>CanAddPhotos: tasks can be completed and proof added from the lock until the event is settled.</summary>
 public sealed record DayOfBoardView(string ProjectCode, string CoupleName, DateOnly EventDate, string SlotTime, string BeoStatus, IReadOnlyList<DayOfTaskView> Tasks)
 {
     public string ProjectStatus { get; init; } = "";
     public bool CanAddPhotos { get; init; }
     public int MaxPhotosPerTask { get; init; }
+    public DateTime? LockedAt { get; init; }
 }
 public sealed record ProofPhotoUpload(byte[] Content, string FileName);
+/// <summary>Task added or edited by the operator. Deadline in UTC; Department: Kitchen, Service, Decor or Tech-MC.</summary>
+public sealed record CoordinationTaskCommand(string TaskName, string Department, DateTime Deadline, bool PhotoRequired, string? Note);
 public sealed record ProjectPhotoView(int PhotoId, string TaskName, DateTime UploadedAt, string UploaderName)
 {
     public string ImageUrl { get; init; } = "";
@@ -33,13 +47,18 @@ public sealed record ProjectPhotoView(int PhotoId, string TaskName, DateTime Upl
 public interface IDayOfRepository
 {
     Task<DayOfBoardView?> GetBoardAsync(string projectCode, CancellationToken cancellationToken = default);
-    /// <summary>UC-13 / C-11: every proof photo of the project, newest first.</summary>
+    /// <summary>UC-13 / C-11: every proof photo of the project (photos only, no documents), newest first.</summary>
     Task<IReadOnlyList<ProjectPhotoView>> GetPhotosAsync(string projectCode, CancellationToken cancellationToken = default);
+    /// <summary>Generates the missing coordination tasks from the locked services (any time after the lock).</summary>
     Task<DayOfBoardView?> LoadTimelineAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<DayOfBoardView?> CompleteTaskAsync(string projectCode, int taskId, int managerId, IReadOnlyList<ProofPhotoUpload> photos, CancellationToken cancellationToken = default);
-    /// <summary>Adds 1–3 proof photos to a task (done or not), e.g. a task completed without its photos. Up to MaxPhotosPerTask per task.</summary>
+    Task<DayOfBoardView?> CreateTaskAsync(string projectCode, int managerId, CoordinationTaskCommand command, CancellationToken cancellationToken = default);
+    Task<DayOfBoardView?> UpdateTaskAsync(string projectCode, int taskId, CoordinationTaskCommand command, CancellationToken cancellationToken = default);
+    /// <summary>Deletes a task added by hand that is not done and has no proof.</summary>
+    Task<DayOfBoardView?> DeleteTaskAsync(string projectCode, int taskId, CancellationToken cancellationToken = default);
+    Task<DayOfBoardView?> CompleteTaskAsync(string projectCode, int taskId, int managerId, IReadOnlyList<ProofPhotoUpload> photos, string? note, CancellationToken cancellationToken = default);
+    /// <summary>Adds 1–3 proof files to a task (done or not), e.g. a task completed without its proof. Up to MaxPhotosPerTask per task.</summary>
     Task<DayOfBoardView?> AddPhotosAsync(string projectCode, int taskId, int managerId, IReadOnlyList<ProofPhotoUpload> photos, CancellationToken cancellationToken = default);
-    /// <summary>JOB-04: loads the timeline of every frozen project whose event is today.</summary>
+    /// <summary>JOB-04: generates the tasks of every locked project whose event is today (safety net).</summary>
     Task<int> LoadTodayAsync(DateOnly today, CancellationToken cancellationToken = default);
     /// <summary>JOB-05: flags Pending tasks past their deadline (GBR-07) and notifies the Manager (MSG21).</summary>
     Task<int> DetectOverdueAsync(DateTime utcNow, CancellationToken cancellationToken = default);

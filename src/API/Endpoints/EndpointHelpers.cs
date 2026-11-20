@@ -38,6 +38,7 @@ public static class EndpointHelpers
             ".png" => "image/png",
             ".webp" => "image/webp",
             ".gif" => "image/gif",
+            ".pdf" => "application/pdf",
             _ => "application/octet-stream"
         };
         return Results.File(filePath, contentType, enableRangeProcessing: true);

@@ -141,6 +141,15 @@ public partial class WpsmDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TaskName).HasMaxLength(200);
+            entity.Property(e => e.Department).HasMaxLength(20).HasDefaultValue("Service");
+            entity.Property(e => e.SourceKey).HasMaxLength(50);
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.HasIndex(e => new { e.ProjectId, e.SourceKey }, "UQ_DayOf_Project_Source").IsUnique().HasFilter("([SourceKey] IS NOT NULL)");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DayOf_CreatedBy");
 
             entity.HasOne(d => d.Project).WithMany(p => p.DayOfTasks)
                 .HasForeignKey(d => d.ProjectId)
@@ -160,6 +169,8 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => e.DayOfTaskId, "IX_Photo_Task");
 
             entity.Property(e => e.ImageFilePath).HasMaxLength(500);
+            entity.Property(e => e.FileName).HasMaxLength(255);
+            entity.Property(e => e.ContentType).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UploadedAt)
                 .HasPrecision(0)
                 .HasDefaultValueSql("(sysutcdatetime())");

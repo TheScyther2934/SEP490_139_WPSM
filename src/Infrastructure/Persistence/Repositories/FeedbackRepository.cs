@@ -62,7 +62,7 @@ public sealed class FeedbackRepository(WpsmDbContext db) : IFeedbackRepository
             .Include(x => x.Beo).ThenInclude(x => x.BeodepartmentSheets)
             .FirstOrDefaultAsync(x => x.ComplaintCode == complaintCode && x.Project.ProjectCode == projectCode, cancellationToken);
         if (complaint is null) return null;
-        var photos = await db.ExecutionPhotos.AsNoTracking().Where(x => x.DayOfTask.ProjectId == complaint.ProjectId).OrderBy(x => x.UploadedAt)
+        var photos = await db.ExecutionPhotos.AsNoTracking().Where(x => x.DayOfTask.ProjectId == complaint.ProjectId && (x.ContentType == null || x.ContentType.StartsWith("image/"))).OrderBy(x => x.UploadedAt)
             .Select(x => new DayOfPhotoView(x.PhotoId, x.UploadedAt)).ToListAsync(cancellationToken);
         return new ComplaintDetailView(complaint.ComplaintCode, complaint.Project.ProjectCode, complaint.Project.Customer.FullName, complaint.Beo.Version,
             complaint.Description, complaint.Status, complaint.EscalationNote, complaint.ResolutionNote, Utc(complaint.CreatedAt),

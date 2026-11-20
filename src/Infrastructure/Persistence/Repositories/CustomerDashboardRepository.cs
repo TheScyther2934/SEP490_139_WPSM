@@ -69,7 +69,7 @@ public sealed class CustomerDashboardRepository(WpsmDbContext db) : ICustomerDas
             .AsNoTracking()
             .Include(ep => ep.DayOfTask)
             .Include(ep => ep.Uploader)
-            .Where(ep => ep.DayOfTask.ProjectId == project.ProjectId)
+            .Where(ep => ep.DayOfTask.ProjectId == project.ProjectId && (ep.ContentType == null || ep.ContentType.StartsWith("image/")))
             .OrderByDescending(ep => ep.UploadedAt)
             .Select(ep => new
             {

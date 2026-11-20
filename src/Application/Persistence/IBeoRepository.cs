@@ -12,7 +12,9 @@ public sealed record BeoItemLineView(
     decimal UnitPrice,
     decimal LineTotal,
     string Description,
-    bool ChangedByAddon);
+    bool ChangedByAddon,
+    // Addon line added after the previous approved version: the departments have not received it yet (or just got it in this version).
+    bool IsNew = false);
 
 public sealed record BeoDepartmentSheetView(
     int SheetId,

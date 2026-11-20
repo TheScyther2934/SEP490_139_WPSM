@@ -58,14 +58,10 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
             .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
         if (project is null) return null;
 
-        // The sheet is frozen from the services locked in stage 3, never while an addon contract waits for the customer.
+        // The sheet is frozen from the services locked in stage 3. An addon contract still waiting for the customer is not in the sheet:
+        // it does not block; if the customer confirms it later, the sheet turns stale and is re-approved once more.
         if (project.Status != Domain.Services.EventStatus.Locked)
             throw new InvalidOperationException("Phiếu điều phối chỉ chốt khi sự kiện đã khóa dịch vụ (giai đoạn 3).");
-        var pendingAddons = await db.AddonContracts.AsNoTracking().Where(x => x.ProjectId == project.ProjectId && x.Status == "PendingCustomer")
-            .OrderBy(x => x.AddonCode).Select(x => x.AddonCode).ToListAsync(cancellationToken);
-        if (pendingAddons.Count > 0)
-            throw new InvalidOperationException($"Còn hợp đồng phát sinh chờ khách xác nhận ({string.Join(", ", pendingAddons)}), chưa thể chốt phiếu điều phối.");
-
         var now = DateTime.UtcNow;
         var trimmedNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         var latest = project.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
@@ -112,6 +108,8 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
         }
 
         await EnsureDepartmentSheetsAsync(targetBeo, project.ProjectCode, now, cancellationToken);
+        // Coordination tasks of the new lines (confirmed addon contracts); tasks already done stay as they are.
+        await CoordinationPlan.EnsureTasksAsync(db, project.ProjectId, cancellationToken);
 
         db.Notifications.Add(new Notification
         {
@@ -204,6 +202,8 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
             await db.SaveChangesAsync(cancellationToken);
 
             await EnsureDepartmentSheetsAsync(draft, project.ProjectCode, now, cancellationToken);
+            // Coordination tasks open right after the lock: preparation work is done (with proof) before the event day.
+            await CoordinationPlan.EnsureTasksAsync(db, project.ProjectId, cancellationToken);
 
             db.Notifications.Add(new Notification
             {
@@ -266,6 +266,9 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
     private static ProjectBeoView MapBeoView(WeddingProject project)
     {
         var latestBeo = project.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
+        // Lines new to the departments: confirmed after the last approval (stale sheet), or added by the latest version (since the one before).
+        var newSince = latestBeo?.Status == "Stale" ? latestBeo.FrozenAt
+            : project.Beos.Where(b => b.FrozenAt != null).OrderByDescending(b => b.Version).Skip(1).FirstOrDefault()?.FrozenAt;
         // Service lines as locked, then the lines of the confirmed addon contracts (marked as changed by an addon).
         var items = project.SpecItems
             .OrderBy(s => s.SpecItemId)
@@ -275,12 +278,13 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
                 return new BeoItemLineView(s.SpecItemId, s.CatalogItem.Name, s.CatalogItem.Category, dept, DepartmentLabel(dept), s.CatalogItem.Unit,
                     s.Quantity, s.Quantity, s.UnitPrice, s.Quantity * s.UnitPrice, s.Description ?? "", false);
             })
-            .Concat(project.AddonContracts.Where(a => a.Status == "Confirmed").OrderBy(a => a.ConfirmedAt).SelectMany(a => a.Items).Select(i =>
+            .Concat(project.AddonContracts.Where(a => a.Status == "Confirmed").OrderBy(a => a.ConfirmedAt).SelectMany(a => a.Items.Select(i => (Addon: a, Item: i))).Select(x =>
             {
-                var category = i.CatalogItem?.Category ?? "Other";
+                var category = x.Item.CatalogItem?.Category ?? "Other";
                 var dept = MapCategoryToDepartment(category);
+                var i = x.Item;
                 return new BeoItemLineView(-i.AddonItemId, i.CatalogItem?.Name ?? i.Description, category, dept, DepartmentLabel(dept), i.CatalogItem?.Unit ?? "",
-                    0, i.Quantity, i.UnitPrice, i.Quantity * i.UnitPrice, i.Description, true);
+                    0, i.Quantity, i.UnitPrice, i.Quantity * i.UnitPrice, i.Description, true, newSince is not null && x.Addon.ConfirmedAt > newSince);
             }))
             .ToList();
 
@@ -328,13 +332,7 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
             history);
     }
 
-    public static string MapCategoryToDepartment(string? category) => (category ?? "").Trim() switch
-    {
-        "Catering" => "Kitchen",
-        "Hall" => "Service",
-        "Decor" => "Decor",
-        _ => "Tech-MC"
-    };
+    public static string MapCategoryToDepartment(string? category) => OperationsSupport.DepartmentOf(category);
 
     public static string DepartmentLabel(string department) => department switch
     {

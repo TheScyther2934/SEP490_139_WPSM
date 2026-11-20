@@ -7,6 +7,8 @@ export const OPS = {
   dayOfLoad: (code) => `${project(code)}/day-of/load`,
   dayOfComplete: (code, taskId) => `${project(code)}/day-of/${taskId}/complete`,
   dayOfPhotos: (code, taskId) => `${project(code)}/day-of/${taskId}/photos`,
+  dayOfTasks: (code) => `${project(code)}/day-of/tasks`,
+  dayOfTask: (code, taskId) => `${project(code)}/day-of/${taskId}`,
 
   proofPhotos: (code) => `${project(code)}/proof-photos`,
 

@@ -30,8 +30,8 @@ export default function ReapproveBeoDialog({ open, beo, initialNotes, submitting
         <Stack spacing={2}>
           <Alert severity={isStale ? "warning" : "info"}>
             {isStale
-              ? `Phiếu điều phối v${beo.version} đang cần duyệt lại do khách vừa xác nhận hợp đồng phát sinh. Khi xác nhận, hệ thống sẽ phát hành BEO v${nextVersion} đã chốt và cập nhật đồng bộ 4 phiếu bộ phận (Kitchen, Service, Decor, Tech-MC).`
-              : `Khi chốt phiếu điều phối v${nextVersion}, kế hoạch vận hành sẽ được khóa chuẩn và tự động sinh 4 phiếu điều phối bộ phận (Kitchen, Service, Decor, Tech-MC).`}
+              ? `Phiếu điều phối v${beo.version} cần duyệt lại vì khách vừa xác nhận hợp đồng phát sinh. Khi xác nhận, hệ thống phát hành phiếu v${nextVersion} có thêm các dòng mới, cập nhật 4 phiếu bộ phận và bổ sung nhiệm vụ điều phối cho các dòng đó. Nhiệm vụ và minh chứng đã làm được giữ nguyên.`
+              : `Khi chốt phiếu điều phối v${nextVersion}, hệ thống chuyển kế hoạch tới 4 bộ phận (Bếp, Phục vụ, Trang trí, Kỹ thuật và MC) và tạo nhiệm vụ điều phối còn thiếu.`}
           </Alert>
 
           <TextField
@@ -59,7 +59,7 @@ export default function ReapproveBeoDialog({ open, beo, initialNotes, submitting
           {submitting
             ? "Đang phê duyệt..."
             : isStale
-            ? `Xác nhận duyệt lại BEO v${nextVersion}`
+            ? `Duyệt lại, phát hành v${nextVersion}`
             : `Chốt phiếu điều phối v${nextVersion}`}
         </Button>
       </DialogActions>

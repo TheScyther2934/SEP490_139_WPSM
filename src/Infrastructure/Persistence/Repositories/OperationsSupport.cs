@@ -42,14 +42,19 @@ public static class OperationsSupport
         (0, "Bắt đầu nghi lễ, tín hiệu cho MC", "Tech-MC", false)
     ];
 
-    /// <summary>SDS IV.4.2: which department executes each catalog category.</summary>
-    public static string DepartmentOf(string category) => category switch
+    /// <summary>
+    /// SDS IV.4.2: which department executes each catalog category; the coordination sheet and the coordination tasks
+    /// both use it. Decor also builds and arranges the furniture; Service handles the hall, attire, makeup, cars and offerings.
+    /// </summary>
+    public static string DepartmentOf(string? category) => (category ?? "").Trim() switch
     {
         "Catering" => "Kitchen",
-        "Decor" => "Decor",
-        "MC" or "AV" or "Photo/Video" => "Tech-MC",
+        "Decor" or "Furniture" => "Decor",
+        "MC" or "AV" or "Photo/Video" or "Performance" => "Tech-MC",
         _ => "Service"
     };
+
+    public static bool IsDepartment(string? value) => Departments.Contains(value);
 
     public static readonly string[] Departments = ["Kitchen", "Service", "Decor", "Tech-MC"];
 
@@ -73,6 +78,7 @@ public static class OperationsSupport
         public static string ManagerBeo(string code) => $"{ManagerProject(code)}/beo";
         public static string ManagerPayments(string code) => $"{ManagerProject(code)}/payments";
         public static string ManagerDayOf(string code) => $"{ManagerProject(code)}/day-of";
+        public static string ManagerDepartmentSheets(string code) => $"{ManagerBeo(code)}/department-sheets";
         public static string ManagerComplaint(string code, string complaint) => $"{ManagerProject(code)}/complaints/{Seg(complaint)}";
         public const string ResourceCalendar = "/manager/resource-calendar";
         public static string CustomerComplaint(string complaint) => $"/customer/complaints/{Seg(complaint)}";

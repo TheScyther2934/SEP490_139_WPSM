@@ -14,12 +14,15 @@ const form = (fields) => {
   return body;
 };
 
-// M-16, M-17 (UC-30, UC-31)
+// Coordination tasks by department (preparation from the lock, event-day timeline, tasks added by hand) and their proof.
 export const dayOfService = {
   get: (code) => axiosClient.get(OPS.dayOf(code)).then(data),
   load: (code) => axiosClient.post(OPS.dayOfLoad(code)).then(data),
   photos: (code) => axiosClient.get(OPS.proofPhotos(code)).then(data),
-  complete: (code, taskId, photos) => axiosClient.post(OPS.dayOfComplete(code, taskId), form({ photos })).then(data),
+  complete: (code, taskId, photos, note) => axiosClient.post(OPS.dayOfComplete(code, taskId), form({ photos, note })).then(data),
+  createTask: (code, task) => axiosClient.post(OPS.dayOfTasks(code), task).then(data),
+  updateTask: (code, taskId, task) => axiosClient.put(OPS.dayOfTask(code, taskId), task).then(data),
+  deleteTask: (code, taskId) => axiosClient.delete(OPS.dayOfTask(code, taskId)).then(data),
   addPhotos: (code, taskId, photos) => axiosClient.post(OPS.dayOfPhotos(code, taskId), form({ photos })).then(data),
 };
 

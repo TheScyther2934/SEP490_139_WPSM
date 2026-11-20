@@ -4,7 +4,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import { dateTimeVi } from "../../../../utils/format";
+import { dateTimeVi } from "../../utils/format";
 
 // Full-size view of the proof photos of one task; arrows (or keyboard ←/→) move between them.
 export default function PhotoViewer({ viewer, onClose, onMove }) {

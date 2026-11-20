@@ -25,6 +25,7 @@ import DataState from "../../../components/DataState";
 import InvoiceCard from "../../../components/InvoiceCard";
 import StatusChip from "../../../components/StatusChip";
 import RecordPaymentDialog from "./components/RecordPaymentDialog";
+import CoordinationWarning from "./components/CoordinationWarning";
 import { useAsync } from "../../../hooks/useAsync";
 import { projectService } from "../../../services/projectService";
 import { saveBlobAsFile } from "../../../services/paymentService";
@@ -112,10 +113,12 @@ export default function ManagerPayments() {
       <DataState loading={loading} error={error} onRetry={reload}>
         {data && (
           <>
-            {isSettled && (
+            {isSettled ? (
               <Alert severity="success" sx={{ mb: 2 }}>
                 Sự kiện đã tất toán. Khách đã thanh toán đủ.
               </Alert>
+            ) : (
+              <CoordinationWarning projectCode={projectCode} />
             )}
 
             {/* 1. Project Financial Summary */}
