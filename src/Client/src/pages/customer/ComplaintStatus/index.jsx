@@ -39,10 +39,10 @@ export default function ComplaintStatus() {
       <PageHeader
         code="C-16"
         title={`Trạng thái & Kết quả Giải quyết Khiếu nại (${complaintCode})`}
-        subtitle="Theo dõi tiến trình xử lý của Quản lý dự án hoặc quyết định cuối cùng từ Ban Quản trị (Admin)."
+        subtitle="Theo dõi tiến trình xử lý của Quản lý sự kiện hoặc quyết định cuối cùng từ Ban Quản trị (Admin)."
         actions={
           <Button startIcon={<ArrowBackIcon />} component={RouterLink} to={PATHS.customer.complaints}>
-            Danh sách khiếu nại (C-14)
+            Danh sách khiếu nại
           </Button>
         }
       />
@@ -80,14 +80,14 @@ export default function ComplaintStatus() {
                         <Typography fontWeight={800}>{item.complaintCode}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Dự án & Ngày tiệc:</Typography>
+                        <Typography variant="body2" color="text.secondary">Sự kiện & Ngày tiệc:</Typography>
                         <Typography fontWeight={700}>
                           {item.projectCode} · {item.hallName} ({dateVi(item.eventDate)})
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">BEO đối chiếu:</Typography>
-                        <Chip size="small" label={`BEO v${item.beoVersion} (${item.beoStatus})`} color="primary" variant="outlined" />
+                        <Typography variant="body2" color="text.secondary">Phiếu điều phối đối chiếu:</Typography>
+                        <Chip size="small" label={`Phiếu điều phối v${item.beoVersion} (${item.beoStatus})`} color="primary" variant="outlined" />
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography variant="body2" color="text.secondary">Thời점 gửi:</Typography>
@@ -131,7 +131,7 @@ export default function ComplaintStatus() {
                         </Paper>
                       ) : (
                         <Typography color="text.secondary">
-                          Đội ngũ Quản lý dự án đang đối chiếu biên bản BEO v{item.beoVersion} và dữ liệu hình ảnh hiện trường ({item.proofPhotosCount} ảnh nghiệm thu) để phản hồi sớm nhất cho gia đình.
+                          Đội ngũ Quản lý sự kiện đang đối chiếu phiếu điều phối v{item.beoVersion} và dữ liệu hình ảnh hiện trường ({item.proofPhotosCount} ảnh nghiệm thu) để phản hồi sớm nhất cho gia đình.
                         </Typography>
                       )}
                     </Stack>
@@ -142,7 +142,7 @@ export default function ComplaintStatus() {
 
             <Paper variant="outlined" sx={{ p: 2.5 }}>
               <Typography variant="subtitle1" fontWeight={800} mb={1.5}>
-                Bảng Hạng mục Cam kết trong BEO v{item.beoVersion} (Cơ sở đối chiếu)
+                Bảng Hạng mục Cam kết trong phiếu điều phối v{item.beoVersion} (Cơ sở đối chiếu)
               </Typography>
               <TableContainer>
                 <Table size="small">
@@ -151,7 +151,7 @@ export default function ComplaintStatus() {
                       <TableCell>Bộ phận</TableCell>
                       <TableCell>Hạng mục dịch vụ</TableCell>
                       <TableCell>Mô tả cam kết</TableCell>
-                      <TableCell align="right">Số lượng BEO</TableCell>
+                      <TableCell align="right">Số lượng cam kết</TableCell>
                       <TableCell align="right">Thành tiền</TableCell>
                     </TableRow>
                   </TableHead>

@@ -2,7 +2,7 @@ import { Card, CardContent, Step, StepLabel, Stepper, Typography } from "@mui/ma
 import StatusChip from "../StatusChip";
 import { dateTimeVi } from "../../utils/format";
 
-// Open → (Escalated) → Resolved with the notes recorded at each step (C-16, M-19).
+// Open → (Escalated) → Resolved with the notes recorded at each step.
 export default function ComplaintProgress({ complaint }) {
   const steps = [
     { label: "Đã gửi", at: complaint.createdAt },

@@ -125,7 +125,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
             .Include(p => p.Beos)
             .FirstOrDefaultAsync(p => p.CustomerId == customerId &&
                 (string.IsNullOrWhiteSpace(projectCode) || p.ProjectCode == projectCode.Trim()), cancellationToken)
-            ?? throw new KeyNotFoundException("Không tìm thấy dự án của khách hàng.");
+            ?? throw new KeyNotFoundException("Không tìm thấy sự kiện của khách hàng.");
 
         var targetBeo = beoId.HasValue
             ? project.Beos.FirstOrDefault(b => b.Beoid == beoId.Value)
@@ -171,7 +171,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
         {
             RecipientId = project.ManagerId,
             Type = "Complaint",
-            Message = $"Khách hàng dự án {project.ProjectCode} vừa gửi khiếu nại {code} (đối chiếu BEO v{targetBeo.Version}).",
+            Message = $"Khách hàng sự kiện {project.ProjectCode} vừa gửi khiếu nại {code} (đối chiếu BEO v{targetBeo.Version}).",
             LinkUrl = $"/M19?id={project.ProjectCode}&complaint={code}",
             IsRead = false,
             CreatedAt = now
@@ -184,7 +184,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
 
     public async Task<IReadOnlyList<ComplaintView>> GetManagerComplaintsAsync(int managerId, string? projectCode = null, CancellationToken cancellationToken = default)
     {
-        var query = LoadComplaintsQuery().Where(c => c.Project.ManagerId == managerId);
+        var query = LoadComplaintsQuery().Where(c => (c.Project.ManagerId == managerId || c.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)));
         if (!string.IsNullOrWhiteSpace(projectCode))
             query = query.Where(c => c.Project.ProjectCode == projectCode.Trim());
 
@@ -200,7 +200,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
     {
         var code = (complaintCode ?? "").Trim();
         var row = await LoadComplaintsQuery()
-            .FirstOrDefaultAsync(c => c.Project.ManagerId == managerId &&
+            .FirstOrDefaultAsync(c => (c.Project.ManagerId == managerId || c.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) &&
                 (c.ComplaintCode == code || c.ComplaintId.ToString() == code), cancellationToken);
         return row is null ? null : MapComplaintView(row);
     }
@@ -215,7 +215,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
         var code = (complaintCode ?? "").Trim();
         var complaint = await db.Complaints
             .Include(c => c.Project)
-            .FirstOrDefaultAsync(c => c.Project.ManagerId == managerId &&
+            .FirstOrDefaultAsync(c => (c.Project.ManagerId == managerId || c.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) &&
                 (c.ComplaintCode == code || c.ComplaintId.ToString() == code), cancellationToken);
         if (complaint is null) return null;
 
@@ -243,7 +243,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
             {
                 RecipientId = complaint.Project.CustomerId,
                 Type = "Complaint",
-                Message = $"Khiếu nại {complaint.ComplaintCode} đã được Quản lý dự án phản hồi giải quyết.",
+                Message = $"Khiếu nại {complaint.ComplaintCode} đã được Quản lý sự kiện phản hồi giải quyết.",
                 LinkUrl = $"/C16?complaint={complaint.ComplaintCode}",
                 IsRead = false,
                 CreatedAt = now
@@ -271,7 +271,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
                 {
                     RecipientId = adminId,
                     Type = "Complaint",
-                    Message = $"Khiếu nại {complaint.ComplaintCode} của dự án {complaint.Project.ProjectCode} đã được chuyển cấp (Escalated) lên Admin.",
+                    Message = $"Khiếu nại {complaint.ComplaintCode} của sự kiện {complaint.Project.ProjectCode} đã được chuyển cấp (Escalated) lên Admin.",
                     LinkUrl = "/A16",
                     IsRead = false,
                     CreatedAt = now
@@ -324,7 +324,7 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
             .Include(c => c.Project).ThenInclude(p => p.Hall)
             .Include(c => c.Project).ThenInclude(p => p.DayOfTasks).ThenInclude(t => t.ExecutionPhotos)
             .Include(c => c.Project).ThenInclude(p => p.SpecItems).ThenInclude(s => s.CatalogItem)
-            .Include(c => c.Project).ThenInclude(p => p.ChangeRequests).ThenInclude(cr => cr.Critems);
+            .Include(c => c.Project).ThenInclude(p => p.AddonContracts).ThenInclude(a => a.Items).ThenInclude(i => i.CatalogItem);
 
     private static PostEventSummaryView MapPostEventSummary(WeddingProject project)
     {
@@ -365,51 +365,37 @@ public sealed class ComplaintRatingRepository(WpsmDbContext db) : IComplaintRati
     private static ComplaintView MapComplaintView(Complaint c)
     {
         var project = c.Project;
-        var approvedCrItems = project.ChangeRequests
-            .Where(cr => cr.Status == "Approved")
-            .OrderBy(cr => cr.CreatedAt)
-            .SelectMany(cr => cr.Critems)
-            .ToList();
-
-        var beoItems = project.SpecItems
-            .GroupBy(s => s.CatalogItemId)
-            .OrderBy(g => g.Min(s => s.SpecItemId))
-            .Select(g =>
+        static (string Dept, string Label) Department(string category)
+        {
+            var dept = category switch
             {
-                var baseline = g.OrderBy(s => s.Version).First();
-                var latest = g.OrderByDescending(s => s.Version).First();
-                var crLine = approvedCrItems.LastOrDefault(x => g.Any(s => s.SpecItemId == x.TargetSpecItemId));
-                var baselineQty = baseline.Quantity;
-                var effectiveQty = crLine?.NewQuantity ?? latest.Quantity;
-                var effectivePrice = crLine?.NewUnitPrice ?? latest.UnitPrice;
-                var dept = baseline.CatalogItem.Category switch
-                {
-                    "Catering" => "Kitchen",
-                    "Hall" or "Transport" => "Service",
-                    "Decor" or "Attire" or "Makeup" => "Decor",
-                    _ => "Tech-MC"
-                };
-                var deptLabel = dept switch
-                {
-                    "Kitchen" => "Bộ phận Bếp (Kitchen)",
-                    "Service" => "Bộ phận Phục vụ bàn & Sảnh (Service)",
-                    "Decor" => "Bộ phận Trang trí & Hoa (Decor)",
-                    _ => "Bộ phận Kỹ thuật Âm thanh - Ánh sáng & MC (Tech-MC)"
-                };
-                return new BeoItemLineView(
-                    baseline.SpecItemId,
-                    baseline.CatalogItem.Name,
-                    baseline.CatalogItem.Category,
-                    dept,
-                    deptLabel,
-                    baseline.CatalogItem.Unit,
-                    baselineQty,
-                    effectiveQty,
-                    effectivePrice,
-                    effectiveQty * effectivePrice,
-                    latest.Description ?? baseline.Description ?? "",
-                    crLine is not null || latest.Version > baseline.Version);
+                "Catering" => "Kitchen",
+                "Hall" or "Transport" or "Furniture" or "Ceremony" => "Service",
+                "Decor" or "Attire" or "Makeup" => "Decor",
+                _ => "Tech-MC"
+            };
+            return (dept, dept switch
+            {
+                "Kitchen" => "Bộ phận Bếp",
+                "Service" => "Bộ phận Phục vụ bàn và sảnh",
+                "Decor" => "Bộ phận Trang trí và hoa",
+                _ => "Bộ phận Kỹ thuật âm thanh, ánh sáng và MC"
+            });
+        }
+
+        // What was committed: the locked service lines plus the confirmed addon contracts.
+        var beoItems = project.SpecItems.OrderBy(s => s.SpecItemId).Select(s =>
+            {
+                var (dept, label) = Department(s.CatalogItem.Category);
+                return new BeoItemLineView(s.SpecItemId, s.CatalogItem.Name, s.CatalogItem.Category, dept, label, s.CatalogItem.Unit,
+                    s.Quantity, s.Quantity, s.UnitPrice, s.Quantity * s.UnitPrice, s.Description ?? "", false);
             })
+            .Concat(project.AddonContracts.Where(x => x.Status == "Confirmed").SelectMany(x => x.Items).Select(i =>
+            {
+                var (dept, label) = Department(i.CatalogItem?.Category ?? "Other");
+                return new BeoItemLineView(-i.AddonItemId, i.CatalogItem?.Name ?? i.Description, i.CatalogItem?.Category ?? "Other", dept, label,
+                    i.CatalogItem?.Unit ?? "", 0, i.Quantity, i.UnitPrice, i.Quantity * i.UnitPrice, i.Description, true);
+            }))
             .ToList();
 
         var photosCount = project.DayOfTasks.SelectMany(t => t.ExecutionPhotos).Count();

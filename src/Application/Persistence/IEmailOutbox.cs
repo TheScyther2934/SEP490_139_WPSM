@@ -8,6 +8,8 @@ public interface IEmailOutbox
 
 public interface IEmailSender
 {
+    /// <summary>False when no SMTP server is configured: messages are only written as .eml files (Development) and nobody receives them.</summary>
+    bool DeliversEmail { get; }
     /// <summary>API-03. Returns the provider message id matched by the API-04 callback.</summary>
     Task<string> SendAsync(string toEmail, string subject, string bodyHtml, CancellationToken cancellationToken = default);
 }

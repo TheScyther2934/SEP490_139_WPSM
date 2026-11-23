@@ -8,7 +8,7 @@ export const MODULES = [
   { value: "MC", label: "MC / chương trình" },
 ];
 
-// C-13: 1–5 stars per module, optional comment up to 500 characters; rated modules are read-only (GBR-10).
+// C-13: 1–5 stars per module, optional comment up to 500 characters; rated modules are read-only.
 export default function RatingForm({ existing, disabled, busy, onSubmit }) {
   const [values, setValues] = useState({});
   const [error, setError] = useState("");

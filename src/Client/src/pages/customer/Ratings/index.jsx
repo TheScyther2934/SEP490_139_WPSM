@@ -67,7 +67,7 @@ export default function Ratings() {
     }));
 
     if (payload.some((p) => p.stars < 1 || p.stars > 5)) {
-      dispatch(notify({ message: "Vui lòng chọn từ 1 đến 5 sao cho cả 4 hạng mục dịch vụ (MSG16).", severity: "warning" }));
+      dispatch(notify({ message: "Vui lòng chọn từ 1 đến 5 sao cho cả 4 hạng mục dịch vụ.", severity: "warning" }));
       return;
     }
 
@@ -77,7 +77,7 @@ export default function Ratings() {
       setData(updated);
       dispatch(
         notify({
-          message: "Đã ghi nhận đánh giá dịch vụ thành công. Đánh giá đã được khóa theo quy tắc GBR-10 (MSG26).",
+          message: "Đã ghi nhận đánh giá dịch vụ thành công. Đánh giá đã được khóa, không sửa lại được.",
           severity: "success",
         })
       );
@@ -97,22 +97,22 @@ export default function Ratings() {
         subtitle="Chấm điểm từ 1–5 sao và nhận xét cho 4 nhóm dịch vụ: Sảnh tiệc (Hall), Thực đơn (Menu), Trang trí (Decor) và MC."
         actions={
           <Button startIcon={<ArrowBackIcon />} component={RouterLink} to={PATHS.customer.postEvent}>
-            Về tổng kết sau tiệc (C-12)
+            Về tổng kết sau tiệc
           </Button>
         }
       />
 
-      <DataState loading={loading} error={error} onRetry={reload} empty={!data} emptyText="Không tìm thấy dự án để đánh giá.">
+      <DataState loading={loading} error={error} onRetry={reload} empty={!data} emptyText="Không tìm thấy sự kiện để đánh giá.">
         {data && (
           <Box component="form" onSubmit={handleSubmit}>
             <Stack spacing={3}>
               {data.isLocked ? (
                 <Alert severity="warning" icon={<LockOutlinedIcon />}>
-                  <strong>MSG26 / GBR-10:</strong> Bạn đã gửi đánh giá cho dự án <strong>{data.projectCode}</strong>. Kết quả đánh giá là bất biến và không thể chỉnh sửa lại.
+                  Bạn đã gửi đánh giá cho sự kiện <strong>{data.projectCode}</strong>. Kết quả đánh giá là bất biến và không thể chỉnh sửa lại.
                 </Alert>
               ) : (
                 <Alert severity="info">
-                  Vui lòng chọn số sao (1–5 sao) cho từng hạng mục dưới đây. Sau khi nhấn <strong>Gửi đánh giá</strong>, kết quả sẽ được lưu cố định và không thể thay đổi (GBR-10).
+                  Vui lòng chọn số sao (1–5 sao) cho từng hạng mục dưới đây. Sau khi nhấn <strong>Gửi đánh giá</strong>, kết quả sẽ được lưu cố định và không thể thay đổi.
                 </Alert>
               )}
 

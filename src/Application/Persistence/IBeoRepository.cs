@@ -7,12 +7,14 @@ public sealed record BeoItemLineView(
     string Department,
     string DepartmentLabel,
     string Unit,
-    int BaselineQuantity,
+    int ContractQuantity,
     int EffectiveQuantity,
     decimal UnitPrice,
     decimal LineTotal,
     string Description,
-    bool ChangedByAddendum);
+    bool ChangedByAddon,
+    // Addon line added after the previous approved version: the departments have not received it yet (or just got it in this version).
+    bool IsNew = false);
 
 public sealed record BeoDepartmentSheetView(
     int SheetId,
@@ -64,6 +66,6 @@ public interface IBeoRepository
     /// <summary>UC-28 (M-11). Exports a printable department sheet document.</summary>
     Task<(byte[] Content, string ContentType, string FileName)?> ExportDepartmentSheetAsync(string projectCode, string department, int managerId, CancellationToken cancellationToken = default);
 
-    /// <summary>JOB-03 (BF-04). Daily 07:00 job that compiles baseline + addenda into a BEO draft at T-7 and notifies the Manager.</summary>
-    Task<int> CompileT7DraftsAsync(CancellationToken cancellationToken = default);
+    /// <summary>Daily job: compiles the coordination sheet draft of every locked event that has none and notifies the Manager.</summary>
+    Task<int> CompileLockedDraftsAsync(CancellationToken cancellationToken = default);
 }

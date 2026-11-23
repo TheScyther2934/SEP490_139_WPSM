@@ -3,10 +3,10 @@
 -- Target: Microsoft SQL Server 2022
 -- Source of truth: Report 3 (SRS) - section I.3 (Conceptual Data Model, 23 entities),
 --                  III (screen field tables), V.1 (GBR-01..GBR-15)
--- Script is idempotent (safe to re-run); it never drops anything.
+-- Script is idempotent (safe to re-run). The last section moves older databases to the event stage flow.
 -- ============================================================================
 
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'WPSM_DB')
+IF NOT EXISTS (SELECT name FROM sys.Databases WHERE name = N'WPSM_DB')
     CREATE DATABASE [WPSM_DB];
 GO
 
@@ -75,7 +75,7 @@ CREATE TABLE dbo.Notifications (
     LinkUrl        NVARCHAR(255) NULL,            -- "links to the related screen" (G-04)
     IsRead         BIT           NOT NULL CONSTRAINT DF_Notifications_IsRead DEFAULT 0,
     CreatedAt      DATETIME2(0)  NOT NULL CONSTRAINT DF_Notifications_CreatedAt DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT CK_Notifications_Type CHECK (Type IN ('Roadmap reminder','Payment','CR update','BEO','Overdue alert','Complaint'))
+    CONSTRAINT CK_Notifications_Type CHECK (Type IN ('Roadmap reminder','Payment','CR update','BEO','Overdue alert','Complaint','Delegation'))
 );
 GO
 
@@ -162,6 +162,13 @@ CREATE TABLE dbo.WeddingProjects (
 );
 GO
 
+-- Accountability: who created the project (Admin oversight). Older rows: the creating Manager is the assigned one.
+IF COL_LENGTH(N'dbo.WeddingProjects', N'CreatedBy') IS NULL
+    ALTER TABLE dbo.WeddingProjects ADD CreatedBy INT NULL CONSTRAINT FK_Projects_CreatedBy REFERENCES dbo.Users(UserId);
+GO
+UPDATE dbo.WeddingProjects SET CreatedBy = ManagerId WHERE CreatedBy IS NULL;
+GO
+
 -- 9. Spec Item (unique per project, item and version)
 IF OBJECT_ID(N'dbo.SpecItems', N'U') IS NULL
 CREATE TABLE dbo.SpecItems (
@@ -178,25 +185,6 @@ CREATE TABLE dbo.SpecItems (
     CONSTRAINT CK_Spec_Quantity CHECK (Quantity > 0),
     CONSTRAINT CK_Spec_Price    CHECK (UnitPrice >= 0),
     CONSTRAINT CK_Spec_Version  CHECK (Version >= 1)
-);
-GO
-
--- 10. Roadmap Task (RemindedAt supports JOB-01 "not yet reminded")
-IF OBJECT_ID(N'dbo.RoadmapTasks', N'U') IS NULL
-CREATE TABLE dbo.RoadmapTasks (
-    TaskId       INT IDENTITY(1,1) CONSTRAINT PK_RoadmapTasks PRIMARY KEY,
-    ProjectId    INT           NOT NULL CONSTRAINT FK_Roadmap_Project REFERENCES dbo.WeddingProjects(ProjectId),
-    Milestone    NVARCHAR(20)  NOT NULL,
-    Title        NVARCHAR(200) NOT NULL,
-    AssigneeRole NVARCHAR(20)  NOT NULL,
-    DueDate      DATE          NOT NULL,
-    Status       NVARCHAR(20)  NOT NULL CONSTRAINT DF_Roadmap_Status DEFAULT 'Pending',
-    CompletedAt  DATETIME2(0)  NULL,
-    RemindedAt   DATETIME2(0)  NULL,
-    CONSTRAINT CK_Roadmap_Milestone CHECK (Milestone IN ('T-90','T-30','T-7','Event Day')),
-    CONSTRAINT CK_Roadmap_Assignee  CHECK (AssigneeRole IN ('Customer','Manager')),
-    CONSTRAINT CK_Roadmap_Status    CHECK (Status IN ('Pending','Done','Overdue')),
-    CONSTRAINT CK_Roadmap_Completed CHECK (Status <> 'Done' OR CompletedAt IS NOT NULL)
 );
 GO
 
@@ -241,74 +229,6 @@ GO
 -- ============================================================================
 -- D. CHANGE, BEO AND EXECUTION ENTITIES
 -- ============================================================================
-
--- 13. Change Request (TotalVariance = price delta + penalty, GBR-03; Approved needs both parties, GBR-04)
-IF OBJECT_ID(N'dbo.ChangeRequests', N'U') IS NULL
-CREATE TABLE dbo.ChangeRequests (
-    CRId               INT IDENTITY(1,1) CONSTRAINT PK_ChangeRequests PRIMARY KEY,
-    CRCode             NVARCHAR(30)  NOT NULL CONSTRAINT UQ_CR_Code UNIQUE,
-    ProjectId          INT           NOT NULL CONSTRAINT FK_CR_Project   REFERENCES dbo.WeddingProjects(ProjectId),
-    CreatedBy          INT           NOT NULL CONSTRAINT FK_CR_CreatedBy REFERENCES dbo.Users(UserId),   -- Customer or Manager
-    Type               NVARCHAR(30)  NOT NULL,
-    Description        NVARCHAR(500) NOT NULL,
-    CostImpact         DECIMAL(18,2) NOT NULL CONSTRAINT DF_CR_CostImpact  DEFAULT 0,   -- CR Price Delta (+ surcharge / - deduction)
-    PenaltyRate        DECIMAL(5,2)  NULL,                                              -- rate applied from T-day rule (C-07)
-    PenaltyFee         DECIMAL(18,2) NOT NULL CONSTRAINT DF_CR_PenaltyFee  DEFAULT 0,
-    TotalVariance      AS (CostImpact + PenaltyFee) PERSISTED,                          -- Total CR Impact
-    Status             NVARCHAR(20)  NOT NULL CONSTRAINT DF_CR_Status DEFAULT 'Draft',
-    CustomerApprovedAt DATETIME2(0)  NULL,
-    ManagerApprovedAt  DATETIME2(0)  NULL,
-    CreatedAt          DATETIME2(0)  NOT NULL CONSTRAINT DF_CR_CreatedAt DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT CK_CR_Type    CHECK (Type IN ('Menu change','Decor change','Table count','Script edit','Other')),
-    CONSTRAINT CK_CR_Status  CHECK (Status IN ('Draft','Negotiating','Approved','Rejected')),
-    CONSTRAINT CK_CR_Penalty CHECK (PenaltyFee >= 0 AND (PenaltyRate IS NULL OR PenaltyRate BETWEEN 0 AND 100)),
-    CONSTRAINT CK_CR_BothApproved CHECK (Status <> 'Approved' OR (CustomerApprovedAt IS NOT NULL AND ManagerApprovedAt IS NOT NULL))
-);
-GO
-
--- 14. CR Item (unique per CR and Spec Item; DeltaAmount per GBR-03)
-IF OBJECT_ID(N'dbo.CRItems', N'U') IS NULL
-CREATE TABLE dbo.CRItems (
-    CRItemId         INT IDENTITY(1,1) CONSTRAINT PK_CRItems PRIMARY KEY,
-    CRId             INT           NOT NULL CONSTRAINT FK_CRItems_CR       REFERENCES dbo.ChangeRequests(CRId),
-    TargetSpecItemId INT           NOT NULL CONSTRAINT FK_CRItems_SpecItem REFERENCES dbo.SpecItems(SpecItemId),
-    OldQuantity      INT           NOT NULL,
-    OldUnitPrice     DECIMAL(18,2) NOT NULL,
-    NewQuantity      INT           NOT NULL,
-    NewUnitPrice     DECIMAL(18,2) NOT NULL,
-    DeltaAmount      AS ((NewUnitPrice * NewQuantity) - (OldUnitPrice * OldQuantity)) PERSISTED,
-    CONSTRAINT UQ_CRItems_CR_SpecItem UNIQUE (CRId, TargetSpecItemId),
-    CONSTRAINT CK_CRItems_Values CHECK (OldQuantity >= 0 AND NewQuantity >= 0 AND OldUnitPrice >= 0 AND NewUnitPrice >= 0)
-);
-GO
-
--- 15. CR History (append-only, GBR-13 - enforced by trigger below)
-IF OBJECT_ID(N'dbo.CRHistories', N'U') IS NULL
-CREATE TABLE dbo.CRHistories (
-    HistoryId INT IDENTITY(1,1) CONSTRAINT PK_CRHistories PRIMARY KEY,
-    CRId      INT           NOT NULL CONSTRAINT FK_CRHistory_CR    REFERENCES dbo.ChangeRequests(CRId),
-    ActorId   INT           NOT NULL CONSTRAINT FK_CRHistory_Actor REFERENCES dbo.Users(UserId),
-    Action    NVARCHAR(50)  NOT NULL,
-    Note      NVARCHAR(500) NULL,
-    CreatedAt DATETIME2(0)  NOT NULL CONSTRAINT DF_CRHistory_CreatedAt DEFAULT SYSUTCDATETIME()
-);
-GO
-
--- 16. Contract Addendum (at most one per approved CR)
-IF OBJECT_ID(N'dbo.ContractAddenda', N'U') IS NULL
-CREATE TABLE dbo.ContractAddenda (
-    AddendumId    INT IDENTITY(1,1) CONSTRAINT PK_ContractAddenda PRIMARY KEY,
-    AddendumCode  NVARCHAR(30)  NOT NULL CONSTRAINT UQ_Addenda_Code UNIQUE,
-    CRId          INT           NOT NULL CONSTRAINT UQ_Addenda_CR UNIQUE CONSTRAINT FK_Addenda_CR REFERENCES dbo.ChangeRequests(CRId),
-    ProjectId     INT           NOT NULL CONSTRAINT FK_Addenda_Project REFERENCES dbo.WeddingProjects(ProjectId),
-    TotalVariance DECIMAL(18,2) NOT NULL,
-    FilePath      NVARCHAR(500) NULL,
-    SignedAt      DATETIME2(0)  NULL,           -- blank until signed copy is attached (C-09)
-    Status        NVARCHAR(20)  NOT NULL CONSTRAINT DF_Addenda_Status DEFAULT 'Generated',
-    CONSTRAINT CK_Addenda_Status CHECK (Status IN ('Generated','Signed')),
-    CONSTRAINT CK_Addenda_Signed CHECK (Status <> 'Signed' OR SignedAt IS NOT NULL)
-);
-GO
 
 -- 17. BEO (unique per project and version)
 IF OBJECT_ID(N'dbo.BEOs', N'U') IS NULL
@@ -357,6 +277,15 @@ CREATE TABLE dbo.DayOfTasks (
     CONSTRAINT CK_DayOf_Status    CHECK (Status IN ('Pending','Done','Overdue')),
     CONSTRAINT CK_DayOf_Completed CHECK (Status <> 'Done' OR CompletedAt IS NOT NULL)
 );
+GO
+
+-- Upgrade databases created before CompletedBy / OverdueFlaggedAt / RowVersion existed (CREATE TABLE above only runs once).
+IF COL_LENGTH(N'dbo.DayOfTasks', N'CompletedBy') IS NULL
+    ALTER TABLE dbo.DayOfTasks ADD CompletedBy INT NULL CONSTRAINT FK_DayOf_CompletedBy REFERENCES dbo.Users(UserId);
+IF COL_LENGTH(N'dbo.DayOfTasks', N'OverdueFlaggedAt') IS NULL
+    ALTER TABLE dbo.DayOfTasks ADD OverdueFlaggedAt DATETIME2(0) NULL;
+IF COL_LENGTH(N'dbo.DayOfTasks', N'RowVersion') IS NULL
+    ALTER TABLE dbo.DayOfTasks ADD RowVersion ROWVERSION NOT NULL;
 GO
 
 -- 20. Execution Photo (1-3 per task that requires proof - enforced by triggers below)
@@ -432,6 +361,13 @@ CREATE TABLE dbo.Complaints (
 );
 GO
 
+-- Filed-by customer and a short title (written by the C-14 complaint flow).
+IF COL_LENGTH(N'dbo.Complaints', N'CustomerId') IS NULL
+    ALTER TABLE dbo.Complaints ADD CustomerId INT NULL CONSTRAINT FK_Complaint_Customer REFERENCES dbo.Users(UserId);
+IF COL_LENGTH(N'dbo.Complaints', N'Title') IS NULL
+    ALTER TABLE dbo.Complaints ADD Title NVARCHAR(200) NULL;
+GO
+
 -- ============================================================================
 -- INDEXES (foreign keys / frequent filters)
 -- ============================================================================
@@ -445,12 +381,6 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Alloc_Resource_Time' AND
     CREATE INDEX IX_Alloc_Resource_Time ON dbo.ResourceAllocations(ResourceId, StartTime, EndTime);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Alloc_Project' AND object_id=OBJECT_ID('dbo.ResourceAllocations'))
     CREATE INDEX IX_Alloc_Project ON dbo.ResourceAllocations(ProjectId);
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Roadmap_Project_Milestone' AND object_id=OBJECT_ID('dbo.RoadmapTasks'))
-    CREATE INDEX IX_Roadmap_Project_Milestone ON dbo.RoadmapTasks(ProjectId, Milestone);
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_CR_Project_Status' AND object_id=OBJECT_ID('dbo.ChangeRequests'))
-    CREATE INDEX IX_CR_Project_Status ON dbo.ChangeRequests(ProjectId, Status);
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_CRHistory_CR' AND object_id=OBJECT_ID('dbo.CRHistories'))
-    CREATE INDEX IX_CRHistory_CR ON dbo.CRHistories(CRId);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOf_Project_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
     CREATE INDEX IX_DayOf_Project_Deadline ON dbo.DayOfTasks(ProjectId, DeadlineTime, Status);
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_DayOfTasks_Status_Deadline' AND object_id=OBJECT_ID('dbo.DayOfTasks'))
@@ -478,20 +408,14 @@ IF COL_LENGTH(N'dbo.Payments', N'Status') IS NULL
     ALTER TABLE dbo.Payments ADD Status NVARCHAR(20) NOT NULL CONSTRAINT DF_Payments_PortalStatus DEFAULT 'Paid';
 IF COL_LENGTH(N'dbo.Payments', N'DueDate') IS NULL
     ALTER TABLE dbo.Payments ADD DueDate DATE NULL;
-IF COL_LENGTH(N'dbo.RoadmapTasks', N'RemindedAt') IS NULL
-    ALTER TABLE dbo.RoadmapTasks ADD RemindedAt DATETIME2 NULL;
 IF COL_LENGTH(N'dbo.SpecItems', N'LineTotal') IS NULL
     ALTER TABLE dbo.SpecItems ADD LineTotal AS (Quantity * UnitPrice) PERSISTED;
-IF COL_LENGTH(N'dbo.ChangeRequests', N'PenaltyRate') IS NULL
-    ALTER TABLE dbo.ChangeRequests ADD PenaltyRate DECIMAL(5,2) NULL;
 IF COL_LENGTH(N'dbo.Complaints', N'ComplaintCode') IS NULL
     ALTER TABLE dbo.Complaints ADD ComplaintCode NVARCHAR(30) NULL;
 IF COL_LENGTH(N'dbo.Complaints', N'EscalationNote') IS NULL
     ALTER TABLE dbo.Complaints ADD EscalationNote NVARCHAR(1000) NULL;
 IF COL_LENGTH(N'dbo.Complaints', N'CreatedAt') IS NULL
     ALTER TABLE dbo.Complaints ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Complaints_PortalCreated DEFAULT SYSUTCDATETIME();
-IF COL_LENGTH(N'dbo.CRHistories', N'CreatedAt') IS NULL
-    ALTER TABLE dbo.CRHistories ADD CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_CRHistories_PortalCreated DEFAULT SYSUTCDATETIME();
 IF COL_LENGTH(N'dbo.ExecutionPhotos', N'UploadedAt') IS NULL
     ALTER TABLE dbo.ExecutionPhotos ADD UploadedAt DATETIME2 NOT NULL CONSTRAINT DF_ExecutionPhotos_PortalCreated DEFAULT SYSUTCDATETIME();
 IF COL_LENGTH(N'dbo.Notifications', N'CreatedAt') IS NULL
@@ -516,21 +440,9 @@ IF COL_LENGTH(N'dbo.Payments', N'ReceiptFileName') IS NULL
     ALTER TABLE dbo.Payments ADD ReceiptFileName NVARCHAR(255) NULL;
 IF COL_LENGTH(N'dbo.Payments', N'ReceiptContentType') IS NULL
     ALTER TABLE dbo.Payments ADD ReceiptContentType NVARCHAR(100) NULL;
-IF OBJECT_ID(N'dbo.EmailDeliveries', N'U') IS NULL
-BEGIN
-    CREATE TABLE dbo.EmailDeliveries (
-        EmailDeliveryId INT IDENTITY(1,1) PRIMARY KEY,
-        ProjectId INT NOT NULL UNIQUE REFERENCES dbo.WeddingProjects(ProjectId),
-        Recipient NVARCHAR(100) NOT NULL,
-        ProtectedPayload NVARCHAR(MAX) NULL,
-        Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',
-        Attempts INT NOT NULL DEFAULT 0,
-        CreatedAt DATETIME2 NOT NULL,
-        NextAttemptAt DATETIME2 NOT NULL,
-        SentAt DATETIME2 NULL,
-        CONSTRAINT CK_EmailDeliveries_Status CHECK (Status IN ('Pending','Sent','Failed'))
-    );
-END;
+-- Legacy credential queue (replaced by EmailOutbox / JOB-07): dropped together with its encrypted payloads.
+IF OBJECT_ID(N'dbo.EmailDeliveries', N'U') IS NOT NULL
+    DROP TABLE dbo.EmailDeliveries;
 IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE object_id=OBJECT_ID(N'dbo.WeddingProjects') AND name=N'UX_Projects_PortalHallSlotDate'
@@ -588,16 +500,6 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_EmailOutbox_Provider' AN
     CREATE INDEX IX_EmailOutbox_Provider ON dbo.EmailOutbox(ProviderMessageId);
 GO
 
--- GBR-01: baseline rows are read-only once the project has left Active Baseline.
-CREATE OR ALTER TRIGGER dbo.TR_SpecItems_BaselineImmutable ON dbo.SpecItems AFTER UPDATE, DELETE AS
-BEGIN
-    SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM deleted d JOIN dbo.WeddingProjects w ON w.ProjectId = d.ProjectId
-               WHERE d.IsBaseline = 1 AND d.Version = 1 AND w.Status <> 'Active Baseline')
-        THROW 51001, 'The baseline is frozen and cannot be edited.', 1;
-END;
-GO
-
 -- ============================================================================
 -- ADMIN SCREENS: A-16/A-17 (UC-46) and A-18 (UC-47); same as Updates/20261103_AdminScreens.sql
 -- ============================================================================
@@ -608,15 +510,14 @@ IF COL_LENGTH(N'dbo.Complaints', N'ResolvedBy') IS NULL
 IF COL_LENGTH(N'dbo.Complaints', N'ResolvedAt') IS NULL
     ALTER TABLE dbo.Complaints ADD ResolvedAt DATETIME2(0) NULL;
 GO
--- SDS 3.14: one request per CR penalty waiver or resource conflict, decided by an Admin.
+-- SDS 3.14: one request per unresolvable resource conflict, decided by an Admin.
 IF OBJECT_ID(N'dbo.ExceptionRequests', N'U') IS NULL
 CREATE TABLE dbo.ExceptionRequests (
     ExceptionRequestId INT IDENTITY(1,1) CONSTRAINT PK_ExceptionRequests PRIMARY KEY,
     RequestCode   NVARCHAR(30)  NOT NULL CONSTRAINT UQ_Exception_Code UNIQUE,
     SourceType    NVARCHAR(20)  NOT NULL,
     ProjectId     INT           NOT NULL CONSTRAINT FK_Exception_Project     REFERENCES dbo.WeddingProjects(ProjectId),
-    CRId          INT           NULL     CONSTRAINT FK_Exception_CR          REFERENCES dbo.ChangeRequests(CRId),
-    AllocationId  INT           NULL     CONSTRAINT FK_Exception_Allocation  REFERENCES dbo.ResourceAllocations(AllocationId),
+    AllocationId  INT           NOT NULL CONSTRAINT FK_Exception_Allocation  REFERENCES dbo.ResourceAllocations(AllocationId),
     RequestedBy   INT           NOT NULL CONSTRAINT FK_Exception_RequestedBy REFERENCES dbo.Users(UserId),
     RequestNote   NVARCHAR(300) NOT NULL,
     Status        NVARCHAR(10)  NOT NULL CONSTRAINT DF_Exception_Status DEFAULT 'Pending',
@@ -624,9 +525,7 @@ CREATE TABLE dbo.ExceptionRequests (
     DecisionNote  NVARCHAR(300) NULL,
     DecidedAt     DATETIME2(0)  NULL,
     CreatedAt     DATETIME2(0)  NOT NULL CONSTRAINT DF_Exception_CreatedAt DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT CK_Exception_Source  CHECK (SourceType IN ('CrPenaltyWaiver','ResourceConflict')),
-    CONSTRAINT CK_Exception_Target  CHECK ((SourceType = 'CrPenaltyWaiver' AND CRId IS NOT NULL AND AllocationId IS NULL)
-                                        OR (SourceType = 'ResourceConflict' AND AllocationId IS NOT NULL AND CRId IS NULL)),
+    CONSTRAINT CK_Exception_Source  CHECK (SourceType = 'ResourceConflict'),
     CONSTRAINT CK_Exception_Status  CHECK (Status IN ('Pending','Approved','Rejected')),
     CONSTRAINT CK_Exception_Decided CHECK (Status = 'Pending' OR (DecisionBy IS NOT NULL AND DecisionNote IS NOT NULL AND DecidedAt IS NOT NULL))
 );
@@ -654,4 +553,424 @@ CREATE TABLE dbo.RefreshTokens (
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RefreshTokens_User' AND object_id=OBJECT_ID('dbo.RefreshTokens'))
     CREATE INDEX IX_RefreshTokens_User ON dbo.RefreshTokens(UserId, RevokedAt);
+GO
+
+-- ============================================================================
+-- AUDIT LOG: who changed what (Admin oversight). Append-only: rows are never updated or deleted.
+-- Action: Create / Update / Delete / Login. Impact: Service, Upload, Account, Project, Payment, ChangeRequest,
+-- Policy, Complaint, Exception, Other.
+-- ============================================================================
+IF OBJECT_ID(N'dbo.AuditLogs', N'U') IS NULL
+CREATE TABLE dbo.AuditLogs (
+    AuditId     BIGINT IDENTITY(1,1) CONSTRAINT PK_AuditLogs PRIMARY KEY,
+    OccurredAt  DATETIME2(0)  NOT NULL CONSTRAINT DF_AuditLogs_OccurredAt DEFAULT SYSUTCDATETIME(),
+    UserId      INT           NULL CONSTRAINT FK_AuditLogs_User REFERENCES dbo.Users(UserId),   -- NULL = system job
+    AccountName NVARCHAR(150) NULL,
+    Email       NVARCHAR(256) NULL,
+    Role        NVARCHAR(20)  NULL,
+    Action      NVARCHAR(20)  NOT NULL,
+    Impact      NVARCHAR(30)  NOT NULL,
+    EntityType  NVARCHAR(60)  NOT NULL,
+    EntityId    NVARCHAR(60)  NULL,
+    ProjectId   INT           NULL,
+    ProjectCode NVARCHAR(30)  NULL,
+    Summary     NVARCHAR(500) NOT NULL,
+    Changes     NVARCHAR(MAX) NULL,                                                            -- JSON {field: {old, new}}
+    IpAddress   NVARCHAR(45)  NULL,
+    CONSTRAINT CK_AuditLogs_Action CHECK (Action IN ('Create','Update','Delete','Login'))
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_OccurredAt' AND object_id=OBJECT_ID('dbo.AuditLogs'))
+    CREATE INDEX IX_AuditLogs_OccurredAt ON dbo.AuditLogs(OccurredAt DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_User' AND object_id=OBJECT_ID('dbo.AuditLogs'))
+    CREATE INDEX IX_AuditLogs_User ON dbo.AuditLogs(UserId, OccurredAt DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_Project' AND object_id=OBJECT_ID('dbo.AuditLogs'))
+    CREATE INDEX IX_AuditLogs_Project ON dbo.AuditLogs(ProjectId, OccurredAt DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AuditLogs_Impact' AND object_id=OBJECT_ID('dbo.AuditLogs'))
+    CREATE INDEX IX_AuditLogs_Impact ON dbo.AuditLogs(Impact, Action, OccurredAt DESC);
+GO
+CREATE OR ALTER TRIGGER dbo.TR_AuditLogs_AppendOnly ON dbo.AuditLogs
+INSTEAD OF UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    THROW 51010, N'Audit log is append-only.', 1;
+END;
+GO
+
+-- ============================================================================
+-- PROJECT MANAGERS: one Primary (the creator, = WeddingProjects.ManagerId) plus any number of co-managers added by the
+-- Primary or an Admin. Removed rows stay (RemovedAt) so Admin can see everyone who operated the project.
+-- ============================================================================
+IF OBJECT_ID(N'dbo.ProjectManagers', N'U') IS NULL
+CREATE TABLE dbo.ProjectManagers (
+    ProjectManagerId INT IDENTITY(1,1) CONSTRAINT PK_ProjectManagers PRIMARY KEY,
+    ProjectId        INT           NOT NULL CONSTRAINT FK_ProjectManagers_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    ManagerId        INT           NOT NULL CONSTRAINT FK_ProjectManagers_Manager REFERENCES dbo.Users(UserId),
+    Role             NVARCHAR(20)  NOT NULL,
+    AssignedBy       INT           NULL CONSTRAINT FK_ProjectManagers_AssignedBy REFERENCES dbo.Users(UserId),
+    AssignedAt       DATETIME2(0)  NOT NULL CONSTRAINT DF_ProjectManagers_AssignedAt DEFAULT SYSUTCDATETIME(),
+    Reason           NVARCHAR(500) NULL,
+    RemovedBy        INT           NULL CONSTRAINT FK_ProjectManagers_RemovedBy REFERENCES dbo.Users(UserId),
+    RemovedAt        DATETIME2(0)  NULL,
+    RemovalReason    NVARCHAR(500) NULL,
+    CONSTRAINT CK_ProjectManagers_Role CHECK (Role IN ('Primary','CoManager')),
+    CONSTRAINT CK_ProjectManagers_PrimaryKept CHECK (Role = 'CoManager' OR RemovedAt IS NULL)
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_ProjectManagers_Active' AND object_id=OBJECT_ID('dbo.ProjectManagers'))
+    CREATE UNIQUE INDEX UQ_ProjectManagers_Active ON dbo.ProjectManagers(ProjectId, ManagerId) WHERE RemovedAt IS NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_ProjectManagers_Primary' AND object_id=OBJECT_ID('dbo.ProjectManagers'))
+    CREATE UNIQUE INDEX UQ_ProjectManagers_Primary ON dbo.ProjectManagers(ProjectId) WHERE Role = 'Primary' AND RemovedAt IS NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_ProjectManagers_Manager' AND object_id=OBJECT_ID('dbo.ProjectManagers'))
+    CREATE INDEX IX_ProjectManagers_Manager ON dbo.ProjectManagers(ManagerId, RemovedAt) INCLUDE (ProjectId);
+GO
+-- Every project has its Primary row (projects created before this table).
+INSERT dbo.ProjectManagers(ProjectId, ManagerId, Role, AssignedBy, AssignedAt, Reason)
+SELECT p.ProjectId, p.ManagerId, 'Primary', p.CreatedBy, p.CreatedAt, N'Người tạo dự án'
+FROM dbo.WeddingProjects p
+WHERE NOT EXISTS (SELECT 1 FROM dbo.ProjectManagers m WHERE m.ProjectId = p.ProjectId AND m.Role = 'Primary' AND m.RemovedAt IS NULL);
+GO
+
+-- Notification type for co-management (existing databases created before it).
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Notifications_Type' AND definition LIKE '%Delegation%')
+BEGIN
+    IF OBJECT_ID(N'dbo.CK_Notifications_Type', N'C') IS NOT NULL ALTER TABLE dbo.Notifications DROP CONSTRAINT CK_Notifications_Type;
+    ALTER TABLE dbo.Notifications ADD CONSTRAINT CK_Notifications_Type CHECK (Type IN ('Roadmap reminder','Payment','CR update','BEO','Overdue alert','Complaint','Delegation'));
+END
+GO
+
+-- Legacy columns from the first token design; refresh tokens live in dbo.RefreshTokens.
+IF COL_LENGTH(N'dbo.Users', N'RefreshToken') IS NOT NULL ALTER TABLE dbo.Users DROP COLUMN RefreshToken;
+IF COL_LENGTH(N'dbo.Users', N'RefreshTokenExpiryTime') IS NOT NULL ALTER TABLE dbo.Users DROP COLUMN RefreshTokenExpiryTime;
+GO
+
+-- ============================================================================
+-- EVENT STAGE FLOW (same as Updates/20261118_EventStageFlow.sql) (replaces the T-90 / T-30 / T-7 milestones)
+--
+-- Stage 1  Sign and deposit      : event date 15..90 days after signing, 30% deposit, never refunded on cancel.
+-- Stage 2  Adjusting             : until 10 days before; the operator edits services with a note, total >= 70% of signed value.
+-- Stage 3  Locked                : the system locks at 10 days before; suppliers booked with evidence before 8 days.
+-- Stage 4  Event day             : day-of tasks and proof photos (unchanged).
+-- Stage 5  Settlement            : one invoice = adjusted contract + confirmed addon contracts - deposit, due 7 days after.
+--
+-- Removed: the change-request / addendum / penalty flow, roadmap milestones, the T-30 payment.
+-- Run with: sqlcmd -S localhost -E -b -I -f 65001 -d <db> -i <this file>   (-b stops on the first error)
+-- Idempotent: every block checks the current state first.
+-- ============================================================================
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
+-- ── 1. Change-request flow ──────────────────────────────────────────────────
+IF COL_LENGTH(N'dbo.ExceptionRequests', N'CRId') IS NOT NULL
+BEGIN
+    EXEC(N'DELETE FROM dbo.ExceptionRequests WHERE SourceType = ''CrPenaltyWaiver'';');
+    ALTER TABLE dbo.ExceptionRequests DROP CONSTRAINT CK_Exception_Target;
+    ALTER TABLE dbo.ExceptionRequests DROP CONSTRAINT CK_Exception_Source;
+    ALTER TABLE dbo.ExceptionRequests DROP CONSTRAINT FK_Exception_CR;
+    ALTER TABLE dbo.ExceptionRequests DROP COLUMN CRId;
+    EXEC(N'ALTER TABLE dbo.ExceptionRequests ALTER COLUMN AllocationId INT NOT NULL;');
+    ALTER TABLE dbo.ExceptionRequests ADD CONSTRAINT CK_Exception_Source CHECK (SourceType = 'ResourceConflict');
+END
+GO
+IF OBJECT_ID(N'dbo.CRItems', N'U') IS NOT NULL DROP TABLE dbo.CRItems;
+IF OBJECT_ID(N'dbo.CRHistories', N'U') IS NOT NULL DROP TABLE dbo.CRHistories;
+IF OBJECT_ID(N'dbo.ContractAddenda', N'U') IS NOT NULL DROP TABLE dbo.ContractAddenda;
+IF OBJECT_ID(N'dbo.ChangeRequests', N'U') IS NOT NULL DROP TABLE dbo.ChangeRequests;
+IF OBJECT_ID(N'dbo.RoadmapTasks', N'U') IS NOT NULL DROP TABLE dbo.RoadmapTasks;
+GO
+
+-- ── 2. Spec items: one row per service, no baseline versions ────────────────
+IF OBJECT_ID(N'dbo.TR_SpecItems_BaselineImmutable', N'TR') IS NOT NULL DROP TRIGGER dbo.TR_SpecItems_BaselineImmutable;
+GO
+IF COL_LENGTH(N'dbo.SpecItems', N'Version') IS NOT NULL
+BEGIN
+    -- Keep the latest version of each service line.
+    EXEC(N'DELETE s FROM dbo.SpecItems s WHERE EXISTS (SELECT 1 FROM dbo.SpecItems n
+           WHERE n.ProjectId = s.ProjectId AND n.CatalogItemId = s.CatalogItemId AND n.Version > s.Version);');
+    ALTER TABLE dbo.SpecItems DROP CONSTRAINT UQ_Spec_Project_Item_Version;
+    ALTER TABLE dbo.SpecItems DROP CONSTRAINT CK_Spec_Version;
+    ALTER TABLE dbo.SpecItems DROP CONSTRAINT DF_Spec_Version;
+    ALTER TABLE dbo.SpecItems DROP CONSTRAINT DF_Spec_IsBaseline;
+    ALTER TABLE dbo.SpecItems DROP COLUMN Version, IsBaseline;
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Spec_Project' AND object_id = OBJECT_ID(N'dbo.SpecItems'))
+    CREATE INDEX IX_Spec_Project ON dbo.SpecItems(ProjectId);
+GO
+
+-- ── 3. Events (WeddingProjects): new statuses, deposit / lock / cancel columns ─
+-- CHECK constraints block a column rename: drop them first, they are re-created below.
+IF COL_LENGTH(N'dbo.WeddingProjects', N'NRDAmount') IS NOT NULL
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Money')
+        ALTER TABLE dbo.WeddingProjects DROP CONSTRAINT CK_Projects_Money;
+    EXEC sp_rename N'dbo.WeddingProjects.NRDAmount', N'DepositAmount', N'COLUMN';
+END
+IF COL_LENGTH(N'dbo.WeddingProjects', N'BaselineFrozenAt') IS NOT NULL
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Frozen')
+        ALTER TABLE dbo.WeddingProjects DROP CONSTRAINT CK_Projects_Frozen;
+    EXEC sp_rename N'dbo.WeddingProjects.BaselineFrozenAt', N'LockedAt', N'COLUMN';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Money')
+    EXEC(N'ALTER TABLE dbo.WeddingProjects ADD CONSTRAINT CK_Projects_Money
+          CHECK (BaseContractValue > 0 AND DepositAmount >= 0 AND CurrentTotal >= 0);');
+GO
+IF COL_LENGTH(N'dbo.WeddingProjects', N'CancelledAt') IS NULL
+    ALTER TABLE dbo.WeddingProjects ADD
+        CancelledAt  DATETIME2(0)  NULL,
+        CancelledBy  INT           NULL CONSTRAINT FK_Projects_CancelledBy REFERENCES dbo.Users(UserId),
+        CancelReason NVARCHAR(500) NULL;
+GO
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Frozen')
+    ALTER TABLE dbo.WeddingProjects DROP CONSTRAINT CK_Projects_Frozen;
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Status' AND definition LIKE N'%Baseline%')
+BEGIN
+    ALTER TABLE dbo.WeddingProjects DROP CONSTRAINT CK_Projects_Status;
+    ALTER TABLE dbo.WeddingProjects DROP CONSTRAINT DF_Projects_Status;
+END
+GO
+UPDATE dbo.WeddingProjects SET Status = CASE Status
+    WHEN 'Active Baseline' THEN 'Adjusting' WHEN 'Baseline Frozen' THEN 'Locked' WHEN 'Event Completed' THEN 'Completed' ELSE Status END
+WHERE Status IN ('Active Baseline', 'Baseline Frozen', 'Event Completed');
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Status')
+BEGIN
+    ALTER TABLE dbo.WeddingProjects ADD CONSTRAINT DF_Projects_Status DEFAULT 'Adjusting' FOR Status;
+    ALTER TABLE dbo.WeddingProjects ADD CONSTRAINT CK_Projects_Status
+        CHECK (Status IN ('Adjusting','Locked','Completed','Settled','Closed','Cancelled'));
+END
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Locked')
+    ALTER TABLE dbo.WeddingProjects ADD CONSTRAINT CK_Projects_Locked
+        CHECK (Status IN ('Adjusting','Cancelled') OR LockedAt IS NOT NULL);
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Projects_Cancelled')
+    ALTER TABLE dbo.WeddingProjects ADD CONSTRAINT CK_Projects_Cancelled
+        CHECK (Status <> 'Cancelled' OR (CancelledAt IS NOT NULL AND CancelReason IS NOT NULL));
+GO
+-- A cancelled event frees its hall, slot and date.
+IF EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'UQ_Projects_Hall_Slot_Date')
+    ALTER TABLE dbo.WeddingProjects DROP CONSTRAINT UQ_Projects_Hall_Slot_Date;
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Projects_PortalHallSlotDate' AND object_id = OBJECT_ID(N'dbo.WeddingProjects'))
+    DROP INDEX UX_Projects_PortalHallSlotDate ON dbo.WeddingProjects;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_Projects_HallSlotDate_Active' AND object_id = OBJECT_ID(N'dbo.WeddingProjects'))
+    CREATE UNIQUE INDEX UX_Projects_HallSlotDate_Active ON dbo.WeddingProjects(HallId, SlotId, EventDate) WHERE Status <> 'Cancelled';
+GO
+
+-- ── 4. Payments: only the deposit and the settlement ────────────────────────
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Payment_Type' AND definition LIKE N'%T30%')
+BEGIN
+    ALTER TABLE dbo.Payments DROP CONSTRAINT CK_Payment_Type;
+    DELETE FROM dbo.Payments WHERE PaymentType = 'T30';
+    UPDATE dbo.Payments SET PaymentType = CASE PaymentType WHEN 'NRD' THEN 'Deposit' WHEN 'FINAL' THEN 'Settlement' ELSE PaymentType END;
+    ALTER TABLE dbo.Payments ADD CONSTRAINT CK_Payment_Type CHECK (PaymentType IN ('Deposit','Settlement'));
+END
+GO
+
+-- ── 5. Policies: deposit ratio and the stage windows ────────────────────────
+IF COL_LENGTH(N'dbo.PolicyConfigs', N'TDayMin') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.PolicyConfigs DROP CONSTRAINT CK_Policy_TDay;
+    ALTER TABLE dbo.PolicyConfigs DROP CONSTRAINT CK_Policy_Type;
+    ALTER TABLE dbo.PolicyConfigs DROP CONSTRAINT CK_Policy_Rate;
+    ALTER TABLE dbo.PolicyConfigs DROP CONSTRAINT UQ_Policy_Type_Range_Effective;
+    DELETE FROM dbo.PolicyConfigs WHERE PolicyType IN ('T30_RATIO', 'CR_PENALTY');
+    UPDATE dbo.PolicyConfigs SET PolicyType = 'DEPOSIT_RATIO' WHERE PolicyType = 'NRD_RATIO';
+    ALTER TABLE dbo.PolicyConfigs DROP COLUMN TDayMin, TDayMax;
+    EXEC sp_rename N'dbo.PolicyConfigs.RatePercent', N'Value', N'COLUMN';
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Policy_Type')
+BEGIN
+    ALTER TABLE dbo.PolicyConfigs ALTER COLUMN PolicyType NVARCHAR(30) NOT NULL;
+    ALTER TABLE dbo.PolicyConfigs ADD CONSTRAINT UQ_Policy_Type_Effective UNIQUE (PolicyType, EffectiveFrom);
+    ALTER TABLE dbo.PolicyConfigs ADD CONSTRAINT CK_Policy_Type CHECK (PolicyType IN
+        ('DEPOSIT_RATIO','MAX_DECREASE_RATIO','BOOKING_MIN_DAYS','BOOKING_MAX_DAYS','LOCK_DAYS','SUPPLIER_DEADLINE_DAYS','SETTLEMENT_DUE_DAYS'));
+    EXEC(N'ALTER TABLE dbo.PolicyConfigs ADD CONSTRAINT CK_Policy_Value CHECK (Value >= 0 AND (PolicyType NOT LIKE ''%RATIO'' OR Value <= 100));');
+END
+GO
+EXEC(N'DECLARE @admin INT = (SELECT MIN(UserId) FROM dbo.Users WHERE Role = ''Admin'');
+INSERT dbo.PolicyConfigs(PolicyType, Value, EffectiveFrom, UpdatedBy)
+SELECT v.PolicyType, v.Value, ''2026-01-01'', @admin
+FROM (VALUES (''DEPOSIT_RATIO'', 30), (''MAX_DECREASE_RATIO'', 30), (''BOOKING_MIN_DAYS'', 15), (''BOOKING_MAX_DAYS'', 90),
+             (''LOCK_DAYS'', 10), (''SUPPLIER_DEADLINE_DAYS'', 8), (''SETTLEMENT_DUE_DAYS'', 7)) v(PolicyType, Value)
+WHERE @admin IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.PolicyConfigs p WHERE p.PolicyType = v.PolicyType);');
+GO
+
+-- ── 6. Notifications ─────────────────────────────────────────────────────────
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Notifications_Type' AND definition LIKE N'%Roadmap%')
+BEGIN
+    ALTER TABLE dbo.Notifications DROP CONSTRAINT CK_Notifications_Type;
+    UPDATE dbo.Notifications SET Type = CASE Type WHEN 'Roadmap reminder' THEN 'Stage reminder' WHEN 'CR update' THEN 'Addon contract' ELSE Type END;
+    ALTER TABLE dbo.Notifications ADD CONSTRAINT CK_Notifications_Type CHECK (Type IN
+        ('Stage reminder','Payment','Addon contract','BEO','Overdue alert','Complaint','Delegation'));
+END
+GO
+
+-- ── 7. Service catalog: new categories, which services are booked from a supplier ─
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_Catalog_Category' AND definition NOT LIKE N'%Ceremony%')
+BEGIN
+    ALTER TABLE dbo.ServiceCatalogItems DROP CONSTRAINT CK_Catalog_Category;
+    ALTER TABLE dbo.ServiceCatalogItems ADD CONSTRAINT CK_Catalog_Category CHECK (Category IN
+        ('Hall','Catering','Decor','MC','AV','Photo/Video','Attire','Makeup','Transport','Ceremony','Performance','Furniture'));
+END
+IF COL_LENGTH(N'dbo.ServiceCatalogItems', N'RequiresSupplier') IS NULL
+    ALTER TABLE dbo.ServiceCatalogItems ADD RequiresSupplier BIT NOT NULL CONSTRAINT DF_Catalog_RequiresSupplier DEFAULT 0;
+GO
+UPDATE dbo.ServiceCatalogItems SET RequiresSupplier = 1
+WHERE RequiresSupplier = 0 AND Category IN ('Catering','Decor','Attire','Photo/Video','Ceremony','Performance','Furniture');
+GO
+DECLARE @admin INT = (SELECT MIN(UserId) FROM dbo.Users WHERE Role = 'Admin');
+INSERT dbo.ServiceCatalogItems(Name, Category, Unit, DefaultPrice, Status, RequiresSupplier)
+SELECT v.Name, v.Category, v.Unit, v.Price, 'Active', 1
+FROM (VALUES (N'Mâm quả bê lễ 7 tráp', 'Ceremony', N'Bộ', 3500000),
+             (N'Đội bê tráp 8 người', 'Ceremony', N'Đội', 2000000),
+             (N'Tiết mục văn nghệ', 'Performance', N'Tiết mục', 1500000),
+             (N'Múa khai tiệc', 'Performance', N'Tiết mục', 2500000),
+             (N'Bàn ghế Chiavari', 'Furniture', N'Bộ', 150000),
+             (N'Sofa khu đón khách', 'Furniture', N'Bộ', 2500000)) v(Name, Category, Unit, Price)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.ServiceCatalogItems c WHERE c.Category = v.Category AND c.Name = v.Name);
+INSERT dbo.PriceFrames(ItemId, MinPrice, MaxPrice, EffectiveFrom, UpdatedBy)
+SELECT c.ItemId, c.DefaultPrice * 0.8, c.DefaultPrice * 1.2, '2026-01-01', @admin
+FROM dbo.ServiceCatalogItems c
+WHERE @admin IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.PriceFrames f WHERE f.ItemId = c.ItemId);
+GO
+
+-- ── 8. Stored files: addendum files are gone, supplier evidence is new ──────
+DELETE FROM dbo.StoredFiles WHERE Purpose IN ('AddendumPdf', 'SignedAddendum');
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_StoredFiles_Purpose' AND definition NOT LIKE N'%SupplierEvidence%')
+BEGIN
+    ALTER TABLE dbo.StoredFiles DROP CONSTRAINT CK_StoredFiles_Purpose;
+    ALTER TABLE dbo.StoredFiles ADD CONSTRAINT CK_StoredFiles_Purpose CHECK (Purpose IN
+        ('DepositReceipt','PaymentReceipt','ProofPhoto','Thumbnail','BeoSheet','SettlementReceipt','SupplierEvidence'));
+END
+GO
+
+-- ── 9. New tables ────────────────────────────────────────────────────────────
+-- Notes the operator writes per stage: tasting, fitting, adjustments (with the total before / after), general.
+IF OBJECT_ID(N'dbo.StageNotes', N'U') IS NULL
+CREATE TABLE dbo.StageNotes (
+    StageNoteId INT IDENTITY(1,1) CONSTRAINT PK_StageNotes PRIMARY KEY,
+    ProjectId   INT            NOT NULL CONSTRAINT FK_StageNotes_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    Stage       TINYINT        NOT NULL,
+    NoteType    NVARCHAR(20)   NOT NULL,
+    Content     NVARCHAR(1000) NOT NULL,
+    ValueBefore DECIMAL(18,2)  NULL,
+    ValueAfter  DECIMAL(18,2)  NULL,
+    CreatedBy   INT            NOT NULL CONSTRAINT FK_StageNotes_CreatedBy REFERENCES dbo.Users(UserId),
+    CreatedAt   DATETIME2(0)   NOT NULL CONSTRAINT DF_StageNotes_CreatedAt DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT CK_StageNotes_Stage CHECK (Stage BETWEEN 1 AND 5),
+    CONSTRAINT CK_StageNotes_Type  CHECK (NoteType IN ('Tasting','Fitting','Adjustment','Supplier','General')),
+    CONSTRAINT CK_StageNotes_Value CHECK (NoteType <> 'Adjustment' OR (ValueBefore IS NOT NULL AND ValueAfter IS NOT NULL))
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_StageNotes_Project' AND object_id = OBJECT_ID(N'dbo.StageNotes'))
+    CREATE INDEX IX_StageNotes_Project ON dbo.StageNotes(ProjectId, CreatedAt DESC);
+GO
+
+-- Addon contract: extra services for a locked event, no deposit, counted only once the customer confirms.
+IF OBJECT_ID(N'dbo.AddonContracts', N'U') IS NULL
+CREATE TABLE dbo.AddonContracts (
+    AddonId      INT IDENTITY(1,1) CONSTRAINT PK_AddonContracts PRIMARY KEY,
+    AddonCode    NVARCHAR(30)   NOT NULL CONSTRAINT UQ_AddonContracts_Code UNIQUE,
+    ProjectId    INT            NOT NULL CONSTRAINT FK_AddonContracts_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    Title        NVARCHAR(200)  NOT NULL,
+    Note         NVARCHAR(1000) NULL,
+    Status       NVARCHAR(20)   NOT NULL CONSTRAINT DF_AddonContracts_Status DEFAULT 'PendingCustomer',
+    CreatedBy    INT            NOT NULL CONSTRAINT FK_AddonContracts_CreatedBy REFERENCES dbo.Users(UserId),
+    CreatedAt    DATETIME2(0)   NOT NULL CONSTRAINT DF_AddonContracts_CreatedAt DEFAULT SYSUTCDATETIME(),
+    ConfirmedAt  DATETIME2(0)   NULL,
+    CancelledAt  DATETIME2(0)   NULL,
+    CancelReason NVARCHAR(500)  NULL,
+    RemindedAt   DATETIME2(0)   NULL,
+    CONSTRAINT CK_AddonContracts_Status    CHECK (Status IN ('PendingCustomer','Confirmed','Cancelled')),
+    CONSTRAINT CK_AddonContracts_Confirmed CHECK (Status <> 'Confirmed' OR ConfirmedAt IS NOT NULL),
+    CONSTRAINT CK_AddonContracts_Cancelled CHECK (Status <> 'Cancelled' OR (CancelledAt IS NOT NULL AND CancelReason IS NOT NULL))
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_AddonContracts_Project' AND object_id = OBJECT_ID(N'dbo.AddonContracts'))
+    CREATE INDEX IX_AddonContracts_Project ON dbo.AddonContracts(ProjectId, Status);
+GO
+IF OBJECT_ID(N'dbo.AddonContractItems', N'U') IS NULL
+CREATE TABLE dbo.AddonContractItems (
+    AddonItemId   INT IDENTITY(1,1) CONSTRAINT PK_AddonContractItems PRIMARY KEY,
+    AddonId       INT           NOT NULL CONSTRAINT FK_AddonItems_Addon   REFERENCES dbo.AddonContracts(AddonId) ON DELETE CASCADE,
+    CatalogItemId INT           NULL     CONSTRAINT FK_AddonItems_Catalog REFERENCES dbo.ServiceCatalogItems(ItemId),
+    Description   NVARCHAR(300) NOT NULL,
+    Quantity      INT           NOT NULL,
+    UnitPrice     DECIMAL(18,2) NOT NULL,
+    LineTotal     AS (Quantity * UnitPrice) PERSISTED,
+    CONSTRAINT CK_AddonItems_Quantity CHECK (Quantity > 0),
+    CONSTRAINT CK_AddonItems_Price    CHECK (UnitPrice >= 0)
+);
+GO
+
+-- Evidence that a supplier was booked for the event (transfer note, invoice or contract). No purchase-order tracking.
+IF OBJECT_ID(N'dbo.SupplierEvidences', N'U') IS NULL
+CREATE TABLE dbo.SupplierEvidences (
+    EvidenceId   INT IDENTITY(1,1) CONSTRAINT PK_SupplierEvidences PRIMARY KEY,
+    ProjectId    INT              NOT NULL CONSTRAINT FK_SupplierEvidences_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    SpecItemId   INT              NULL     CONSTRAINT FK_SupplierEvidences_Spec    REFERENCES dbo.SpecItems(SpecItemId),
+    SupplierName NVARCHAR(150)    NOT NULL,
+    EvidenceType NVARCHAR(20)     NOT NULL,
+    FileId       UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_SupplierEvidences_File REFERENCES dbo.StoredFiles(FileId),
+    Note         NVARCHAR(500)    NULL,
+    UploadedBy   INT              NOT NULL CONSTRAINT FK_SupplierEvidences_User REFERENCES dbo.Users(UserId),
+    UploadedAt   DATETIME2(0)     NOT NULL CONSTRAINT DF_SupplierEvidences_UploadedAt DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT CK_SupplierEvidences_Type CHECK (EvidenceType IN ('Transfer','Invoice','Contract','Other'))
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_SupplierEvidences_Project' AND object_id = OBJECT_ID(N'dbo.SupplierEvidences'))
+    CREATE INDEX IX_SupplierEvidences_Project ON dbo.SupplierEvidences(ProjectId);
+GO
+
+-- Final invoice snapshot: one per event, the lines show the contract, each confirmed addon and the deposit.
+IF OBJECT_ID(N'dbo.SettlementInvoices', N'U') IS NULL
+CREATE TABLE dbo.SettlementInvoices (
+    InvoiceId     INT IDENTITY(1,1) CONSTRAINT PK_SettlementInvoices PRIMARY KEY,
+    InvoiceCode   NVARCHAR(30)  NOT NULL CONSTRAINT UQ_SettlementInvoices_Code UNIQUE,
+    ProjectId     INT           NOT NULL CONSTRAINT UQ_SettlementInvoices_Project UNIQUE
+                                         CONSTRAINT FK_SettlementInvoices_Project REFERENCES dbo.WeddingProjects(ProjectId),
+    ContractTotal DECIMAL(18,2) NOT NULL,
+    AddonTotal    DECIMAL(18,2) NOT NULL,
+    DepositPaid   DECIMAL(18,2) NOT NULL,
+    AmountDue     AS (ContractTotal + AddonTotal - DepositPaid) PERSISTED,
+    DueDate       DATE          NOT NULL,
+    Status        NVARCHAR(10)  NOT NULL CONSTRAINT DF_SettlementInvoices_Status DEFAULT 'Issued',
+    IssuedBy      INT           NULL CONSTRAINT FK_SettlementInvoices_IssuedBy REFERENCES dbo.Users(UserId),  -- NULL = system
+    IssuedAt      DATETIME2(0)  NOT NULL CONSTRAINT DF_SettlementInvoices_IssuedAt DEFAULT SYSUTCDATETIME(),
+    PaidAt        DATETIME2(0)  NULL,
+    CONSTRAINT CK_SettlementInvoices_Status CHECK (Status IN ('Issued','Paid')),
+    CONSTRAINT CK_SettlementInvoices_Paid   CHECK (Status <> 'Paid' OR PaidAt IS NOT NULL),
+    CONSTRAINT CK_SettlementInvoices_Money  CHECK (ContractTotal >= 0 AND AddonTotal >= 0 AND DepositPaid >= 0)
+);
+GO
+IF OBJECT_ID(N'dbo.SettlementInvoiceLines', N'U') IS NULL
+CREATE TABLE dbo.SettlementInvoiceLines (
+    LineId      INT IDENTITY(1,1) CONSTRAINT PK_SettlementInvoiceLines PRIMARY KEY,
+    InvoiceId   INT           NOT NULL CONSTRAINT FK_InvoiceLines_Invoice REFERENCES dbo.SettlementInvoices(InvoiceId) ON DELETE CASCADE,
+    LineType    NVARCHAR(10)  NOT NULL,
+    AddonId     INT           NULL CONSTRAINT FK_InvoiceLines_Addon REFERENCES dbo.AddonContracts(AddonId),
+    Description NVARCHAR(300) NOT NULL,
+    Amount      DECIMAL(18,2) NOT NULL,              -- the deposit line is negative
+    CONSTRAINT CK_InvoiceLines_Type  CHECK (LineType IN ('Contract','Addon','Deposit')),
+    CONSTRAINT CK_InvoiceLines_Addon CHECK (LineType <> 'Addon' OR AddonId IS NOT NULL)
+);
+GO
+
+-- Shared contact details shown to customers (hotline).
+IF OBJECT_ID(N'dbo.SystemSettings', N'U') IS NULL
+CREATE TABLE dbo.SystemSettings (
+    SettingKey   NVARCHAR(50)  NOT NULL CONSTRAINT PK_SystemSettings PRIMARY KEY,
+    SettingValue NVARCHAR(500) NOT NULL,
+    UpdatedBy    INT           NULL CONSTRAINT FK_SystemSettings_User REFERENCES dbo.Users(UserId),
+    UpdatedAt    DATETIME2(0)  NOT NULL CONSTRAINT DF_SystemSettings_UpdatedAt DEFAULT SYSUTCDATETIME()
+);
+GO
+IF NOT EXISTS (SELECT 1 FROM dbo.SystemSettings WHERE SettingKey = N'Hotline')
+    INSERT dbo.SystemSettings(SettingKey, SettingValue) VALUES (N'Hotline', N'0976586668');
 GO

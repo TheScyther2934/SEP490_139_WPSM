@@ -11,7 +11,7 @@ export default function KpiGrid({ data }) {
     { label: "Sự kiện sắp tới (30 ngày)", value: data.upcomingEvents },
     { label: "Công suất sảnh tháng này", value: percent(data.hallUtilization), to: A.hallUtilization },
     { label: "Doanh thu thuần tháng này", value: shortMoney(data.netRevenueThisMonth), to: A.netRevenue },
-    { label: "CR đang xử lý", value: data.activeCrs, to: A.crStatistics },
+    { label: "Phát sinh chờ khách xác nhận", value: data.pendingAddons, to: A.addonStatistics },
     { label: "Nhiệm vụ quá hạn", value: data.overdueTasks, to: A.overdueAlerts, alert: data.overdueTasks > 0 },
     { label: "Khiếu nại chuyển cấp", value: data.escalatedComplaints, to: A.complaints, alert: data.escalatedComplaints > 0 },
   ];

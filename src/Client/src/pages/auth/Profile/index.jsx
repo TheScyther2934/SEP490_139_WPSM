@@ -6,6 +6,7 @@ import PageHeader from "../../../components/PageHeader";
 import DataState from "../../../components/DataState";
 import ProfileDetails from "./components/ProfileDetails";
 import ChangePasswordDialog from "./components/ChangePasswordDialog";
+import DeviceSessions from "./components/DeviceSessions";
 import { useAsync } from "../../../hooks/useAsync";
 import { authService } from "../../../services/authService";
 import { notify } from "../../../store/notifySlice";
@@ -23,7 +24,7 @@ export default function Profile() {
 
   return (
     <>
-      <PageHeader code="G-02" title="Hồ sơ cá nhân" />
+      <PageHeader title="Hồ sơ cá nhân" />
       <DataState loading={loading} error={error} onRetry={reload}>
         {data && (
           <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { md: "2fr 1fr" } }}>
@@ -32,11 +33,14 @@ export default function Profile() {
               <CardContent>
                 <Stack spacing={1}>
                   <Typography variant="h6">Bảo mật tài khoản</Typography>
-                  <Typography color="text.secondary" variant="body2">Đổi mật khẩu sẽ đăng xuất các phiên khác của bạn.</Typography>
+                  <Typography color="text.secondary" variant="body2">Đổi mật khẩu sẽ đăng xuất các thiết bị khác; thiết bị này vẫn giữ đăng nhập.</Typography>
                   <Button variant="outlined" startIcon={<LockResetIcon />} onClick={() => setDialogOpen(true)}>Đổi mật khẩu</Button>
                 </Stack>
               </CardContent>
             </Card>
+            <Box sx={{ gridColumn: { md: "1 / -1" } }}>
+              <DeviceSessions />
+            </Box>
           </Box>
         )}
       </DataState>

@@ -10,7 +10,7 @@ export default function ReportSummary({ report, query }) {
     <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { sm: "repeat(3, 1fr)" } }}>
       <StatCard label="Công suất sảnh" value={percent(report.utilization)} to={`${A.hallUtilization}${query}`} />
       <StatCard label="Doanh thu thuần (đã thu)" value={shortMoney(report.netRevenue)} to={`${A.netRevenue}${query}`} />
-      <StatCard label="CR đã duyệt" value={report.crsApproved} to={`${A.crStatistics}${query}`} />
+      <StatCard label="Phát sinh khách đã xác nhận" value={report.addonsConfirmed} to={`${A.addonStatistics}${query}`} />
     </Box>
   );
 }

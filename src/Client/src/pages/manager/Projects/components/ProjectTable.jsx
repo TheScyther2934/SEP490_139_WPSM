@@ -12,13 +12,13 @@ export default function ProjectTable({ projects, page, rowsPerPage, onPageChange
         <Table id="projects-table">
           <TableHead>
             <TableRow>
-              <TableCell>Mã dự án</TableCell><TableCell>Khách hàng</TableCell><TableCell>Sảnh</TableCell><TableCell align="center">Ca</TableCell>
+              <TableCell>Mã sự kiện</TableCell><TableCell>Khách hàng</TableCell><TableCell>Sảnh</TableCell><TableCell align="center">Ca</TableCell>
               <TableCell>Ngày tổ chức</TableCell><TableCell align="center">Đếm ngược</TableCell><TableCell align="center">Trạng thái</TableCell><TableCell />
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}>Không có dự án nào khớp với bộ lọc hiện tại.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}>Không có sự kiện nào khớp với bộ lọc hiện tại.</TableCell></TableRow>
             ) : rows.map((p) => (
               <TableRow key={p.id} hover>
                 <TableCell><Typography fontWeight={600} color="primary">{p.id}</Typography></TableCell>
@@ -37,7 +37,7 @@ export default function ProjectTable({ projects, page, rowsPerPage, onPageChange
         </Table>
       </TableContainer>
       <TablePagination component="div" count={projects.length} page={page} rowsPerPage={rowsPerPage} rowsPerPageOptions={[rowsPerPage]}
-        onPageChange={(_, next) => onPageChange(next)} labelDisplayedRows={({ from, to, count }) => `${from}–${to} trên ${count} dự án`} />
+        onPageChange={(_, next) => onPageChange(next)} labelDisplayedRows={({ from, to, count }) => `${from}–${to} trên ${count} sự kiện`} />
     </Card>
   );
 }

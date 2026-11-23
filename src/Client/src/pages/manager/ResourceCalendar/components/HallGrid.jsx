@@ -18,7 +18,7 @@ export default function HallGrid({ halls, bookings, days, view, onSelectProject 
           <Box>
             <Typography variant="h6">Lưới 1: Điều phối sảnh &amp; ca tiệc cưới</Typography>
             <Typography variant="body2" color="text.secondary">
-              {halls.length} sảnh hoạt động · {halls.reduce((sum, hall) => sum + hall.slots.length, 0)} ca tiệc · bấm vào ô có dự án để phân bổ tài nguyên
+              {halls.length} sảnh hoạt động · {halls.reduce((sum, hall) => sum + hall.slots.length, 0)} ca tiệc · bấm vào ô có sự kiện để phân bổ tài nguyên
             </Typography>
           </Box>
         </Stack>

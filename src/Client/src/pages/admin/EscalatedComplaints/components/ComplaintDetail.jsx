@@ -22,7 +22,7 @@ export default function ComplaintDetail({ complaint, onResolve }) {
           <div>
             <Typography variant="caption" color="text.secondary">Minh chứng</Typography>
             <Typography>
-              <Link component={RouterLink} to={`${PATHS.admin.photoFeed}?projectCode=${encodeURIComponent(complaint.projectCode)}`}>
+              <Link component={RouterLink} to={PATHS.admin.project(complaint.projectCode, "evidence")}>
                 BEO v{complaint.beoVersion} · {complaint.photoCount} ảnh minh chứng
               </Link>
             </Typography>

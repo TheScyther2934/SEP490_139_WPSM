@@ -22,7 +22,7 @@ export default function ManagerDashboard() {
       <PageHeader
         code="M-01"
         title="Tổng quan vận hành"
-        subtitle="Theo dõi tiến độ các dự án tiệc cưới được phân công, công việc trong ngày và cảnh báo vận hành."
+        subtitle="Theo dõi tiến độ các sự kiện tiệc cưới được phân công, công việc trong ngày và cảnh báo vận hành."
         actions={
           <Stack direction="row" spacing={1}>
             <Button

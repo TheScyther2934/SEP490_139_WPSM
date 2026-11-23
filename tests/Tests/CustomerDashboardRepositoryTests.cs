@@ -64,9 +64,9 @@ public sealed class CustomerDashboardRepositoryTests : IDisposable
             SlotId = _slot.SlotId,
             EventDate = eventDate,
             BaseContractValue = baseValue,
-            Nrdamount = 30_000_000m,
+            DepositAmount = 30_000_000m,
             CurrentTotal = baseValue,
-            Status = "Baseline Frozen",
+            Status = "Locked",
             CreatedAt = DateTime.UtcNow
         };
         _db.WeddingProjects.Add(project);
@@ -142,101 +142,98 @@ public sealed class CustomerDashboardRepositoryTests : IDisposable
     }
 
     // =========================================================================
-    // TEST 4 — Chỉ hiển thị tối đa 5 upcoming tasks
+    // TEST 4 — The five stages of the event, the current one highlighted
     // =========================================================================
     [Fact]
-    public async Task GetDashboard_UpcomingTasks_MaxFive()
+    public async Task GetDashboard_ShowsTheFiveStagesAndTheCurrentStage()
     {
-        var eventDate = DateOnly.FromDateTime(DateTime.Today.AddDays(90));
+        var eventDate = DateOnly.FromDateTime(DateTime.Today.AddDays(40));
         var project = CreateProject(_customer.UserId, eventDate);
-
-        // Add 8 tasks
-        for (int i = 1; i <= 8; i++)
-        {
-            _db.RoadmapTasks.Add(new RoadmapTask
-            {
-                ProjectId = project.ProjectId,
-                Milestone = "T-90",
-                Title = $"Task {i}",
-                AssigneeRole = "Customer",
-                DueDate = eventDate.AddDays(-90 + i),
-                Status = "Pending"
-            });
-        }
+        project.Status = "Adjusting";
+        project.LockedAt = null;
         await _db.SaveChangesAsync();
 
         var result = await Repo().GetDashboardAsync(_customer.UserId, "WPSM-TEST-001");
 
         Assert.NotNull(result);
-        Assert.True(result.UpcomingTasks.Count <= 5, $"Expected ≤5 tasks but got {result.UpcomingTasks.Count}");
+        Assert.Equal(5, result.Stages.Count);
+        Assert.Equal(2, result.CurrentStage);
+        Assert.Equal("Current", result.Stages.Single(s => s.Number == 2).State);
+        Assert.Equal("Done", result.Stages.Single(s => s.Number == 1).State);
+        Assert.Equal("Đang điều chỉnh", result.StatusLabel);
     }
 
     // =========================================================================
-    // TEST 5 — Không tính CR chưa được phê duyệt (Draft/Negotiating) vào balance
+    // TEST 5 — Only confirmed addon contracts count in the balance
     // =========================================================================
     [Fact]
-    public async Task GetDashboard_OutstandingBalance_ExcludesUnapprovedCRVariance()
+    public async Task GetDashboard_OutstandingBalance_CountsOnlyConfirmedAddons()
     {
         const decimal baseValue = 100_000_000m;
         const decimal paid = 30_000_000m;
-        const decimal unapprovedVariance = 10_000_000m;
-
-        var eventDate = DateOnly.FromDateTime(DateTime.Today.AddDays(60));
+        var eventDate = DateOnly.FromDateTime(DateTime.Today.AddDays(5));
         var project = CreateProject(_customer.UserId, eventDate, baseValue);
-
-        // NRD paid
-        _db.Payments.Add(new Payment { ProjectId = project.ProjectId, PaymentType = "NRD", Status = "Paid", Amount = paid, DueDate = DateOnly.FromDateTime(DateTime.Today) });
-        // Draft CR (should NOT count)
-        _db.ChangeRequests.Add(new ChangeRequest { ProjectId = project.ProjectId, Crcode = "CR-001", CreatedBy = _customer.UserId, Type = "Scope", Description = "Draft CR", Status = "Draft", CostImpact = unapprovedVariance, TotalVariance = unapprovedVariance, CreatedAt = DateTime.UtcNow });
-        // Negotiating CR (should NOT count)
-        _db.ChangeRequests.Add(new ChangeRequest { ProjectId = project.ProjectId, Crcode = "CR-002", CreatedBy = _customer.UserId, Type = "Scope", Description = "Negotiating CR", Status = "Negotiating", CostImpact = unapprovedVariance, TotalVariance = unapprovedVariance, CreatedAt = DateTime.UtcNow });
+        _db.Payments.Add(new Payment { ProjectId = project.ProjectId, PaymentType = "Deposit", Status = "Paid", Amount = paid, DueDate = DateOnly.FromDateTime(DateTime.Today) });
+        AddAddon(project, "PS-1", "Confirmed", 4_000_000m);
+        AddAddon(project, "PS-2", "PendingCustomer", 9_000_000m);
+        AddAddon(project, "PS-3", "Cancelled", 5_000_000m);
         await _db.SaveChangesAsync();
 
         var result = await Repo().GetDashboardAsync(_customer.UserId, "WPSM-TEST-001");
 
         Assert.NotNull(result);
-        // Balance = Base - Paid (unapproved CRs excluded)
-        var expected = Math.Max(0m, baseValue - paid);
-        Assert.Equal(expected, result.OutstandingBalance);
+        Assert.Equal(baseValue + 4_000_000m - paid, result.OutstandingBalance);
+        Assert.Equal(baseValue + 4_000_000m, result.CurrentTotal);
     }
 
     // =========================================================================
-    // TEST 6 — Không tính CR Rejected vào số lượng CR đang mở
+    // TEST 6 — Addon contracts waiting for the customer's confirmation
     // =========================================================================
     [Fact]
-    public async Task GetDashboard_OpenCrCount_ExcludesRejectedCRs()
+    public async Task GetDashboard_PendingAddonCount_CountsOnlyWaitingAddons()
     {
-        var eventDate = DateOnly.FromDateTime(DateTime.Today.AddDays(60));
-        var project = CreateProject(_customer.UserId, eventDate);
-
-        _db.ChangeRequests.AddRange(
-            new ChangeRequest { ProjectId = project.ProjectId, Crcode = "CR-A", CreatedBy = _customer.UserId, Type = "Scope", Description = "Open Draft", Status = "Draft", CostImpact = 0, CreatedAt = DateTime.UtcNow },
-            new ChangeRequest { ProjectId = project.ProjectId, Crcode = "CR-B", CreatedBy = _customer.UserId, Type = "Scope", Description = "Negotiating", Status = "Negotiating", CostImpact = 0, CreatedAt = DateTime.UtcNow },
-            new ChangeRequest { ProjectId = project.ProjectId, Crcode = "CR-C", CreatedBy = _customer.UserId, Type = "Scope", Description = "Rejected", Status = "Rejected", CostImpact = 0, CreatedAt = DateTime.UtcNow },
-            new ChangeRequest { ProjectId = project.ProjectId, Crcode = "CR-D", CreatedBy = _customer.UserId, Type = "Scope", Description = "CustomerApproved", Status = "CustomerApproved", CostImpact = 0, CreatedAt = DateTime.UtcNow }
-        );
+        var project = CreateProject(_customer.UserId, DateOnly.FromDateTime(DateTime.Today.AddDays(5)));
+        AddAddon(project, "PS-1", "PendingCustomer", 1_000_000m);
+        AddAddon(project, "PS-2", "PendingCustomer", 2_000_000m);
+        AddAddon(project, "PS-3", "Confirmed", 3_000_000m);
         await _db.SaveChangesAsync();
 
         var result = await Repo().GetDashboardAsync(_customer.UserId, "WPSM-TEST-001");
 
         Assert.NotNull(result);
-        // Only Draft and Negotiating count as "open" (per domain rule)
-        Assert.Equal(2, result.OpenCrCount);
+        Assert.Equal(2, result.PendingAddonCount);
     }
 
     // =========================================================================
-    // TEST 7a — Không có task → trả về danh sách rỗng hợp lệ (không exception)
+    // TEST 7a — Who to contact: every operator of the event and the hotline
     // =========================================================================
     [Fact]
-    public async Task GetDashboard_ReturnsEmptyTasks_WhenNoRoadmapExists()
+    public async Task GetDashboard_ShowsOperatorsAndHotline()
     {
-        var eventDate = DateOnly.FromDateTime(DateTime.Today.AddDays(60));
-        CreateProject(_customer.UserId, eventDate);
+        var project = CreateProject(_customer.UserId, DateOnly.FromDateTime(DateTime.Today.AddDays(60)));
+        _db.ProjectManagers.Add(new ProjectManager { ProjectId = project.ProjectId, ManagerId = _manager.UserId, Role = "Primary", AssignedAt = DateTime.UtcNow });
+        _db.SystemSettings.Add(new SystemSetting { SettingKey = "Hotline", SettingValue = "0976586668", UpdatedAt = DateTime.UtcNow });
+        await _db.SaveChangesAsync();
 
         var result = await Repo().GetDashboardAsync(_customer.UserId, "WPSM-TEST-001");
 
         Assert.NotNull(result);
-        Assert.Empty(result.UpcomingTasks);
+        var contact = Assert.Single(result.Contacts);
+        Assert.Equal("Manager", contact.FullName);
+        Assert.Equal("Primary", contact.Role);
+        Assert.Equal("0976586668", result.Hotline);
+    }
+
+    private void AddAddon(WeddingProject project, string code, string status, decimal amount)
+    {
+        var addon = new AddonContract
+        {
+            AddonCode = code, ProjectId = project.ProjectId, Title = code, Status = status, CreatedBy = _manager.UserId, CreatedAt = DateTime.UtcNow,
+            ConfirmedAt = status == "Confirmed" ? DateTime.UtcNow : null, CancelledAt = status == "Cancelled" ? DateTime.UtcNow : null,
+            CancelReason = status == "Cancelled" ? "Không cần nữa" : null
+        };
+        addon.Items.Add(new AddonContractItem { Description = code, Quantity = 1, UnitPrice = amount });
+        _db.AddonContracts.Add(addon);
     }
 
     // =========================================================================

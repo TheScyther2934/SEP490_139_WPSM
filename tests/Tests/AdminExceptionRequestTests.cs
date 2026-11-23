@@ -8,8 +8,8 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// A-18 Special Exception Requests (UC-47) — one Admin queue for CR penalty waivers (FE-05/FE-06)
-/// and unresolvable resource conflicts (FE-07), with the mandatory decision note and the audit trail.
+/// A-18 Special Exception Requests (UC-47): unresolvable resource conflicts escalated by an operator,
+/// decided by an Admin with a mandatory note and an audit trail.
 /// </summary>
 public sealed class AdminExceptionRequestTests
 {
@@ -17,7 +17,6 @@ public sealed class AdminExceptionRequestTests
     private const int CustomerId = 1;
     private const int ManagerId = 2;
     private const int AdminId = 3;
-    private const int CrId = 200;
     private const int ResourceRequestId = 2;
     private const int DecidedRequestId = 3;
 
@@ -44,25 +43,20 @@ public sealed class AdminExceptionRequestTests
         _db.ServiceCatalogItems.Add(TestFixtures.NewCatalogItem(11, "Thực đơn tiệc 8 món", "Catering", "Bàn", 3_500_000m));
         _db.PriceFrames.Add(TestFixtures.NewFrame(11, 3_000_000m, 4_000_000m));
         _db.WeddingProjects.AddRange(
-            TestFixtures.NewProject(14, ProjectCode, CustomerId, ManagerId, eventDate: TestFixtures.Today.AddDays(10), status: "Baseline Frozen", frozen: true),
-            TestFixtures.NewProject(15, "WPSM-2026-015", CustomerId, ManagerId, eventDate: TestFixtures.Today.AddDays(10), status: "Baseline Frozen", frozen: true));
+            TestFixtures.NewProject(14, ProjectCode, CustomerId, ManagerId, eventDate: TestFixtures.Today.AddDays(10), status: "Locked", frozen: true),
+            TestFixtures.NewProject(15, "WPSM-2026-015", CustomerId, ManagerId, eventDate: TestFixtures.Today.AddDays(10), status: "Locked", frozen: true));
         _db.SpecItems.Add(TestFixtures.NewSpecItem(101, 14, 11, "Thực đơn tiệc 8 món", 30, 3_500_000m));
-        _db.ChangeRequests.Add(new ChangeRequest
-        {
-            Crid = CrId, Crcode = $"CR-{TestFixtures.Today.Year}-001", ProjectId = 14, CreatedBy = ManagerId,
-            Type = "Table count", Description = "Tăng 5 bàn tiệc", Status = "Negotiating",
-            CostImpact = 17_500_000m, PenaltyRate = 5m, PenaltyFee = 875_000m, TotalVariance = 18_375_000m,
-            CreatedAt = DateTime.UtcNow.AddDays(-1)
-        });
         _db.Resources.Add(new Resource { ResourceId = 1, Name = "Dàn âm thanh JBL", Type = "Audio", TotalQuantity = 10 });
         _db.ResourceAllocations.AddRange(
             new ResourceAllocation { AllocationId = 201, ResourceId = 1, HallId = 1, ProjectId = 15, StartTime = At(10), EndTime = At(13), AllocatedQuantity = 8, Status = "Reserved" },
-            new ResourceAllocation { AllocationId = 202, ResourceId = 1, HallId = 1, ProjectId = 14, StartTime = At(10), EndTime = At(13), AllocatedQuantity = 5, Status = "PendingException" });
+            new ResourceAllocation { AllocationId = 202, ResourceId = 1, HallId = 1, ProjectId = 14, StartTime = At(10), EndTime = At(13), AllocatedQuantity = 5, Status = "PendingException" },
+            new ResourceAllocation { AllocationId = 203, ResourceId = 1, HallId = 1, ProjectId = 14, StartTime = At(15), EndTime = At(17), AllocatedQuantity = 3, Status = "PendingException" },
+            new ResourceAllocation { AllocationId = 204, ResourceId = 1, HallId = 1, ProjectId = 15, StartTime = At(18), EndTime = At(20), AllocatedQuantity = 2, Status = "Released" });
         _db.ExceptionRequests.AddRange(
             new ExceptionRequest
             {
-                ExceptionRequestId = 1, RequestCode = $"EXC-{TestFixtures.Today.Year}-001", SourceType = "CrPenaltyWaiver",
-                ProjectId = 14, Crid = CrId, RequestedBy = ManagerId, RequestNote = "Sảnh còn trống nên xin miễn phạt",
+                ExceptionRequestId = 1, RequestCode = $"EXC-{TestFixtures.Today.Year}-001", SourceType = "ResourceConflict",
+                ProjectId = 14, AllocationId = 203, RequestedBy = ManagerId, RequestNote = "Cần thêm loa cho tiết mục văn nghệ",
                 Status = "Pending", CreatedAt = DateTime.UtcNow.AddHours(-5)
             },
             new ExceptionRequest
@@ -73,8 +67,8 @@ public sealed class AdminExceptionRequestTests
             },
             new ExceptionRequest
             {
-                ExceptionRequestId = DecidedRequestId, RequestCode = $"EXC-{TestFixtures.Today.Year}-003", SourceType = "CrPenaltyWaiver",
-                ProjectId = 14, Crid = CrId, RequestedBy = ManagerId, RequestNote = "Yêu cầu cũ",
+                ExceptionRequestId = DecidedRequestId, RequestCode = $"EXC-{TestFixtures.Today.Year}-003", SourceType = "ResourceConflict",
+                ProjectId = 15, AllocationId = 204, RequestedBy = ManagerId, RequestNote = "Yêu cầu cũ",
                 Status = "Approved", DecisionBy = AdminId, DecisionNote = "Đã chấp thuận trước đó",
                 DecidedAt = DateTime.UtcNow.AddHours(-1), CreatedAt = DateTime.UtcNow.AddHours(-6)
             });
@@ -114,24 +108,6 @@ public sealed class AdminExceptionRequestTests
     }
 
     [Fact]
-    public async Task GetQueue_IncludesTheCrPenaltyContext()
-    {
-        await SeedAsync();
-
-        var queue = await _repo.GetExceptionRequestsAsync();
-
-        var waiver = queue.Items.Single(i => i.Id == 1);
-        Assert.Equal("CrPenaltyWaiver", waiver.SourceType);
-        Assert.Equal($"CR-{TestFixtures.Today.Year}-001", waiver.Cr!.CrCode);
-        Assert.Equal(17_500_000m, waiver.Cr.PriceDelta);
-        Assert.Equal(5m, waiver.Cr.PenaltyRate);
-        Assert.Equal(875_000m, waiver.Cr.PenaltyFee);
-        Assert.Equal(18_375_000m, waiver.Cr.TotalImpact);
-        Assert.Null(waiver.Resource);
-        Assert.Equal("Quản lý Minh", waiver.RequestedByName);
-    }
-
-    [Fact]
     public async Task GetQueue_ComputesTheResourceShortageAndClashingEvents()
     {
         await SeedAsync();
@@ -147,7 +123,7 @@ public sealed class AdminExceptionRequestTests
         var clash = Assert.Single(resource.Clashing);
         Assert.Equal("WPSM-2026-015", clash.ProjectCode);
         Assert.Equal(8, clash.Quantity);
-        Assert.Null(queue.Items.Single(i => i.Id == ResourceRequestId).Cr);
+        Assert.Equal("Quản lý Minh", queue.Items.Single(i => i.Id == ResourceRequestId).RequestedByName);
     }
 
     [Fact]
@@ -210,38 +186,6 @@ public sealed class AdminExceptionRequestTests
     }
 
     [Fact]
-    public async Task Decide_ApproveWaiverZeroesThePenaltyAndAuditsTheDecision()
-    {
-        await SeedAsync();
-
-        var decided = await _repo.DecideExceptionAsync(1, approve: true, note: "Chấp thuận miễn phạt", AdminId);
-
-        Assert.True(decided);
-        var request = await _db.ExceptionRequests.SingleAsync(r => r.ExceptionRequestId == 1);
-        Assert.Equal("Approved", request.Status);
-        Assert.Equal(AdminId, request.DecisionBy);
-        Assert.Equal("Chấp thuận miễn phạt", request.DecisionNote);
-        Assert.NotNull(request.DecidedAt);
-        Assert.Equal(0m, (await _db.ChangeRequests.SingleAsync(c => c.Crid == CrId)).PenaltyFee);
-        Assert.True(await _db.Crhistories.AnyAsync(h => h.Crid == CrId && h.Action == "ExceptionApproved" && h.Note == "Chấp thuận miễn phạt"));
-        Assert.True(await _db.Notifications.AnyAsync(n => n.RecipientId == ManagerId && n.Type == "CR update"));
-    }
-
-    [Fact]
-    public async Task Decide_RejectWaiverKeepsThePenalty()
-    {
-        await SeedAsync();
-
-        var decided = await _repo.DecideExceptionAsync(1, approve: false, note: "Không đủ điều kiện miễn phạt", AdminId);
-
-        Assert.True(decided);
-        var request = await _db.ExceptionRequests.SingleAsync(r => r.ExceptionRequestId == 1);
-        Assert.Equal("Rejected", request.Status);
-        Assert.Equal(875_000m, (await _db.ChangeRequests.SingleAsync(c => c.Crid == CrId)).PenaltyFee);
-        Assert.True(await _db.Crhistories.AnyAsync(h => h.Crid == CrId && h.Action == "ExceptionRejected"));
-    }
-
-    [Fact]
     public async Task Decide_ApproveResourceExceptionMarksTheAllocationApproved()
     {
         await SeedAsync();
@@ -255,6 +199,7 @@ public sealed class AdminExceptionRequestTests
         Assert.Equal(AdminId, allocation.ExceptionApprovedBy);
         Assert.Equal("Cho phép vượt công suất", allocation.ExceptionNote);
         Assert.NotNull(allocation.ExceptionApprovedAt);
+        Assert.True(await _db.Notifications.AnyAsync(n => n.RecipientId == ManagerId && n.Message.Contains("chấp thuận")));
     }
 
     [Fact]
@@ -269,19 +214,5 @@ public sealed class AdminExceptionRequestTests
         Assert.Equal("Released", allocation.Status);
         Assert.False(allocation.IsExceptionApproved);
         Assert.Equal("Rejected", (await _db.ExceptionRequests.SingleAsync(r => r.ExceptionRequestId == ResourceRequestId)).Status);
-    }
-
-    [Fact]
-    public async Task Decide_RejectsAWaiverWhoseCrIsAlreadyClosed()
-    {
-        await SeedAsync();
-        var cr = await _db.ChangeRequests.SingleAsync(c => c.Crid == CrId);
-        cr.Status = "Approved";
-        await _db.SaveChangesAsync();
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _repo.DecideExceptionAsync(1, approve: true, note: "Duyệt muộn", AdminId));
-
-        Assert.Contains("đã đóng", ex.Message);
     }
 }

@@ -9,7 +9,6 @@ namespace Infrastructure.Persistence.Repositories;
 public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
 {
     private static readonly TimeZoneInfo VnTz = GetVietnamTimeZone();
-    private static readonly string[] CrStatuses = ["Approved", "Rejected", "Negotiating", "Draft"];
 
     private static TimeZoneInfo GetVietnamTimeZone()
     {
@@ -33,14 +32,13 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             .SumAsync(x => x.Amount ?? 0, cancellationToken);
         var alerts = await GetOverdueAlertsAsync(cancellationToken);
         return new AdminDashboardView(
-            await db.WeddingProjects.CountAsync(x => x.EventDate >= today && x.EventDate <= today.AddDays(30) && x.Status != "Closed", cancellationToken),
+            await db.WeddingProjects.CountAsync(x => x.EventDate >= today && x.EventDate <= today.AddDays(30) && x.Status != "Closed" && x.Status != "Cancelled", cancellationToken),
             Percent(halls.Sum(x => x.Booked), halls.Sum(x => x.Available)),
             revenue,
-            await db.ChangeRequests.CountAsync(x => x.Status == "Negotiating", cancellationToken),
+            await db.AddonContracts.CountAsync(x => x.Status == "PendingCustomer", cancellationToken),
             alerts.Count,
             await db.Complaints.CountAsync(x => x.Status == "Escalated", cancellationToken),
-            alerts.Take(5).ToList(),
-            await GetPhotosAsync(new PhotoFeedFilter(null, null, null, null), 5, cancellationToken));
+            alerts.Take(5).ToList());
     }
 
     public async Task<AdminReportView> GetReportAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
@@ -49,9 +47,9 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         if (to.DayNumber - from.DayNumber > 731) throw new InvalidOperationException("Khoảng thời gian báo cáo tối đa 2 năm.");
         var halls = await GetHallUtilizationAsync(from, to, cancellationToken);
         var revenue = await GetNetRevenueAsync(from, to, cancellationToken);
-        var (byStatus, byType) = await GetCrStatisticsAsync(from, to, cancellationToken);
+        var (addons, events) = await GetEventStatisticsAsync(from, to, cancellationToken);
         return new AdminReportView(from, to, Percent(halls.Sum(x => x.Booked), halls.Sum(x => x.Available)), revenue.Sum(x => x.Received),
-            byStatus.First(x => x.Status == "Approved").Count, halls, revenue, byStatus, byType);
+            addons.First(x => x.Status == "Confirmed").Count, halls, revenue, addons, events);
     }
 
     private static decimal Percent(int part, int whole) => whole == 0 ? 0 : Math.Round(part * 100m / whole, 1);
@@ -61,7 +59,7 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         var days = to.DayNumber - from.DayNumber + 1;
         var halls = await db.Halls.AsNoTracking().Where(x => x.Status == "Active").OrderBy(x => x.Name)
             .Select(x => new { x.HallId, x.Name, Slots = x.Slots.Count }).ToListAsync(cancellationToken);
-        var booked = await db.WeddingProjects.AsNoTracking().Where(x => x.EventDate >= from && x.EventDate <= to)
+        var booked = await db.WeddingProjects.AsNoTracking().Where(x => x.EventDate >= from && x.EventDate <= to && x.Status != "Cancelled")
             .GroupBy(x => x.HallId).Select(g => new { HallId = g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.HallId, x => x.Count, cancellationToken);
         return halls.Select(h =>
         {
@@ -73,11 +71,11 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
 
     private async Task<IReadOnlyList<NetRevenueRow>> GetNetRevenueAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
-        var projects = await db.WeddingProjects.AsNoTracking().Where(x => x.EventDate >= from && x.EventDate <= to)
+        var projects = await db.WeddingProjects.AsNoTracking().Where(x => x.EventDate >= from && x.EventDate <= to && x.Status != "Cancelled")
             .Select(x => new
             {
-                x.EventDate, x.BaseContractValue,
-                Variance = x.ChangeRequests.Where(c => c.Status == "Approved").Sum(c => (decimal?)c.TotalVariance) ?? 0,
+                x.EventDate, ContractValue = x.CurrentTotal,
+                Variance = x.AddonContracts.Where(a => a.Status == "Confirmed").SelectMany(a => a.Items).Sum(i => (decimal?)(i.Quantity * i.UnitPrice)) ?? 0,
                 Paid = x.Payments.Where(p => p.Status == "Paid").Sum(p => p.Amount) ?? 0
             }).ToListAsync(cancellationToken);
         var received = await db.Payments.AsNoTracking().Where(x => x.Status == "Paid" && x.PaidDate >= from && x.PaidDate <= to)
@@ -87,34 +85,26 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         {
             var inMonth = projects.Where(p => p.EventDate.Year == month.Year && p.EventDate.Month == month.Month).ToList();
             rows.Add(new NetRevenueRow(month.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-                inMonth.Sum(p => p.BaseContractValue), inMonth.Sum(p => p.Variance),
+                inMonth.Sum(p => p.ContractValue), inMonth.Sum(p => p.Variance),
                 received.Where(p => p.PaidDate!.Value.Year == month.Year && p.PaidDate.Value.Month == month.Month).Sum(p => p.Amount ?? 0),
-                inMonth.Sum(p => Math.Max(0, p.BaseContractValue + p.Variance - p.Paid))));
+                inMonth.Sum(p => Math.Max(0, p.ContractValue + p.Variance - p.Paid))));
         }
         return rows;
     }
 
-    private async Task<(IReadOnlyList<CrStatusCount>, IReadOnlyList<CrTypeRow>)> GetCrStatisticsAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
+    private static readonly string[] AddonStatuses = ["PendingCustomer", "Confirmed", "Cancelled"];
+
+    /// <summary>Addon contracts created in the period (count and value by status) and events held in the period by status.</summary>
+    private async Task<(IReadOnlyList<AddonStatusRow>, IReadOnlyList<EventStatusCount>)> GetEventStatisticsAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
     {
         var start = StartUtc(from);
         var end = StartUtc(to.AddDays(1));
-        var crs = await db.ChangeRequests.AsNoTracking().Where(x => x.CreatedAt >= start && x.CreatedAt < end)
-            .Select(x => new
-            {
-                x.Type, x.Status, x.CreatedAt, Amount = x.TotalVariance ?? 0, x.CustomerApprovedAt, x.ManagerApprovedAt,
-                LastAction = x.Crhistories.Max(h => (DateTime?)h.CreatedAt)
-            }).ToListAsync(cancellationToken);
-        var byStatus = CrStatuses.Select(s => new CrStatusCount(s, crs.Count(x => x.Status == s))).ToList();
-        // Negotiation time ends at the second approval, or at the last history entry of a rejected CR.
-        var byType = crs.GroupBy(x => x.Type).OrderBy(g => g.Key).Select(g =>
-        {
-            var durations = g.Select(x => x.Status == "Approved" && x.CustomerApprovedAt is { } c && x.ManagerApprovedAt is { } m
-                    ? (c > m ? c : m) - x.CreatedAt
-                    : x.Status == "Rejected" && x.LastAction is { } last ? last - x.CreatedAt : (TimeSpan?)null)
-                .Where(d => d is not null).Select(d => (decimal)d!.Value.TotalDays).ToList();
-            return new CrTypeRow(g.Key, g.Count(), g.Sum(x => x.Amount), durations.Count == 0 ? null : Math.Round(durations.Average(), 1));
-        }).ToList();
-        return (byStatus, byType);
+        var addons = await db.AddonContracts.AsNoTracking().Where(x => x.CreatedAt >= start && x.CreatedAt < end)
+            .Select(x => new { x.Status, Amount = x.Items.Sum(i => (decimal?)(i.Quantity * i.UnitPrice)) ?? 0 }).ToListAsync(cancellationToken);
+        var byStatus = AddonStatuses.Select(s => new AddonStatusRow(s, addons.Count(x => x.Status == s), addons.Where(x => x.Status == s).Sum(x => x.Amount))).ToList();
+        var events = await db.WeddingProjects.AsNoTracking().Where(x => x.EventDate >= from && x.EventDate <= to)
+            .GroupBy(x => x.Status).Select(g => new EventStatusCount(g.Key, g.Count())).ToListAsync(cancellationToken);
+        return (byStatus, events);
     }
 
     public Task<IReadOnlyList<ProofPhotoView>> GetPhotosAsync(PhotoFeedFilter filter, CancellationToken cancellationToken = default) =>
@@ -149,8 +139,9 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         return x is null ? null : new PhotoAuditView(x.PhotoId, x.ProjectCode, x.Hall, x.Slot, x.TaskName, Utc(x.DeadlineTime), Utc(x.UploadedAt), x.UploadedAt > x.DeadlineTime, x.FullName);
     }
 
-    public async Task<string?> GetPhotoPathAsync(int photoId, CancellationToken cancellationToken = default) =>
-        await db.ExecutionPhotos.AsNoTracking().Where(x => x.PhotoId == photoId).Select(x => x.ImageFilePath).FirstOrDefaultAsync(cancellationToken);
+    public async Task<StoredFileRef?> GetPhotoFileAsync(int photoId, CancellationToken cancellationToken = default) =>
+        await db.ExecutionPhotos.AsNoTracking().Where(x => x.PhotoId == photoId)
+            .Select(x => new StoredFileRef(x.ImageFilePath, x.ContentType ?? "image/jpeg", x.FileName ?? "minh-chung")).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<OverdueAlertView>> GetOverdueAlertsAsync(CancellationToken cancellationToken = default)
     {
@@ -197,7 +188,6 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         var requests = await db.ExceptionRequests.AsNoTracking().AsSplitQuery()
             .Include(x => x.Project).ThenInclude(p => p.Customer)
             .Include(x => x.Project).ThenInclude(p => p.Hall)
-            .Include(x => x.Cr)
             .Include(x => x.Allocation).ThenInclude(a => a!.Resource)
             .Include(x => x.Allocation).ThenInclude(a => a!.Hall)
             .Include(x => x.RequestedByNavigation)
@@ -217,11 +207,6 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
 
         var items = requests.Select(request =>
         {
-            ExceptionCrContextView? cr = request.Cr is { } ticket
-                ? new ExceptionCrContextView(ticket.Crcode, ticket.CostImpact, ticket.PenaltyRate ?? 0m, ticket.PenaltyFee,
-                    ticket.TotalVariance ?? ticket.CostImpact + ticket.PenaltyFee)
-                : null;
-
             ExceptionResourceContextView? resource = null;
             if (request.Allocation is { } allocation)
             {
@@ -247,7 +232,7 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
                 request.RequestedByNavigation.FullName, Utc(request.CreatedAt), request.RequestNote,
                 request.DecisionNote, request.DecisionByNavigation?.FullName,
                 request.DecidedAt is { } decidedAt ? Utc(decidedAt) : null,
-                cr, resource);
+                resource);
         })
         .OrderBy(item => item.Status == "Pending" ? 0 : 1)
         .ThenBy(item => item.Status == "Pending" ? item.CreatedAt : DateTime.MaxValue)
@@ -274,7 +259,7 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         note = note?.Trim() ?? "";
         if (note.Length == 0) throw new InvalidOperationException("Trường Ghi chú quyết định là bắt buộc.");
         if (note.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự.");
-        var request = await db.ExceptionRequests.Include(x => x.Cr).Include(x => x.Allocation).Include(x => x.Project)
+        var request = await db.ExceptionRequests.Include(x => x.Allocation).Include(x => x.Project)
             .FirstOrDefaultAsync(x => x.ExceptionRequestId == requestId, cancellationToken);
         if (request is null) return false;
         if (request.Status != "Pending") throw new InvalidOperationException("Yêu cầu ngoại lệ này đã được quyết định.");
@@ -283,17 +268,11 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         request.DecisionBy = adminId;
         request.DecisionNote = note;
         request.DecidedAt = now;
-        if (request.Cr is { } cr)
+        db.Notifications.Add(new Notification
         {
-            if (cr.Status is "Approved" or "Rejected") throw new InvalidOperationException($"CR {cr.Crcode} đã đóng nên không thể quyết định ngoại lệ.");
-            if (approve) cr.PenaltyFee = 0;
-            db.Crhistories.Add(new Crhistory { Crid = cr.Crid, ActorId = adminId, Action = approve ? "ExceptionApproved" : "ExceptionRejected", Note = note, CreatedAt = now });
-            db.Notifications.Add(new Notification
-            {
-                RecipientId = request.RequestedBy, Type = "CR update", LinkUrl = request.Cr is null ? OperationsSupport.Links.ResourceCalendar : OperationsSupport.Links.ManagerCr(request.Project.ProjectCode, request.Cr.Crcode),
-                Message = $"Yêu cầu ngoại lệ {request.RequestCode} cho {cr.Crcode} đã được {(approve ? "chấp thuận" : "từ chối")}."
-            });
-        }
+            RecipientId = request.RequestedBy, Type = "Overdue alert", LinkUrl = OperationsSupport.Links.ResourceCalendar, CreatedAt = now,
+            Message = $"Yêu cầu đặc biệt {request.RequestCode} ({request.Project.ProjectCode}) đã được {(approve ? "chấp thuận" : "từ chối")}."
+        });
         if (approve && request.Allocation is { } allocation)
         {
             allocation.Status = "Exception Approved";

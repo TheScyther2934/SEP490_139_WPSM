@@ -96,11 +96,11 @@ export default function ComplaintDetail() {
       <PageHeader
         code="M-19"
         title={`Chi tiết & Xử lý Khiếu nại (${complaintCode})`}
-        subtitle="Đối chiếu phản ánh của khách hàng với cam kết trong BEO, phản hồi giải quyết trực tiếp hoặc chuyển cấp lên Admin (M-20)."
+        subtitle="Đối chiếu phản ánh của khách hàng với cam kết trong phiếu điều phối, phản hồi giải quyết trực tiếp hoặc chuyển cấp lên Admin."
         actions={
           <Stack direction="row" spacing={1.5}>
             <Button startIcon={<ArrowBackIcon />} component={RouterLink} to={PATHS.manager.complaints(projectCode)}>
-              Danh sách khiếu nại (M-18)
+              Danh sách khiếu nại
             </Button>
             {item?.status === "Open" && (
               <Button
@@ -111,7 +111,7 @@ export default function ComplaintDetail() {
                 disabled={submitting}
                 id="openEscalateBtn"
               >
-                Chuyển cấp lên Admin (M-20)
+                Chuyển cấp lên Admin
               </Button>
             )}
           </Stack>
@@ -159,8 +159,8 @@ export default function ComplaintDetail() {
                         </Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">BEO đối chiếu:</Typography>
-                        <Chip size="small" label={`BEO v${item.beoVersion} (${item.beoStatus})`} color="primary" variant="outlined" />
+                        <Typography variant="body2" color="text.secondary">Phiếu điều phối đối chiếu:</Typography>
+                        <Chip size="small" label={`Phiếu điều phối v${item.beoVersion} (${item.beoStatus})`} color="primary" variant="outlined" />
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography variant="body2" color="text.secondary">Ảnh nghiệm thu hiện trường:</Typography>
@@ -180,7 +180,7 @@ export default function ComplaintDetail() {
                 <Card variant="outlined" sx={{ height: "100%", bgcolor: "grey.50" }}>
                   <CardContent>
                     <Typography variant="subtitle1" fontWeight={800} mb={1.5}>
-                      Xử lý & Phản hồi của Quản lý (M-19)
+                      Xử lý & Phản hồi của Quản lý
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
 
@@ -210,7 +210,7 @@ export default function ComplaintDetail() {
                             onClick={() => setEscalateOpen(true)}
                             disabled={submitting}
                           >
-                            Chuyển lên Admin (M-20)
+                            Chuyển lên Admin
                           </Button>
                           <Button
                             variant="contained"
@@ -255,7 +255,7 @@ export default function ComplaintDetail() {
 
             <Paper variant="outlined" sx={{ p: 2.5 }}>
               <Typography variant="subtitle1" fontWeight={800} mb={1.5}>
-                Đối chiếu Hạng mục Vận hành trong BEO v{item.beoVersion}
+                Đối chiếu Hạng mục Vận hành trong phiếu điều phối v{item.beoVersion}
               </Typography>
               <TableContainer>
                 <Table size="small">
@@ -264,8 +264,8 @@ export default function ComplaintDetail() {
                       <TableCell>Bộ phận</TableCell>
                       <TableCell>Hạng mục dịch vụ</TableCell>
                       <TableCell>Chi tiết cam kết</TableCell>
-                      <TableCell align="right">SL Baseline</TableCell>
-                      <TableCell align="right">SL BEO hiệu lực</TableCell>
+                      <TableCell align="right">SL theo hợp đồng</TableCell>
+                      <TableCell align="right">SL thực hiện</TableCell>
                       <TableCell align="right">Thành tiền</TableCell>
                     </TableRow>
                   </TableHead>
@@ -278,7 +278,7 @@ export default function ComplaintDetail() {
                         <TableCell sx={{ fontWeight: 700 }}>{line.itemName}</TableCell>
                         <TableCell>{line.description}</TableCell>
                         <TableCell align="right">
-                          {line.baselineQuantity} {line.unit}
+                          {line.contractQuantity} {line.unit}
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 800 }}>
                           {line.effectiveQuantity} {line.unit}

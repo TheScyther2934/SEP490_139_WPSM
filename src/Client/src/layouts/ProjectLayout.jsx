@@ -11,17 +11,17 @@ import { countdownLabel, dateVi, slotLabel } from "../utils/format";
 const M = PATHS.manager;
 const TABS = [
   { label: "Tổng quan", to: M.project },
-  { label: "Đặc tả", to: M.specification },
-  { label: "Lộ trình", to: M.roadmap },
-  { label: "Yêu cầu thay đổi", to: M.changeRequests },
-  { label: "BEO", to: M.beo },
+  { label: "Dịch vụ đã đặt", to: M.specification },
+  { label: "Nhà cung cấp", to: M.suppliers },
+  { label: "Hợp đồng phát sinh", to: M.addons },
+  { label: "Phiếu điều phối", to: M.beo },
   { label: "Thanh toán", to: M.payments },
-  { label: "Ngày sự kiện", to: M.dayOf },
+  { label: "Ngày cưới", to: M.dayOf },
   { label: "Khiếu nại", to: M.complaints },
 ];
 
-// Child of ManagerLayout: reads :projectCode once, loads the project header and draws the project tabs,
-// so M-04..M-20 pages only render their own content.
+// Child of ManagerLayout: reads :projectCode once, loads the event header and draws the event tabs,
+// so the event pages only render their own content.
 export default function ProjectLayout() {
   const { projectCode } = useParams();
   const { pathname } = useLocation();
@@ -30,7 +30,7 @@ export default function ProjectLayout() {
 
   useEffect(() => { dispatch(loadProject(projectCode)); }, [projectCode, dispatch]);
 
-  // Longest matching tab wins, so /change-requests/CR-1 keeps the "Yêu cầu thay đổi" tab selected.
+  // Longest matching tab wins, so /beo/department-sheets keeps the coordination sheet tab selected.
   const current = TABS.map((t) => t.to(projectCode))
     .filter((to) => pathname === to || pathname.startsWith(`${to}/`))
     .sort((a, b) => b.length - a.length)[0] ?? false;
@@ -41,7 +41,7 @@ export default function ProjectLayout() {
   return (
     <>
       <Breadcrumbs sx={{ mb: 2 }}>
-        <Link component={RouterLink} to={M.projects} underline="hover" color="inherit">Dự án</Link>
+        <Link component={RouterLink} to={M.projects} underline="hover" color="inherit">Sự kiện</Link>
         <Typography color="text.primary">{projectCode}</Typography>
       </Breadcrumbs>
       <DataState loading={loading} error={!project && status === "error" ? error : null} onRetry={() => dispatch(loadProject(projectCode))}>
@@ -64,7 +64,7 @@ export default function ProjectLayout() {
                 </Stack>
               </CardContent>
             </Card>
-            <Tabs value={current} variant="scrollable" scrollButtons="auto" sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }} aria-label="Phân hệ dự án">
+            <Tabs value={current} variant="scrollable" scrollButtons="auto" sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }} aria-label="Các mục của sự kiện">
               {TABS.map((t) => {
                 const to = t.to(projectCode);
                 return <Tab key={to} label={t.label} value={to} component={RouterLink} to={to} />;

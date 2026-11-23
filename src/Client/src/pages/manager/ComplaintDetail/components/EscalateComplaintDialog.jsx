@@ -29,7 +29,7 @@ export default function EscalateComplaintDialog({ open, complaint, submitting, o
 
   return (
     <Dialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>M-20 · Chuyển cấp Khiếu nại lên Admin ({complaint.complaintCode})</DialogTitle>
+      <DialogTitle>Chuyển cấp Khiếu nại lên Admin ({complaint.complaintCode})</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
           <Alert severity="warning">

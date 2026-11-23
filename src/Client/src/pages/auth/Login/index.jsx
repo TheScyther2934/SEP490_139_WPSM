@@ -39,7 +39,7 @@ export default function Login() {
     <Card>
       <CardContent sx={{ p: 4 }}>
         <Typography variant="h5" component="h1" gutterBottom>Đăng nhập</Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>Hệ thống quản lý dự án tiệc cưới WPSM</Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>Hệ thống quản lý sự kiện tiệc cưới WPSM</Typography>
         <LoginForm onSubmit={submit} serverError={error} submitting={submitting} />
         <Button onClick={() => setSupportOpen(true)} sx={{ mt: 2 }} fullWidth>Quên mật khẩu?</Button>
         <SupportDialog open={supportOpen} onClose={() => setSupportOpen(false)} />

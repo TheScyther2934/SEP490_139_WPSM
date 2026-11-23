@@ -7,7 +7,7 @@ using Infrastructure.Persistence.Entities;
 
 namespace Infrastructure.Jobs;
 
-/// <summary>JOB-07: sends queued emails every minute; 3 retries at 5-minute intervals.</summary>
+/// <summary>JOB-07: sends queued emails every minute; 3 retries at 5-minute intervals. Without SMTP the message is only saved as a file (status "Saved").</summary>
 public sealed class EmailDispatchJob(WpsmDbContext db, IEmailSender sender, ILogger<EmailDispatchJob> logger)
 {
     private const int MaxRetries = 3;
@@ -26,7 +26,8 @@ public sealed class EmailDispatchJob(WpsmDbContext db, IEmailSender sender, ILog
             try
             {
                 email.ProviderMessageId = await sender.SendAsync(email.ToEmail, email.Subject, email.BodyHtml, cancellationToken);
-                email.Status = "Sent";
+                // Only written to the pickup folder (no SMTP server): "Saved", never reported as sent.
+                email.Status = sender.DeliversEmail ? "Sent" : "Saved";
                 email.SentAt = DateTime.UtcNow;
                 email.LastError = null;
                 Redact(email);

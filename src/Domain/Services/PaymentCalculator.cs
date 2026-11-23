@@ -1,8 +1,8 @@
 namespace Domain.Services;
 
 /// <summary>
-/// Pure domain calculations for contract finances, milestone payments, and balances (FE-10, UC-12).
-/// Follows GBR-08 and SRS Section 2.
+/// Money of an event: two payments only, the deposit at signing and the settlement after the event.
+/// Settlement = contract total after adjustments + confirmed addon contracts - deposit paid.
 /// </summary>
 public static class PaymentCalculator
 {
@@ -18,86 +18,28 @@ public static class PaymentCalculator
     public static DateOnly GetVietnamToday() =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VnTz));
 
-    /// <summary>
-    /// Sums variance of Approved CRs only (status "Approved" or "CustomerApproved").
-    /// Negative variance (deduction) reduces total; positive variance (surcharge) increases total.
-    /// </summary>
-    public static decimal CalculateApprovedCrVariance(IEnumerable<(string Status, decimal? TotalVariance, decimal CostImpact, decimal PenaltyFee)> changeRequests)
-    {
-        decimal sum = 0m;
-        foreach (var cr in changeRequests)
-        {
-            if (string.Equals(cr.Status, "Approved", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(cr.Status, "CustomerApproved", StringComparison.OrdinalIgnoreCase))
-            {
-                var variance = cr.TotalVariance ?? (cr.CostImpact + cr.PenaltyFee);
-                sum += variance;
-            }
-        }
-        return sum;
-    }
-
-    /// <summary>
-    /// Current Project Total = Base Contract Value + Total Approved CR Variance.
-    /// </summary>
-    public static decimal CalculateCurrentTotal(decimal baseContractValue, decimal approvedCrVariance) =>
-        Math.Max(0m, baseContractValue + approvedCrVariance);
-
-    /// <summary>
-    /// Total Amount Paid = sum of recorded payments with Status == "Paid".
-    /// </summary>
+    /// <summary>Sum of the payments recorded as Paid.</summary>
     public static decimal CalculateTotalPaid(IEnumerable<(string Status, decimal? Amount)> payments) =>
-        payments
-            .Where(p => string.Equals(p.Status, "Paid", StringComparison.OrdinalIgnoreCase))
-            .Sum(p => p.Amount ?? 0m);
+        payments.Where(p => string.Equals(p.Status, "Paid", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Amount ?? 0m);
 
-    /// <summary>
-    /// Outstanding Balance = Current Project Total - Total Amount Paid.
-    /// Never returns negative according to domain rules.
-    /// </summary>
-    public static decimal CalculateOutstandingBalance(decimal currentProjectTotal, decimal totalAmountPaid) =>
-        Math.Max(0m, currentProjectTotal - totalAmountPaid);
+    /// <summary>What the customer owes in total: the contract after adjustments plus the confirmed addon contracts.</summary>
+    public static decimal CalculateGrandTotal(decimal contractTotal, decimal confirmedAddonTotal) =>
+        Math.Max(0m, contractTotal) + Math.Max(0m, confirmedAddonTotal);
 
-    /// <summary>
-    /// Calculates T-30 second payment amount according to policy ratio:
-    /// Typically Total * (T30_RATIO / 100) - NRD.
-    /// </summary>
-    public static decimal CalculateT30Amount(decimal baseValue, decimal nrdAmount, decimal t30Ratio = 70m)
+    /// <summary>Amount of the settlement payment (never negative: the 70% floor keeps the contract above the 30% deposit).</summary>
+    public static decimal CalculateSettlementAmount(decimal contractTotal, decimal confirmedAddonTotal, decimal depositPaid) =>
+        Math.Max(0m, CalculateGrandTotal(contractTotal, confirmedAddonTotal) - depositPaid);
+
+    public static decimal CalculateOutstandingBalance(decimal grandTotal, decimal totalAmountPaid) =>
+        Math.Max(0m, grandTotal - totalAmountPaid);
+
+    /// <summary>Display status of a payment: Paid, Due (due date reached) or Upcoming.</summary>
+    public static string ResolvePaymentStatus(string? recordedStatus, DateOnly? dueDate, DateOnly today)
     {
-        var targetCumulative = decimal.Round(baseValue * (t30Ratio / 100m), 2);
-        return Math.Max(0m, targetCumulative - nrdAmount);
+        if (string.Equals(recordedStatus, "Paid", StringComparison.OrdinalIgnoreCase)) return "Paid";
+        return dueDate.HasValue && today >= dueDate.Value ? "Due" : "Upcoming";
     }
 
-    /// <summary>
-    /// Determines milestone display status: "Paid", "Due", or "Upcoming".
-    /// </summary>
-    public static string ResolveMilestoneStatus(string? recordedStatus, DateOnly? dueDate, DateOnly today, string projectStatus, string milestoneType)
-    {
-        if (string.Equals(recordedStatus, "Paid", StringComparison.OrdinalIgnoreCase))
-            return "Paid";
-
-        if (string.Equals(milestoneType, "FINAL", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(projectStatus, "Settled", StringComparison.OrdinalIgnoreCase))
-            return "Paid";
-
-        if (dueDate.HasValue && today >= dueDate.Value)
-            return "Due";
-
-        return "Upcoming";
-    }
-
-    public static bool IsEventCompleted(DateOnly eventDate, string projectStatus, DateOnly today) =>
-        today >= eventDate ||
-        string.Equals(projectStatus, "Event Completed", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(projectStatus, "Settled", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(projectStatus, "Closed", StringComparison.OrdinalIgnoreCase);
-
-    public static string GetMilestoneName(string paymentType) =>
-        paymentType.ToUpperInvariant() switch
-        {
-            "NRD" => "Đặt cọc hợp đồng (NRD)",
-            "T30" or "T-30" => "Thanh toán đợt hai (Mốc T-30)",
-            "FINAL" or "SETTLEMENT" => "Quyết toán hợp đồng (Final Settlement)",
-            _ => paymentType
-        };
+    public static bool IsEventCompleted(DateOnly eventDate, string eventStatus, DateOnly today) =>
+        today >= eventDate || eventStatus is EventStatus.Completed or EventStatus.Settled or EventStatus.Closed;
 }

@@ -17,6 +17,9 @@ public partial class ServiceCatalogItem
 
     public string Status { get; set; } = null!;
 
+    /// <summary>Booked from an outside supplier: the operator attaches evidence before the supplier deadline.</summary>
+    public bool RequiresSupplier { get; set; }
+
     public virtual ICollection<PriceFrame> PriceFrames { get; set; } = new List<PriceFrame>();
 
     public virtual ICollection<SpecItem> SpecItems { get; set; } = new List<SpecItem>();

@@ -21,7 +21,7 @@ public sealed class ManagerOverdueAlertService(WpsmDbContext db) : IManagerOverd
     {
         var now = DateTime.UtcNow;
         var tasks = await db.DayOfTasks.AsNoTracking()
-            .Where(x => x.Project.ManagerId == managerId && x.Status == "Overdue" && x.CompletedAt == null)
+            .Where(x => (x.Project.ManagerId == managerId || x.Project.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) && x.Status == "Overdue" && x.CompletedAt == null)
             .OrderBy(x => x.DeadlineTime)
             .Select(x => new
             {

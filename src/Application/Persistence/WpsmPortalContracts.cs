@@ -1,3 +1,5 @@
+using Domain.Services;
+
 namespace Application.Persistence;
 
 public sealed record WpsmPortalSnapshot(
@@ -6,8 +8,7 @@ public sealed record WpsmPortalSnapshot(
     IReadOnlyList<CatalogItemView> Catalog,
     IReadOnlyList<PriceFrameView> PriceFrames,
     PolicyView Policies,
-    ProfileView Profile,
-    IReadOnlyList<RoadmapTaskView> Roadmap)
+    ProfileView Profile)
 {
     public int UnreadNotifications { get; init; }
     public int OverdueTasks { get; init; }
@@ -20,28 +21,40 @@ public sealed record WeddingProjectView(
     string Slot,
     DateOnly EventDate,
     decimal BaseValue,
-    decimal NrdAmount,
+    decimal DepositAmount,
     string Status,
-    int RoadmapProgress,
-    int OpenChangeRequests,
+    int CurrentStage,
+    int PendingAddons,
     string BeoStatus,
     decimal OutstandingBalance,
     string SpecificationSummary = "Chưa nhập đặc tả",
     int GuestCount = 0,
     IReadOnlyList<SpecificationLineView>? Specification = null,
-    DateTime? BaselineFrozenAt = null,
-    string NrdStatus = "Unknown",
+    DateTime? LockedAt = null,
+    string DepositStatus = "Unknown",
     string SlotTime = "",
-    int AddendumCount = 0)
+    int AddonCount = 0)
 {
+    public string StatusLabel { get; init; } = "";
+    public DateOnly LockDate { get; init; }
+    public DateOnly SupplierDeadline { get; init; }
+    /// <summary>Lowest total allowed in stage 2 (the agreed decrease limit applied to the signed value).</summary>
+    public decimal MinimumTotal { get; init; }
+    public bool CanAdjust { get; init; }
+    public bool CanAddAddon { get; init; }
+    public decimal ConfirmedAddonTotal { get; init; }
+    public IReadOnlyList<EventStageView> Stages { get; init; } = [];
     public string CustomerEmail { get; init; } = "";
     public string CustomerPhone { get; init; } = "";
     public decimal CurrentTotal { get; init; }
     public int OpenComplaints { get; init; }
     public int DayOfTotal { get; init; }
     public int DayOfCompleted { get; init; }
+    public int DayOfOverdue { get; init; }
+    /// <summary>Coordination tasks done without the proof they require.</summary>
+    public int DayOfMissingProof { get; init; }
     public IReadOnlyList<PaymentView> Payments { get; init; } = [];
-    public IReadOnlyList<ProjectModuleItem> Changes { get; init; } = [];
+    public IReadOnlyList<ProjectModuleItem> Addons { get; init; } = [];
     public IReadOnlyList<ProjectModuleItem> Beos { get; init; } = [];
     public IReadOnlyList<ProjectModuleItem> Complaints { get; init; } = [];
     public IReadOnlyList<ProjectModuleItem> DayOfTasks { get; init; } = [];
@@ -62,9 +75,10 @@ public sealed record SpecificationLineView(
 
 public sealed record CatalogItemView(string Id, string Name, string Category, string Unit, decimal BasePrice, bool Active);
 public sealed record PriceFrameView(string Id, string ServiceName, string Variant, decimal MinPrice, decimal MaxPrice, string Currency, int CatalogItemId = 0);
-public sealed record PolicyView(decimal NrdRatio, decimal T30Ratio, decimal FinalRatio, int CrPenaltyDays, decimal CrPenaltyPercent);
+/// <summary>Event rules Admin can change (PolicyConfigs) plus the hotline shown to customers.</summary>
+public sealed record PolicyView(decimal DepositRatio, decimal MaxDecreaseRatio, int BookingMinDays, int BookingMaxDays,
+    int LockDays, int SupplierDeadlineDays, int SettlementDueDays, string Hotline);
 public sealed record ProfileView(string FullName, string Email, string Phone, string Role);
-public sealed record RoadmapTaskView(string Milestone, string Title, string AssigneeRole, DateOnly DueDate, string Status);
 
 public sealed record CreateProjectCommand(
     string CoupleName,
@@ -74,17 +88,19 @@ public sealed record CreateProjectCommand(
     string Slot,
     DateOnly EventDate,
     decimal BaseValue,
-    decimal NrdAmount,
+    decimal DepositAmount,
     string PaymentMethod,
     string? ReceiptFilePath,
-    string? ProtectedCredentialPayload = null);
+    IReadOnlyList<SpecificationLineCommand>? Items = null);
 public sealed record CreatedProjectView(WeddingProjectView Project, string? TemporaryPassword);
 
-public sealed record SpecificationCommand(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null);
+/// <summary>Stage 2 adjustment: the new service lines and the note explaining what the customer asked for (required).</summary>
+public sealed record SpecificationCommand(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null, string? Note = null, string? NoteType = null);
 public sealed record SpecificationLineCommand(int CatalogItemId, string Description, int Quantity, decimal UnitPrice);
 public sealed record CatalogItemCommand(string Name, string Category, string Unit, decimal BasePrice, bool Active);
 public sealed record PriceFrameCommand(decimal MinPrice, decimal MaxPrice, DateOnly? EffectiveFrom = null);
-public sealed record PolicyCommand(decimal NrdRatio, decimal T30Ratio, int CrPenaltyDays, decimal CrPenaltyPercent, DateOnly? EffectiveFrom = null);
+public sealed record PolicyCommand(decimal DepositRatio, decimal MaxDecreaseRatio, int BookingMinDays, int BookingMaxDays,
+    int LockDays, int SupplierDeadlineDays, int SettlementDueDays, string? Hotline = null, DateOnly? EffectiveFrom = null);
 public sealed record ProfileCommand(string FullName, string Phone);
 
 public sealed record AccountView(int UserId, string Email, string FullName, string? Phone, string Role, string Status, string PasswordHash, bool MustChangePassword);
@@ -99,21 +115,20 @@ public sealed record CustomerDashboardView(
     DateOnly EventDate,
     int CountdownDays,
     string CountdownLabel,
-    IReadOnlyList<DashboardTaskView> UpcomingTasks,
-    int OpenCrCount,
+    IReadOnlyList<EventStageView> Stages,
+    int PendingAddonCount,
     decimal OutstandingBalance,
     decimal BaseContractValue,
     decimal TotalPaid,
-    int RoadmapProgress,
-    DashboardPhotoView? LatestProofPhoto);
-
-public sealed record DashboardTaskView(
-    int TaskId,
-    string Milestone,
-    string Title,
-    string AssigneeRole,
-    DateOnly DueDate,
-    string Status);   // "Pending" | "Done" | "Overdue"
+    int CurrentStage,
+    DashboardPhotoView? LatestProofPhoto)
+{
+    public string Status { get; init; } = "";
+    public string StatusLabel { get; init; } = "";
+    public decimal CurrentTotal { get; init; }
+    public IReadOnlyList<OperatorContactView> Contacts { get; init; } = [];
+    public string Hotline { get; init; } = "";
+}
 
 public sealed record DashboardPhotoView(
     int PhotoId,
@@ -124,37 +139,6 @@ public sealed record DashboardPhotoView(
     /// <summary>Signed, short-lived URL filled in by the API layer (img tags cannot send a Bearer token).</summary>
     public string ImageUrl { get; init; } = "";
 }
-
-// ── C-03 Customer Roadmap & Task Detail ─────────────────────────────────────
-public sealed record CustomerRoadmapView(
-    string ProjectCode,
-    string CoupleName,
-    DateOnly EventDate,
-    int CountdownDays,
-    IReadOnlyList<CustomerRoadmapMilestoneGroup> MilestoneGroups,
-    int TotalTasks,
-    int DoneTasks);
-
-public sealed record CustomerRoadmapMilestoneGroup(
-    string Milestone,
-    DateOnly MilestoneDate,
-    IReadOnlyList<CustomerRoadmapTaskView> Tasks,
-    int TotalCount,
-    int DoneCount);
-
-public sealed record CustomerRoadmapTaskView(
-    int TaskId,
-    string Milestone,
-    string Title,
-    string AssigneeRole,
-    DateOnly DueDate,
-    string Status,          // "Pending" | "Done" | "Overdue"
-    DateTime? CompletedAt);
-
-public sealed record CompleteTaskResult(
-    bool Success,
-    string Message,
-    CustomerRoadmapTaskView? UpdatedTask);
 
 public sealed record HallView(int HallId, string Name, int MinCapacity, int MaxCapacity, decimal BasePrice, string Status, IReadOnlyList<SlotView> Slots);
 public sealed record SlotView(int SlotId, string SlotName, TimeOnly StartTime, TimeOnly EndTime, bool Available);

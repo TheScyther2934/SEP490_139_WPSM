@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@mui/material";
 
 // Confirm dialog with an optional text field (reject reason, escalation note, exception note...).
-// `required` blocks an empty text (MSG02); `maxLength` shows the limit (MSG16).
+// `required` blocks an empty text; `maxLength` shows the limit.
 export default function TextDialog({ open, title, description, label, required, maxLength = 500, confirmText = "Xác nhận",
   color = "primary", busy, onClose, onConfirm, children }) {
   const [text, setText] = useState("");

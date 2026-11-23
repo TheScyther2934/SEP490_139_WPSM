@@ -38,7 +38,7 @@ export default function ManagerOverdueAlerts() {
       <PageHeader
         code="M-23"
         title="Cảnh báo quá hạn"
-        subtitle="Theo dõi và điều phối các nhiệm vụ ngày sự kiện đã quá hạn trong những dự án bạn phụ trách."
+        subtitle="Theo dõi và điều phối các nhiệm vụ ngày sự kiện đã quá hạn trong những sự kiện bạn phụ trách."
         actions={
           <Button
             variant="outlined"
@@ -66,17 +66,17 @@ export default function ManagerOverdueAlerts() {
         error={error}
         onRetry={reload}
         empty={!alerts.length}
-        emptyMessage="Không có nhiệm vụ nào bị quá hạn (MSG01)."
+        emptyMessage="Không có nhiệm vụ nào bị quá hạn."
       >
         <Card>
           <TableContainer>
             <Table id="m23Table">
               <TableHead>
                 <TableRow>
-                  <TableCell>Mã dự án</TableCell>
+                  <TableCell>Mã sự kiện</TableCell>
                   <TableCell>Nhiệm vụ</TableCell>
                   <TableCell>Sảnh tiệc</TableCell>
-                  <TableCell>Ngày sự kiện</TableCell>
+                  <TableCell>Ngày cưới</TableCell>
                   <TableCell>Hạn chót</TableCell>
                   <TableCell>Thời gian quá hạn</TableCell>
                   <TableCell align="center">Trạng thái</TableCell>

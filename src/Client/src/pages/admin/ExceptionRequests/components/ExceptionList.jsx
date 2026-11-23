@@ -29,7 +29,7 @@ export default function ExceptionList({ requests, selectedId, onOpen }) {
             </Typography>
             <Typography variant="body2" sx={{ ...clampTwo, mt: 1, minHeight: 42 }}>{request.note}</Typography>
             <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mt: 1, gap: 1 }}>
-              <Typography variant="caption" fontWeight={600} color={request.cr ? "secondary.main" : "error.main"}>{impactLabel(request)}</Typography>
+              <Typography variant="caption" fontWeight={600} color="error.main">{impactLabel(request)}</Typography>
               <Typography variant="caption" color="primary" fontWeight={600}>Xem chi tiết →</Typography>
             </Stack>
           </CardContent>

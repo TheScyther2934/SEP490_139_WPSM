@@ -5,8 +5,6 @@ using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
 
-public sealed record CrItemsRequest(IReadOnlyList<CrItemCommand> Items, string? Note = null);
-public sealed record CreateCrRequest(string Type, string Reason, IReadOnlyList<CrItemCommand> Items, bool Submit = true);
 public sealed record NoteRequest(string? Note);
 public sealed record ReasonRequest(string? Reason);
 public sealed record RatingsRequest(IReadOnlyList<RatingCommand> Ratings);
@@ -14,9 +12,10 @@ public sealed record ComplaintRequest(int BeoVersion, string Description);
 public sealed record ResponseRequest(string Response);
 public sealed record AllocationRequest(int ResourceId, string ProjectCode, DateTime StartTime, DateTime EndTime, int Quantity, string? Note = null);
 public sealed record CatalogStatusRequest(bool Active);
-public sealed record PenaltyRulesRequest(IReadOnlyList<PenaltyRuleCommand> Rules, DateOnly? EffectiveFrom = null);
+public sealed record CoordinationTaskRequest(string? TaskName, string? Department, DateTime Deadline, bool PhotoRequired, string? Note);
 
-// Report 4 IV.2 endpoints that were missing: G-04, M-01/M-06/M-23, CR, BEO, day-of, payments, feedback, resources, admin config.
+// Day-of, feedback, resources and admin catalog configuration.
+// Notifications, Manager dashboard/overdue alerts and payments have their own endpoint classes (one route, one handler).
 // /projects/{id}/... routes pass the GBR-12 filter in WpsmApiEndpoints before reaching here.
 public static class OperationsEndpoints
 {
@@ -24,9 +23,6 @@ public static class OperationsEndpoints
 
     public static RouteGroupBuilder MapOperationsEndpoints(this RouteGroupBuilder api)
     {
-        var manager = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Manager"));
-        manager.MapGet("/manager/work", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetWorkAsync(UserId(user), ct)));
-
         MapBeoAndDayOf(api);
         MapFeedback(api);
         MapResources(api);
@@ -37,102 +33,49 @@ public static class OperationsEndpoints
     private static string Role(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Role) ?? "";
     private static IResult OkOrNotFound(object? value) => value is null ? Results.NotFound() : Results.Ok(value);
 
-    private static void MapNotifications(RouteGroupBuilder api)
-    {
-        var group = api.MapGroup("/notifications").RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
-        group.MapGet("", async (bool? unread, IOperationsNotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            Results.Ok(await repo.GetAsync(UserId(user), unread == true, ct)));
-        group.MapPost("/{notificationId:int}/read", async (int notificationId, IOperationsNotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.MarkReadAsync(UserId(user), notificationId, ct) ? Results.NoContent() : Results.NotFound());
-        group.MapPost("/read-all", async (IOperationsNotificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-        {
-            await repo.MarkAllReadAsync(UserId(user), ct);
-            return Results.NoContent();
-        });
-    }
-
-    private static void MapManagerWork(RouteGroupBuilder api)
-    {
-        var manager = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Manager"));
-        manager.MapGet("/manager/work", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetWorkAsync(UserId(user), ct)));
-        manager.MapGet("/manager/overdue-alerts", async (IManagerWorkRepository repo, ClaimsPrincipal user, CancellationToken ct) => Results.Ok(await repo.GetOverdueAsync(UserId(user), ct)));
-        // /projects/{id}/roadmap/tasks routes are handled by ManagerRoadmapEndpoints
-    }
-
-    private static void MapChangeRequests(RouteGroupBuilder api)
-    {
-        var crs = api.MapGroup("/projects/{id}/change-requests").RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
-        crs.MapGet("", async (string id, string? status, IOperationsChangeRequestRepository repo, CancellationToken ct) => Results.Ok(await repo.ListAsync(id, status, ct)));
-        crs.MapGet("/spec-items", async (string id, IOperationsChangeRequestRepository repo, CancellationToken ct) => Results.Ok(await repo.GetSpecItemsAsync(id, ct)));
-        crs.MapPost("/preview", async (string id, CrItemsRequest request, IOperationsChangeRequestRepository repo, CancellationToken ct) =>
-            Results.Ok(await repo.PreviewAsync(id, request.Items, ct)));
-        crs.MapPost("", async (string id, CreateCrRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-        {
-            var created = await repo.CreateAsync(id, UserId(user), Role(user), new CreateCrCommand(request.Type, request.Reason, request.Items, request.Submit), ct);
-            return Results.Created($"/api/wpsm/projects/{id}/change-requests/{created.Code}", created);
-        });
-        crs.MapGet("/{crCode}", async (string id, string crCode, IOperationsChangeRequestRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, crCode, ct)));
-        crs.MapPost("/{crCode}/submit", async (string id, string crCode, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.SubmitAsync(id, crCode, UserId(user), Role(user), ct)));
-        crs.MapPut("/{crCode}/items", async (string id, string crCode, CrItemsRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.CounterProposeAsync(id, crCode, UserId(user), Role(user), request.Items, request.Note, ct)));
-        crs.MapPost("/{crCode}/approve", async (string id, string crCode, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.ApproveAsync(id, crCode, UserId(user), Role(user), ct)));
-        crs.MapPost("/{crCode}/reject", async (string id, string crCode, ReasonRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.RejectAsync(id, crCode, UserId(user), Role(user), request.Reason, ct)));
-        crs.MapPost("/{crCode}/comments", async (string id, string crCode, NoteRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.CommentAsync(id, crCode, UserId(user), Role(user), request.Note ?? "", ct)));
-        crs.MapPost("/{crCode}/exception-requests", async (string id, string crCode, NoteRequest request, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.RequestExceptionAsync(id, crCode, UserId(user), request.Note ?? "", ct)))
-            .RequireAuthorization(policy => policy.RequireRole("Manager"));
-        crs.MapGet("/{crCode}/addendum", async (string id, string crCode, IOperationsChangeRequestRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAddendumAsync(id, crCode, ct)));
-        crs.MapPost("/{crCode}/addendum/signed-copy", async (string id, string crCode, IFormFile file, IOperationsChangeRequestRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-        {
-            if (file.Length is <= 0 or > 10 * 1024 * 1024) return Results.BadRequest(new { message = "Chỉ chấp nhận tệp JPG, PNG hoặc PDF, tối đa 10 MB (MSG17)." });
-            return OkOrNotFound(await repo.AttachSignedAsync(id, crCode, UserId(user), await ReadAsync(file, ct), file.FileName, ct));
-        }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
-    }
-
     private static void MapBeoAndDayOf(RouteGroupBuilder api)
     {
         var manager = api.MapGroup("/projects/{id}").RequireAuthorization(policy => policy.RequireRole("Manager"));
-        // BEO routes (GET /beo, POST /beo/freeze, etc.) are handled by ProjectEndpoints.cs using IBeoRepository.
         // Keeping them here causes AmbiguousMatchException in ASP.NET Core routing.
-        // manager.MapGet("/beo", async (string id, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)));
-        manager.MapPut("/beo/notes", async (string id, NoteRequest request, IOperationsBeoRepository repo, CancellationToken ct) => OkOrNotFound(await repo.SaveNotesAsync(id, request.Note, ct)));
-        // manager.MapPost("/beo/freeze", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.FreezeAsync(id, UserId(user), ct)));
-        manager.MapPost("/beo/reapprove", async (string id, IOperationsBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) => OkOrNotFound(await repo.ReapproveAsync(id, UserId(user), ct)));
 
         manager.MapGet("/day-of", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.GetBoardAsync(id, ct), links)));
         manager.MapPost("/day-of/load", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.LoadTimelineAsync(id, ct), links)));
+        // Coordination tasks by department, open from the lock: added by hand, edited (deadline, proof required), deleted.
+        manager.MapPost("/day-of/tasks", async (string id, CoordinationTaskRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await repo.CreateTaskAsync(id, UserId(user), ToCommand(request), ct), links)));
+        manager.MapPut("/day-of/{taskId:int}", async (string id, int taskId, CoordinationTaskRequest request, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await repo.UpdateTaskAsync(id, taskId, ToCommand(request), ct), links)));
+        manager.MapDelete("/day-of/{taskId:int}", async (string id, int taskId, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await repo.DeleteTaskAsync(id, taskId, ct), links)));
         manager.MapPost("/day-of/{taskId:int}/complete", async (string id, int taskId, HttpRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            if (request.ContentLength > 3 * UploadLimit) return Results.BadRequest(new { message = "Vui lòng tải lên 1–3 ảnh để hoàn thành công việc này (MSG10)." });
-            var form = request.HasFormContentType ? await request.ReadFormAsync(ct) : null;
-            var photos = new List<ProofPhotoUpload>();
-            foreach (var file in form?.Files ?? (IReadOnlyList<IFormFile>)[])
-            {
-                if (file.Length is <= 0 or > 10 * 1024 * 1024) return Results.BadRequest(new { message = "Ảnh minh chứng chỉ nhận JPG hoặc PNG, tối đa 10 MB (MSG17)." });
-                photos.Add(new ProofPhotoUpload(await ReadAsync(file, ct), file.FileName));
-            }
-            return OkOrNotFound(WithUrls(await repo.CompleteTaskAsync(id, taskId, UserId(user), photos, ct), links));
+            var (photos, note, error) = await ReadProofPhotosAsync(request, ct);
+            return error ?? OkOrNotFound(WithUrls(await repo.CompleteTaskAsync(id, taskId, UserId(user), photos, note, ct), links));
+        }).DisableAntiforgery();
+        // Adds proof to a task afterwards (a task completed without it, or more angles of the same work).
+        manager.MapPost("/day-of/{taskId:int}/photos", async (string id, int taskId, HttpRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
+        {
+            var (photos, _, error) = await ReadProofPhotosAsync(request, ct);
+            return error ?? OkOrNotFound(WithUrls(await repo.AddPhotosAsync(id, taskId, UserId(user), photos, ct), links));
         }).DisableAntiforgery();
     }
 
-    private static void MapPayments(RouteGroupBuilder api)
+    private static CoordinationTaskCommand ToCommand(CoordinationTaskRequest x) =>
+        new(x.TaskName ?? "", x.Department ?? "", x.Deadline, x.PhotoRequired, x.Note);
+
+    // Proof files (photos or PDF documents) plus an optional note from a multipart form.
+    private static async Task<(List<ProofPhotoUpload> Photos, string? Note, IResult? Error)> ReadProofPhotosAsync(HttpRequest request, CancellationToken ct)
     {
-        api.MapGet("/projects/{id}/payments", async (string id, IPaymentRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetAsync(id, ct)))
-            .RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
-        api.MapPost("/projects/{id}/payments", async (string id, [FromForm] string type, [FromForm] decimal amount, [FromForm] string method, [FromForm] DateOnly paidDate,
-            IFormFile? receipt, IPaymentRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
+        var photos = new List<ProofPhotoUpload>();
+        if (request.ContentLength > 3 * UploadLimit) return (photos, null, Results.BadRequest(new { message = "Mỗi lần tải lên 1–3 tệp, tối đa 10 MB mỗi tệp." }));
+        var form = request.HasFormContentType ? await request.ReadFormAsync(ct) : null;
+        foreach (var file in form?.Files ?? (IReadOnlyList<IFormFile>)[])
         {
-            if (receipt is { Length: > 10 * 1024 * 1024 }) return Results.BadRequest(new { message = "Chỉ chấp nhận tệp JPG, PNG hoặc PDF, tối đa 10 MB (MSG17)." });
-            var bytes = receipt is { Length: > 0 } ? await ReadAsync(receipt, ct) : null;
-            return OkOrNotFound(await repo.RecordAsync(id, UserId(user), new OpRecordPaymentCommand(type, amount, method, paidDate, bytes, receipt?.FileName), ct));
-        }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
-        api.MapPost("/projects/{id}/payments/settlement-receipt", async (string id, IPaymentRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.IssueSettlementReceiptAsync(id, UserId(user), ct)))
-            .RequireAuthorization(policy => policy.RequireRole("Manager"));
+            if (file.Length is <= 0 or > 10 * 1024 * 1024) return (photos, null, Results.BadRequest(new { message = "Minh chứng chỉ nhận ảnh JPG, PNG hoặc tài liệu PDF, tối đa 10 MB." }));
+            photos.Add(new ProofPhotoUpload(await ReadAsync(file, ct), file.FileName));
+        }
+        var note = form?["note"].ToString();
+        return (photos, string.IsNullOrWhiteSpace(note) ? null : note, null);
     }
 
     private static void MapFeedback(RouteGroupBuilder api)
@@ -192,10 +135,6 @@ public static class OperationsEndpoints
             OkOrNotFound(await repo.SetCatalogStatusAsync(itemId, request.Active, ct)));
         admin.MapGet("/price-frames/history/{itemId:int}", async (int itemId, IConfigurationAdminRepository repo, CancellationToken ct) =>
             Results.Ok(await repo.GetPriceFrameHistoryAsync(itemId, ct)));
-        admin.MapPut("/policies/penalty-rules", async (PenaltyRulesRequest request, IConfigurationAdminRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            Results.Ok(await repo.UpdatePenaltyRulesAsync(request.Rules ?? [], request.EffectiveFrom, UserId(user), ct)));
-        api.MapGet("/policies/penalty-rules", async (IConfigurationAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetPenaltyRulesAsync(ct)))
-            .RequireAuthorization();
     }
 
     // A conflict is not an error of the request but of the schedule: 409 with the clashing allocations (MSG08).

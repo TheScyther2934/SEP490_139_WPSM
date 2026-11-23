@@ -54,6 +54,8 @@ const chooseById = async (page, id, option) => {
   await page.waitForFunction(() => !document.querySelector('[role="listbox"]'), { timeout: 8000 });
 };
 const confirmDialog = async (page, label) => clickButton(page, label, '//div[@role="dialog"]');
+// Failure detail: the alerts and dialog text the user would see.
+const visibleAlerts = (page) => page.$$eval('[role="alert"], [role="dialog"] .MuiAlert-message', (n) => n.map((x) => x.innerText.trim()).filter(Boolean).join(" | ").slice(0, 300)).catch(() => "");
 const waitDialogClosed = (page) => page.waitForFunction(() => !document.querySelector('[role="dialog"]'), { timeout: 10000 }).then(() => true).catch(() => false);
 
 async function signIn(browser, email, password, errors) {
@@ -136,22 +138,24 @@ function moveEvent(projectCode, offset) {
   {
     const { ctx, page } = await signIn(browser, customerEmail, customerPw, errors);
     await page.goto(`${BASE}/customer/change-requests/new`, { waitUntil: "networkidle2" });
+    // C-06 (merged form): type select, one spec row in a table, reason text; errors show in an alert above the form.
     await clickButton(page, "Gửi yêu cầu");
-    check("C-06 requires type, item and reason", await waitText(page, "Trường Loại thay đổi là bắt buộc.") && await waitText(page, "Trường Lý do là bắt buộc."));
-    await chooseById(page, "crType", "Đổi số bàn");
-    await chooseById(page, "crSpecItem-0", catering.name);
-    await typeInto(page, 'input[data-field="newQuantity"]', "20");
-    await page.type('textarea[data-field="crReason"]', "Tăng số bàn do thêm khách");
-    check("C-06 shows the live cost preview", await waitText(page, "Ước tính chi phí"));
+    check("C-06 requires a reason", await waitText(page, "Vui lòng nhập lý do và mô tả chi tiết yêu cầu thay đổi."), await visibleAlerts(page));
+    await (await page.waitForSelector('table tbody tr:first-child [role="combobox"]', { visible: true, timeout: 10000 })).click();
+    await (await page.waitForSelector(`::-p-xpath(//li[@role="option"][contains(normalize-space(.), "${catering.name}")])`, { visible: true, timeout: 10000 })).click();
+    await page.waitForFunction(() => !document.querySelector('[role="listbox"]'), { timeout: 8000 });
+    await typeInto(page, 'table tbody tr:first-child input[type="number"]', "20");
+    await page.type("form textarea:not([aria-hidden])", "Tăng số bàn do thêm khách");
+    check("C-06 shows the live cost preview", await waitText(page, "Tạm tính Tác động Chi phí"));
     await clickButton(page, "Gửi yêu cầu");
-    const opened = await page.waitForFunction(() => /\/customer\/change-requests\/CR-/.test(location.pathname), { timeout: 10000 }).then(() => true).catch(() => false);
+    const opened = await page.waitForFunction(() => /\/customer\/change-requests\/(?!new$)[^/]+$/.test(location.pathname), { timeout: 10000 }).then(() => true).catch(() => false);
     crCode = opened ? decodeURIComponent(page.url().split("/").pop()) : null;
     check("C-06 submits and opens C-07", opened && !!crCode, page.url());
-    check("C-07 shows the negotiation history", await waitText(page, "Gửi thương lượng"));
+    check("C-07 shows the negotiation history", await waitText(page, "Khởi tạo yêu cầu thay đổi"));
     await ctx.close();
   }
   check("CR is Negotiating with a history entry (UC-07)", sql(`select Status from ChangeRequests where CRCode='${crCode}'`) === "Negotiating"
-    && Number(sql(`select count(*) from CRHistories h join ChangeRequests c on c.CRId=h.CRId where c.CRCode='${crCode}'`)) >= 2);
+    && Number(sql(`select count(*) from CRHistories h join ChangeRequests c on c.CRId=h.CRId where c.CRCode='${crCode}'`)) >= 1);
   check("manager notified of the new CR", Number(sql(`select count(*) from Notifications n join WeddingProjects w on w.ManagerId=n.RecipientId where w.ProjectCode='${code}' and n.Type='CR update' and n.Message like N'%${crCode}%'`)) >= 1);
 
   {
@@ -169,15 +173,14 @@ function moveEvent(projectCode, offset) {
     check("M-08 records the Manager approval (MSG20)", await waitText(page, "Đã ghi nhận quyết định"));
     await ctx.close();
   }
-  check("CR stays Negotiating with one approval (GBR-04)", sql(`select Status from ChangeRequests where CRCode='${crCode}'`) === "Negotiating");
+  // Merged flow: submitting the CR is the Customer's agreement, so the Manager approval completes GBR-04 (both parties).
+  check("CR is Approved once both parties agreed (GBR-04)", sql(`select Status from ChangeRequests where CRCode='${crCode}'`) === "Approved");
 
   {
     const { ctx, page } = await signIn(browser, customerEmail, customerPw, errors);
     await page.goto(`${BASE}/customer/change-requests/${crCode}`, { waitUntil: "networkidle2" });
-    await clickButton(page, "Duyệt");
-    await confirmDialog(page, "Duyệt");
-    check("C-08 approval closes the CR", await waitText(page, "Đã duyệt"));
-    check("C-07 links the generated addendum", await waitText(page, "Xem phụ lục ADD-"));
+    check("C-07 shows both approvals", await waitText(page, "Đã duyệt"));
+    check("C-07 links the generated addendum", await waitText(page, "Xem phụ lục"));
     await ctx.close();
   }
   const approved = sql(`select concat(c.Status,'|',cast(c.CostImpact as bigint),'|',cast(c.PenaltyFee as bigint),'|',cast(w.CurrentTotal as bigint)) from ChangeRequests c join WeddingProjects w on w.ProjectId=c.ProjectId where c.CRCode='${crCode}'`).split("|");
@@ -224,10 +227,11 @@ function moveEvent(projectCode, offset) {
     check("opening a notification navigates to its screen", await page.waitForFunction(() => location.pathname.startsWith("/customer/"), { timeout: 8000 }).then(() => true).catch(() => false), page.url());
     await page.goto(`${BASE}/notifications`, { waitUntil: "networkidle2" });
     await clickButton(page, "Đánh dấu tất cả đã đọc");
-    check("mark all read clears unread", await waitText(page, "Đã đánh dấu tất cả là đã đọc."));
+    check("mark all read clears unread", await waitText(page, "thông báo là đã đọc."));
     await ctx.close();
   }
-  check("no unread notifications left for the customer", (await api(customer, "notifications?unread=true")).body?.length === 0);
+  // The notifications API now pages its list; the unread count has its own endpoint.
+  check("no unread notifications left for the customer", (await api(customer, "notifications/unread-count")).body?.unreadCount === 0);
 
   // ── Resource calendar (UC-25, UC-26, UC-47) ──────────────────────────────────
   const tag = Date.now().toString().slice(-6);
@@ -323,12 +327,12 @@ function moveEvent(projectCode, offset) {
     const { ctx, page } = await signIn(browser, "manager@test.local", PW, errors);
     await page.goto(`${BASE}/manager/projects/${code}/day-of`, { waitUntil: "networkidle2" });
     await page.waitForSelector(`#task-${required?.taskId}`, { timeout: 10000 });
-    await clickButton(page, "Hoàn thành", `//*[@id="task-${required?.taskId}"]`);
+    await clickButton(page, "Hoàn thành nhiệm vụ", `//*[@id="task-${required?.taskId}"]`);
     const file = path.join(os.tmpdir(), `wpsm-proof-${process.pid}.png`);
     fs.writeFileSync(file, PNG);
     await (await page.waitForSelector('input[data-field="proofPhotos"]')).uploadFile(file);
-    await confirmDialog(page, "Hoàn thành");
-    check("M-17 uploads the photo and completes the task", await waitText(page, "Đã hoàn thành công việc."));
+    await confirmDialog(page, "Xác nhận hoàn thành");
+    check("M-17 uploads the photo and completes the task", await waitText(page, "đã được hoàn thành thành công."));
     await ctx.close();
   }
   check("task Done with one photo", sql(`select concat(t.Status,'|',count(p.PhotoId)) from DayOfTasks t left join ExecutionPhotos p on p.DayOfTaskId=t.DayOfTaskId where t.DayOfTaskId=${required?.taskId} group by t.Status`) === "Done|1");
@@ -354,13 +358,15 @@ function moveEvent(projectCode, offset) {
   {
     const { ctx, page } = await signIn(browser, "manager@test.local", PW, errors);
     await page.goto(`${BASE}/manager/projects/${code}/payments`, { waitUntil: "networkidle2" });
-    await clickButton(page, "Ghi nhận thanh toán");
+    await clickButton(page, "Ghi nhận thanh toán (M-14)");
     await chooseById(page, "paymentType", "Quyết toán");
     await chooseById(page, "paymentMethod", "Tiền mặt");
-    await confirmDialog(page, "Ghi nhận");
-    check("M-14 records the final payment", await waitText(page, "Đã ghi nhận thanh toán."));
+    // The M-14 dialog (integrate/merge-all-branches) starts with an empty amount; fill the outstanding balance.
+    await (await page.waitForSelector('::-p-xpath(//div[@role="dialog"]//button[starts-with(normalize-space(.), "Điền số dư còn lại")])', { visible: true, timeout: 10000 })).click();
+    await confirmDialog(page, "Xác nhận ghi nhận");
+    check("M-14 records the final payment", await waitText(page, "Đã ghi nhận thanh toán"), await visibleAlerts(page));
     await page.goto(`${BASE}/manager/projects/${code}/payments/settlement-receipt`, { waitUntil: "networkidle2" });
-    check("M-15 offers the settlement receipt", await waitText(page, "Tải / in biên nhận"));
+    check("M-15 offers the settlement receipt", await waitText(page, "Tải PDF") || await waitText(page, "Phát hành biên nhận quyết toán"));
     await ctx.close();
   }
   check("project Settled with a settlement receipt (UC-34)", sql(`select concat(w.Status,'|',count(f.FileId)) from WeddingProjects w left join StoredFiles f on f.ProjectId=w.ProjectId and f.Purpose='SettlementReceipt' where w.ProjectCode='${code}' group by w.Status`) === "Settled|1");
@@ -409,13 +415,16 @@ function moveEvent(projectCode, offset) {
   {
     const { ctx, page } = await signIn(browser, "manager@test.local", PW, errors);
     await page.goto(`${BASE}/manager/dashboard`, { waitUntil: "networkidle2" });
-    check("M-01 shows My tasks", await waitText(page, "Việc của tôi"));
+    check("M-01 shows My tasks", await waitText(page, "Nhiệm vụ của tôi"));
     await page.goto(`${BASE}/manager/projects/${code}/roadmap?owner=Manager`, { waitUntil: "networkidle2" });
-    await clickButton(page, "Đánh dấu xong");
-    check("M-06 marks a Manager task done", await waitText(page, "Đã đánh dấu hoàn thành."));
+    // M-06 (integrate/merge-all-branches): "Xác nhận xong" in the row, then the same label confirms the dialog.
+    await clickButton(page, "Xác nhận xong");
+    await confirmDialog(page, "Xác nhận xong");
+    check("M-06 marks a Manager task done", await waitText(page, "Đã hoàn thành:"), await visibleAlerts(page));
     await ctx.close();
   }
-  check("customer cannot complete Manager tasks via M-06 API", (await api(customer, `projects/${code}/roadmap/tasks/1/complete`, "POST")).status === 403);
+  const customerComplete = await api(customer, `projects/${code}/roadmap/tasks/1/complete`, "POST");
+  check("customer cannot complete Manager tasks via M-06 API", customerComplete.status === 403, `${customerComplete.status} ${JSON.stringify(customerComplete.body)}`);
   {
     const { ctx, page } = await signIn(browser, "admin@test.local", PW, errors);
     await page.goto(`${BASE}/admin/catalog`, { waitUntil: "networkidle2" });

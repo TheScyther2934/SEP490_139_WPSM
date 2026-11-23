@@ -7,6 +7,15 @@ namespace Infrastructure.Persistence;
 
 public partial class WpsmDbContext : DbContext
 {
+    /// <summary>Column default for UTC timestamps (columns are "timestamp without time zone" holding UTC, as datetime2 did on SQL Server).</summary>
+    internal const string UtcNowSql = "(now() at time zone 'utc')";
+
+    // DateTime maps to "timestamp without time zone" and is read/written as is: the code keeps UTC values everywhere
+    // (and Vietnam dates as DateOnly), so the strict UTC-kind checks of timestamptz would only add failures. Must run before Npgsql is used.
+    static WpsmDbContext() => UseLegacyTimestamps();
+
+    public static void UseLegacyTimestamps() => AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
     public WpsmDbContext(DbContextOptions<WpsmDbContext> options)
         : base(options)
     {
@@ -16,15 +25,7 @@ public partial class WpsmDbContext : DbContext
 
     public virtual DbSet<BeodepartmentSheet> BeodepartmentSheets { get; set; }
 
-    public virtual DbSet<ChangeRequest> ChangeRequests { get; set; }
-
     public virtual DbSet<Complaint> Complaints { get; set; }
-
-    public virtual DbSet<ContractAddendum> ContractAddenda { get; set; }
-
-    public virtual DbSet<Crhistory> Crhistories { get; set; }
-
-    public virtual DbSet<Critem> Critems { get; set; }
 
     public virtual DbSet<DayOfTask> DayOfTasks { get; set; }
 
@@ -35,8 +36,6 @@ public partial class WpsmDbContext : DbContext
     public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<Payment> Payments { get; set; }
-    public DbSet<EmailDelivery> EmailDeliveries { get; set; }
-
     public virtual DbSet<PolicyConfig> PolicyConfigs { get; set; }
 
     public virtual DbSet<PriceFrame> PriceFrames { get; set; }
@@ -46,8 +45,6 @@ public partial class WpsmDbContext : DbContext
     public virtual DbSet<Resource> Resources { get; set; }
 
     public virtual DbSet<ResourceAllocation> ResourceAllocations { get; set; }
-
-    public virtual DbSet<RoadmapTask> RoadmapTasks { get; set; }
 
     public virtual DbSet<ServiceCatalogItem> ServiceCatalogItems { get; set; }
 
@@ -61,6 +58,9 @@ public partial class WpsmDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Case-insensitive e-mail (SQL Server compared text case-insensitively).
+        modelBuilder.HasPostgresExtension("citext");
+
         modelBuilder.Entity<Beo>(entity =>
         {
             entity.ToTable("BEOs");
@@ -99,53 +99,13 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Department).HasMaxLength(20);
             entity.Property(e => e.GeneratedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.PdfFilePath).HasMaxLength(500);
 
             entity.HasOne(d => d.Beo).WithMany(p => p.BeodepartmentSheets)
                 .HasForeignKey(d => d.Beoid)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Sheet_BEO");
-        });
-
-        modelBuilder.Entity<ChangeRequest>(entity =>
-        {
-            entity.HasKey(e => e.Crid);
-
-            entity.HasIndex(e => new { e.ProjectId, e.Status }, "IX_CR_Project_Status");
-
-            entity.HasIndex(e => e.Crcode, "UQ_CR_Code").IsUnique();
-
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.CostImpact).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Crcode)
-                .HasMaxLength(30)
-                .HasColumnName("CRCode");
-            entity.Property(e => e.CreatedAt)
-                .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.CustomerApprovedAt).HasPrecision(0);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.ManagerApprovedAt).HasPrecision(0);
-            entity.Property(e => e.PenaltyFee).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.PenaltyRate).HasColumnType("decimal(5, 2)");
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Draft");
-            entity.Property(e => e.TotalVariance)
-                .HasComputedColumnSql("([CostImpact]+[PenaltyFee])", true)
-                .HasColumnType("decimal(19, 2)");
-            entity.Property(e => e.Type).HasMaxLength(30);
-
-            entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.ChangeRequests)
-                .HasForeignKey(d => d.CreatedBy)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CR_CreatedBy");
-
-            entity.HasOne(d => d.Project).WithMany(p => p.ChangeRequests)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CR_Project");
         });
 
         modelBuilder.Entity<Complaint>(entity =>
@@ -160,7 +120,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.ComplaintCode).HasMaxLength(30);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.EscalationNote).HasMaxLength(500);
             entity.Property(e => e.ResolutionNote).HasMaxLength(1000);
@@ -180,86 +140,6 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Complaint_BEO");
         });
 
-        modelBuilder.Entity<ContractAddendum>(entity =>
-        {
-            entity.HasKey(e => e.AddendumId);
-
-            entity.HasIndex(e => e.Crid, "UQ_Addenda_CR").IsUnique();
-
-            entity.HasIndex(e => e.AddendumCode, "UQ_Addenda_Code").IsUnique();
-
-            entity.Property(e => e.AddendumCode).HasMaxLength(30);
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.FilePath).HasMaxLength(500);
-            entity.Property(e => e.SignedAt).HasPrecision(0);
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Generated");
-            entity.Property(e => e.TotalVariance).HasColumnType("decimal(18, 2)");
-
-            entity.HasOne(d => d.Cr).WithOne(p => p.ContractAddendum)
-                .HasForeignKey<ContractAddendum>(d => d.Crid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Addenda_CR");
-
-            entity.HasOne(d => d.Project).WithMany(p => p.ContractAddenda)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Addenda_Project");
-        });
-
-        modelBuilder.Entity<Crhistory>(entity =>
-        {
-            entity.HasKey(e => e.HistoryId);
-
-            entity.ToTable("CRHistories");
-
-            entity.HasIndex(e => e.Crid, "IX_CRHistory_CR");
-
-            entity.Property(e => e.Action).HasMaxLength(50);
-            entity.Property(e => e.CreatedAt)
-                .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.Note).HasMaxLength(500);
-
-            entity.HasOne(d => d.Actor).WithMany(p => p.Crhistories)
-                .HasForeignKey(d => d.ActorId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRHistory_Actor");
-
-            entity.HasOne(d => d.Cr).WithMany(p => p.Crhistories)
-                .HasForeignKey(d => d.Crid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRHistory_CR");
-        });
-
-        modelBuilder.Entity<Critem>(entity =>
-        {
-            entity.ToTable("CRItems");
-
-            entity.HasIndex(e => new { e.Crid, e.TargetSpecItemId }, "UQ_CRItems_CR_SpecItem").IsUnique();
-
-            entity.Property(e => e.CritemId).HasColumnName("CRItemId");
-            entity.Property(e => e.Crid).HasColumnName("CRId");
-            entity.Property(e => e.CatalogItemId).HasColumnName("CatalogItemId");
-            entity.Property(e => e.DeltaAmount)
-                .HasComputedColumnSql("([NewUnitPrice]*[NewQuantity]-[OldUnitPrice]*[OldQuantity])", true)
-                .HasColumnType("decimal(30, 2)");
-            entity.Property(e => e.NewUnitPrice).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.OldUnitPrice).HasColumnType("decimal(18, 2)");
-
-            entity.HasOne(d => d.Cr).WithMany(p => p.Critems)
-                .HasForeignKey(d => d.Crid)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRItems_CR");
-
-            entity.HasOne(d => d.TargetSpecItem).WithMany(p => p.Critems)
-                .HasForeignKey(d => d.TargetSpecItemId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_CRItems_SpecItem");
-        });
-
         modelBuilder.Entity<DayOfTask>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.DeadlineTime, e.Status }, "IX_DayOf_Project_Deadline");
@@ -267,12 +147,21 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CompletedAt).HasPrecision(0);
             entity.Property(e => e.OverdueFlaggedAt).HasPrecision(0);
-            entity.Property(e => e.RowVersion).IsRowVersion();
+            entity.Property(e => e.RowVersion).HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken();
             entity.Property(e => e.DeadlineTime).HasPrecision(0);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Pending");
             entity.Property(e => e.TaskName).HasMaxLength(200);
+            entity.Property(e => e.Department).HasMaxLength(20).HasDefaultValue("Service");
+            entity.Property(e => e.SourceKey).HasMaxLength(50);
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.HasIndex(e => new { e.ProjectId, e.SourceKey }, "UQ_DayOf_Project_Source").IsUnique().HasFilter("\"SourceKey\" IS NOT NULL");
+
+            entity.HasOne(d => d.CreatedByUser).WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_DayOf_CreatedBy");
 
             entity.HasOne(d => d.Project).WithMany(p => p.DayOfTasks)
                 .HasForeignKey(d => d.ProjectId)
@@ -292,9 +181,11 @@ public partial class WpsmDbContext : DbContext
             entity.HasIndex(e => e.DayOfTaskId, "IX_Photo_Task");
 
             entity.Property(e => e.ImageFilePath).HasMaxLength(500);
+            entity.Property(e => e.FileName).HasMaxLength(255);
+            entity.Property(e => e.ContentType).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UploadedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
 
             entity.HasOne(d => d.DayOfTask).WithMany(p => p.ExecutionPhotos)
                 .HasForeignKey(d => d.DayOfTaskId)
@@ -305,6 +196,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.UploaderId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Photo_Uploader");
+
+            entity.HasOne(d => d.File).WithMany()
+                .HasForeignKey(d => d.FileId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Photo_File");
         });
 
         modelBuilder.Entity<Hall>(entity =>
@@ -324,7 +220,7 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.LinkUrl).HasMaxLength(255);
             entity.Property(e => e.Message).HasMaxLength(300);
             entity.Property(e => e.Type).HasMaxLength(30);
@@ -335,15 +231,6 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Notifications_Recipient");
         });
 
-        modelBuilder.Entity<EmailDelivery>(entity =>
-        {
-            entity.ToTable("EmailDeliveries");
-            entity.HasKey(e => e.EmailDeliveryId);
-            entity.Property(e => e.Recipient).HasMaxLength(100);
-            entity.Property(e => e.Status).HasMaxLength(20);
-            entity.HasIndex(e => e.ProjectId).IsUnique();
-            entity.HasOne<WeddingProject>().WithMany().HasForeignKey(e => e.ProjectId).OnDelete(DeleteBehavior.NoAction);
-        });
         modelBuilder.Entity<Payment>(entity =>
         {
             entity.HasIndex(e => new { e.ProjectId, e.PaymentType }, "UQ_Payment_Project_Type").IsUnique();
@@ -372,15 +259,13 @@ public partial class WpsmDbContext : DbContext
         {
             entity.HasKey(e => e.PolicyId);
 
-            entity.HasIndex(e => new { e.PolicyType, e.TdayMin, e.TdayMax, e.EffectiveFrom }, "UQ_Policy_Type_Range_Effective").IsUnique();
+            entity.HasIndex(e => new { e.PolicyType, e.EffectiveFrom }, "UQ_Policy_Type_Effective").IsUnique();
 
-            entity.Property(e => e.PolicyType).HasMaxLength(20);
-            entity.Property(e => e.RatePercent).HasColumnType("decimal(5, 2)");
-            entity.Property(e => e.TdayMax).HasColumnName("TDayMax");
-            entity.Property(e => e.TdayMin).HasColumnName("TDayMin");
+            entity.Property(e => e.PolicyType).HasMaxLength(30);
+            entity.Property(e => e.Value).HasColumnType("decimal(5, 2)");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
 
             entity.HasOne(d => d.UpdatedByNavigation).WithMany(p => p.PolicyConfigs)
                 .HasForeignKey(d => d.UpdatedBy)
@@ -396,7 +281,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.MinPrice).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
 
             entity.HasOne(d => d.Item).WithMany(p => p.PriceFrames)
                 .HasForeignKey(d => d.ItemId)
@@ -416,7 +301,7 @@ public partial class WpsmDbContext : DbContext
             entity.Property(e => e.Comment).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.Module).HasMaxLength(10);
 
             entity.HasOne(d => d.Project).WithMany(p => p.Ratings)
@@ -469,27 +354,6 @@ public partial class WpsmDbContext : DbContext
                 .HasConstraintName("FK_Alloc_Resource");
         });
 
-        modelBuilder.Entity<RoadmapTask>(entity =>
-        {
-            entity.HasKey(e => e.TaskId);
-
-            entity.HasIndex(e => new { e.ProjectId, e.Milestone }, "IX_Roadmap_Project_Milestone");
-
-            entity.Property(e => e.AssigneeRole).HasMaxLength(20);
-            entity.Property(e => e.CompletedAt).HasPrecision(0);
-            entity.Property(e => e.Milestone).HasMaxLength(20);
-            entity.Property(e => e.RemindedAt).HasPrecision(0);
-            entity.Property(e => e.Status)
-                .HasMaxLength(20)
-                .HasDefaultValue("Pending");
-            entity.Property(e => e.Title).HasMaxLength(200);
-
-            entity.HasOne(d => d.Project).WithMany(p => p.RoadmapTasks)
-                .HasForeignKey(d => d.ProjectId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Roadmap_Project");
-        });
-
         modelBuilder.Entity<ServiceCatalogItem>(entity =>
         {
             entity.HasKey(e => e.ItemId);
@@ -523,15 +387,13 @@ public partial class WpsmDbContext : DbContext
 
         modelBuilder.Entity<SpecItem>(entity =>
         {
-            entity.HasIndex(e => new { e.ProjectId, e.CatalogItemId, e.Version }, "UQ_Spec_Project_Item_Version").IsUnique();
+            entity.HasIndex(e => e.ProjectId, "IX_Spec_Project");
 
             entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.IsBaseline).HasDefaultValue(true);
             entity.Property(e => e.LineTotal)
-                .HasComputedColumnSql("([Quantity]*[UnitPrice])", true)
+                .HasComputedColumnSql("\"Quantity\" * \"UnitPrice\"", true)
                 .HasColumnType("decimal(29, 2)");
             entity.Property(e => e.UnitPrice).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Version).HasDefaultValue(1);
 
             entity.HasOne(d => d.CatalogItem).WithMany(p => p.SpecItems)
                 .HasForeignKey(d => d.CatalogItemId)
@@ -550,8 +412,8 @@ public partial class WpsmDbContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
-            entity.Property(e => e.Email).HasMaxLength(100);
+                .HasDefaultValueSql(UtcNowSql);
+            entity.Property(e => e.Email).HasMaxLength(100).HasColumnType("citext");
             entity.Property(e => e.FullName).HasMaxLength(100);
             entity.Property(e => e.MustChangePassword).HasDefaultValue(true);
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
@@ -575,21 +437,21 @@ public partial class WpsmDbContext : DbContext
 
             entity.HasIndex(e => e.ProjectCode, "UQ_Projects_Code").IsUnique();
 
-            entity.HasIndex(e => new { e.HallId, e.SlotId, e.EventDate }, "UQ_Projects_Hall_Slot_Date").IsUnique();
+            entity.HasIndex(e => new { e.HallId, e.SlotId, e.EventDate }, "UX_Projects_HallSlotDate_Active").IsUnique().HasFilter("\"Status\" <> 'Cancelled'");
 
             entity.Property(e => e.BaseContractValue).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.BaselineFrozenAt).HasPrecision(0);
+            entity.Property(e => e.LockedAt).HasPrecision(0);
+            entity.Property(e => e.CancelledAt).HasPrecision(0);
+            entity.Property(e => e.CancelReason).HasMaxLength(500);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(0)
-                .HasDefaultValueSql("(sysutcdatetime())");
+                .HasDefaultValueSql(UtcNowSql);
             entity.Property(e => e.CurrentTotal).HasColumnType("decimal(18, 2)");
-            entity.Property(e => e.Nrdamount)
-                .HasColumnType("decimal(18, 2)")
-                .HasColumnName("NRDAmount");
+            entity.Property(e => e.DepositAmount).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.ProjectCode).HasMaxLength(30);
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
-                .HasDefaultValue("Active Baseline");
+                .HasDefaultValue("Adjusting");
 
             entity.HasOne(d => d.Customer).WithMany(p => p.WeddingProjectCustomers)
                 .HasForeignKey(d => d.CustomerId)
@@ -605,6 +467,11 @@ public partial class WpsmDbContext : DbContext
                 .HasForeignKey(d => d.ManagerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Projects_Manager");
+
+            entity.HasOne(d => d.CreatedByNavigation).WithMany()
+                .HasForeignKey(d => d.CreatedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Projects_CreatedBy");
 
             entity.HasOne(d => d.Slot).WithMany(p => p.WeddingProjects)
                 .HasPrincipalKey(p => new { p.SlotId, p.HallId })

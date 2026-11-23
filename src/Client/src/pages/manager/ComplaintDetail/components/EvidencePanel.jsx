@@ -9,7 +9,7 @@ export default function EvidencePanel({ complaint }) {
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle1" fontWeight={600}>BEO v{complaint.beoVersion}</Typography>
+        <Typography variant="subtitle1" fontWeight={600}>Phiếu điều phối v{complaint.beoVersion}</Typography>
         <Stack direction="row" sx={{ my: 1, flexWrap: "wrap", gap: 1 }}>
           {complaint.beoSheets.length === 0 ? <Typography color="text.secondary">Không có file PDF.</Typography>
             : complaint.beoSheets.map((s) => <FileButton key={s.department} fileId={s.fileId}>{DEPARTMENTS[s.department]}</FileButton>)}

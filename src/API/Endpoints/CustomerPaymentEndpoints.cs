@@ -64,7 +64,7 @@ public static class CustomerPaymentEndpoints
             string? projectCode,
             CancellationToken ct) =>
         {
-            var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "NRD", "T30", "FINAL" };
+            var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Deposit", "T30", "Settlement" };
             if (!allowed.Contains(paymentType))
                 return Results.BadRequest(new { message = "paymentType phai la NRD, T30 hoac FINAL." });
 

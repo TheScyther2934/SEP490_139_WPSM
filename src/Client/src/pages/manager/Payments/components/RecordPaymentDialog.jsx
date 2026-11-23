@@ -1,3 +1,4 @@
+import { FILE_ACCEPT, FILE_TYPES_LABEL } from "../../../../utils/files";
 import { useState, useEffect } from "react";
 import {
   Alert,
@@ -25,7 +26,7 @@ import { projectService } from "../../../../services/projectService";
 import { money, isoDate, errorMessage } from "../../../../utils/format";
 
 export default function RecordPaymentDialog({ open, onClose, projectCode, summary, onSuccess }) {
-  const [paymentType, setPaymentType] = useState("T30");
+  const [paymentType, setPaymentType] = useState("Settlement");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(isoDate(new Date()));
   const [method, setMethod] = useState("Bank");
@@ -40,7 +41,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
   useEffect(() => {
     if (open) {
       setError(null);
-      setPaymentType("T30");
+      setPaymentType("Settlement");
       setAmount("");
       setPaymentDate(isoDate(new Date()));
       setMethod("Bank");
@@ -62,8 +63,8 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
     }
 
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!["jpg", "jpeg", "png", "pdf"].includes(ext)) {
-      setError("Định dạng file không hợp lệ. Chỉ chấp nhận JPG, PNG hoặc PDF.");
+    if (!["jpg", "jpeg", "png", "pdf", "heic", "heif", "webp", "avif"].includes(ext)) {
+      setError("Định dạng file không hợp lệ. Chỉ nhận ảnh (JPG, PNG, HEIC, WebP) hoặc PDF.");
       return;
     }
 
@@ -81,8 +82,8 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
       return;
     }
 
-    if (numAmount > outstandingBalance) {
-      setError(`Số tiền thanh toán không được vượt quá số dư còn lại (${money(outstandingBalance)}). (MSG11)`);
+    if (numAmount !== outstandingBalance) {
+      setError(`Tất toán thanh toán một lần đúng số còn lại ${money(outstandingBalance)}.`);
       return;
     }
 
@@ -91,8 +92,8 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
       return;
     }
 
-    if (paymentType === "FINAL" && !isEventCompleted) {
-      setError("Chỉ có thể ghi nhận Final Payment sau khi sự kiện cưới đã diễn ra hoàn tất.");
+    if (!isEventCompleted) {
+      setError("Chỉ ghi nhận tất toán sau ngày cưới.");
       return;
     }
 
@@ -124,7 +125,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
 
   return (
     <Dialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600 }}>Ghi nhận thanh toán (M-14)</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 600 }}>Ghi nhận tất toán</DialogTitle>
       <Box component="form" onSubmit={handleSubmit}>
         <DialogContent dividers>
           <Stack spacing={2.5}>
@@ -132,13 +133,14 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
 
             <Alert severity="info" variant="outlined">
               <Typography variant="body2">
-                Dư nợ hiện tại: <strong>{money(outstandingBalance)}</strong>
+                Số tiền tất toán (một lần): <strong>{money(outstandingBalance)}</strong>
               </Typography>
             </Alert>
 
             <FormControl fullWidth required>
               <InputLabel id="payment-type-label">Đợt thanh toán</InputLabel>
               <Select
+                id="paymentType"
                 labelId="payment-type-label"
                 value={paymentType}
                 label="Đợt thanh toán"
@@ -147,13 +149,12 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
                   setError(null);
                 }}
               >
-                <MenuItem value="T30">Thanh toán đợt hai (T-30)</MenuItem>
-                <MenuItem value="FINAL">Quyết toán hợp đồng (Final Settlement)</MenuItem>
+                <MenuItem value="Settlement">Tất toán sau ngày cưới</MenuItem>
               </Select>
               <FormHelperText>
-                {paymentType === "FINAL" && !isEventCompleted
-                  ? "Cảnh báo: Tiệc cưới chưa hoàn tất. Không thể thu Final Payment trước ngày cưới."
-                  : "Không áp dụng cho NRD (NRD được thu khi khởi tạo dự án)."}
+                {!isEventCompleted
+                  ? "Tiệc cưới chưa diễn ra, chưa thể tất toán."
+                  : "Tiền đặt cọc đã thu khi ký hợp đồng; tất toán gồm phần còn lại và các phát sinh khách đã xác nhận."}
               </FormHelperText>
             </FormControl>
 
@@ -196,6 +197,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
             <FormControl fullWidth required>
               <InputLabel id="payment-method-label">Phương thức thanh toán</InputLabel>
               <Select
+                id="paymentMethod"
                 labelId="payment-method-label"
                 value={method}
                 label="Phương thức thanh toán"
@@ -229,7 +231,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
                   <input
                     type="file"
                     hidden
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    accept={FILE_ACCEPT}
                     onChange={handleFileChange}
                   />
                 </Button>
@@ -244,7 +246,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
                 )}
               </Stack>
               <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
-                Định dạng hỗ trợ: JPG, PNG, PDF. Tối đa 10 MB.
+                {FILE_TYPES_LABEL}.
               </Typography>
             </Box>
           </Stack>
@@ -257,7 +259,7 @@ export default function RecordPaymentDialog({ open, onClose, projectCode, summar
             type="submit"
             variant="contained"
             color="primary"
-            disabled={submitting || (paymentType === "FINAL" && !isEventCompleted)}
+            disabled={submitting || !isEventCompleted}
             startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
           >
             {submitting ? "Đang xử lý..." : "Xác nhận ghi nhận"}

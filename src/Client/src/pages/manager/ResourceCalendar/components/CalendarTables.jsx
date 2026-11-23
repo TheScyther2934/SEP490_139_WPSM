@@ -11,7 +11,7 @@ export function BookingTable({ bookings }) {
       <CardContent><Typography variant="subtitle1" fontWeight={600}>Sảnh và ca đã đặt</Typography></CardContent>
       <TableContainer>
         <Table size="small" id="bookingTable">
-          <TableHead><TableRow><TableCell>Ngày</TableCell><TableCell>Sảnh</TableCell><TableCell>Ca</TableCell><TableCell>Dự án</TableCell><TableCell>Trạng thái</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>Ngày</TableCell><TableCell>Sảnh</TableCell><TableCell>Ca</TableCell><TableCell>Sự kiện</TableCell><TableCell>Trạng thái</TableCell></TableRow></TableHead>
           <TableBody>
             {bookings.length === 0 ? <TableRow><TableCell colSpan={5} align="center">Các sảnh đều trống trong khoảng này.</TableCell></TableRow> : bookings.map((b) => (
               <TableRow key={b.projectCode}>
@@ -33,7 +33,7 @@ export function AllocationTable({ resources, allocations, onEdit, onRelease }) {
       <TableContainer>
         <Table size="small" id="allocationTable">
           <TableHead>
-            <TableRow><TableCell>Tài nguyên</TableCell><TableCell>Dự án</TableCell><TableCell>Sảnh</TableCell><TableCell>Thời gian</TableCell>
+            <TableRow><TableCell>Tài nguyên</TableCell><TableCell>Sự kiện</TableCell><TableCell>Sảnh</TableCell><TableCell>Thời gian</TableCell>
               <TableCell align="right">SL</TableCell><TableCell>Trạng thái</TableCell><TableCell /></TableRow>
           </TableHead>
           <TableBody>

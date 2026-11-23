@@ -5,7 +5,6 @@ import {
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import StatusChip from "../../../../components/StatusChip";
-import CrBreakdown from "./CrBreakdown";
 import ResourceBreakdown from "./ResourceBreakdown";
 import DecisionDialog from "./DecisionDialog";
 import { dateTimeVi, errorMessage } from "../../../../utils/format";
@@ -75,7 +74,7 @@ export default function ExceptionDetail({ request, onDecide }) {
         )}
 
         <Typography variant="h6" sx={{ mt: 2 }}>
-          {request.cr ? `Miễn trừ phí phạt cho ${request.cr.crCode}` : `Ngoại lệ giữ chỗ ${request.resource?.resourceName ?? ""}`}
+          {`Giữ chỗ vượt công suất: ${request.resource?.resourceName ?? ""}`}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {request.projectCode} · {request.projectCouple} · {request.hallName}
@@ -88,7 +87,7 @@ export default function ExceptionDetail({ request, onDecide }) {
         </Box>
 
         <Divider sx={{ my: 2 }} />
-        {request.cr ? <CrBreakdown cr={request.cr} /> : request.resource ? <ResourceBreakdown resource={request.resource} /> : null}
+        {request.resource ? <ResourceBreakdown resource={request.resource} /> : null}
 
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle2" gutterBottom>Giải trình của Quản lý</Typography>
@@ -98,9 +97,7 @@ export default function ExceptionDetail({ request, onDecide }) {
         </Box>
 
         <Alert severity="info" sx={{ mt: 2 }}>
-          {request.cr
-            ? "Nếu duyệt, hệ thống gỡ phí phạt khỏi CR và CR tiếp tục sinh phụ lục hợp đồng; nếu từ chối, phí phạt được giữ nguyên."
-            : "Nếu duyệt, phân bổ giữ chỗ vượt công suất; nếu từ chối, phân bổ được thu hồi để nhường chỗ cho dự án khác."}
+          Nếu duyệt, phân bổ được giữ vượt công suất; nếu từ chối, phân bổ được thu hồi để nhường cho sự kiện khác.
         </Alert>
 
         <Divider sx={{ my: 2 }} />

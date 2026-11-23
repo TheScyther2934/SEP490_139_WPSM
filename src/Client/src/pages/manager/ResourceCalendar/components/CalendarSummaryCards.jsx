@@ -7,7 +7,7 @@ export default function CalendarSummaryCards({ summary }) {
   return (
     <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(4, 1fr)" }, mb: 2 }}>
       <StatCard label="Tổng tiệc trong kỳ" value={`${summary.events} tiệc cưới`}
-        hint={`${summary.bookedSlots}/${summary.availableSlots} ca tiệc đã có dự án`} />
+        hint={`${summary.bookedSlots}/${summary.availableSlots} ca tiệc đã có sự kiện`} />
       <StatCard label="Tỷ lệ lấp đầy sảnh" value={percent(summary.hallUtilization)}
         hint="Số ca đã đặt trên tổng số ca còn lại của kỳ" />
       <StatCard label="Phân bổ tài nguyên" value={`${summary.allocations} phân bổ`}

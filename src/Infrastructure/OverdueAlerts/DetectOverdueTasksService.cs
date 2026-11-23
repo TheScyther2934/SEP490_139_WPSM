@@ -36,7 +36,7 @@ public sealed class DetectOverdueTasksService(
     {
         var executionId = Guid.NewGuid();
         var startedAt = DateTime.UtcNow;
-        var today = command?.TargetDate ?? RoadmapRules.GetVietnamToday();
+        var today = command?.TargetDate ?? VietnamTime.GetVietnamToday();
         var nowUtc = command?.CurrentUtc ?? DateTime.UtcNow;
 
         logger.LogInformation(

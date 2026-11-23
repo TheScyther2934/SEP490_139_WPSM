@@ -6,7 +6,7 @@ using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
 
-// C-01, C-03, C-11: Customer dashboard, roadmap and proof photos (own project only).
+// Customer dashboard, proof photos, post-event ratings and complaints (own events only). The booked event view is in EventFlowEndpoints.
 public static class CustomerEndpoints
 {
     public static RouteGroupBuilder MapCustomerEndpoints(this RouteGroupBuilder api)
@@ -20,7 +20,7 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/photos/{photoId:int}",
-            async (int photoId, WpsmDbContext db, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
+            async (int photoId, WpsmDbContext db, IFileService files, HttpContext context, ClaimsPrincipal user, CancellationToken ct) =>
             {
                 var userId = UserId(user);
                 var photo = await db.ExecutionPhotos
@@ -33,7 +33,9 @@ public static class CustomerEndpoints
                 if (photo.DayOfTask.Project.CustomerId != userId)
                     return Results.Forbid();
 
-                return PhotoFile(photo.ImageFilePath, environment);
+                // Customers see photos only, never internal documents (PDF proof).
+                if (photo.ContentType is { } type && !type.StartsWith("image/", StringComparison.Ordinal)) return Results.NotFound();
+                return await ServeStoredFile(files, new StoredFileRef(photo.ImageFilePath, photo.ContentType ?? "image/jpeg", photo.FileName ?? "anh"), context, ct);
             })
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
@@ -46,62 +48,6 @@ public static class CustomerEndpoints
                 var result = await dashboard.GetDashboardAsync(userId, myProjects[0].Id, ct);
                 return result is null ? Results.NotFound() : Results.Ok(WithPhotoUrl(result, links));
             })
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapGet("/customer/projects/{projectCode}/roadmap",
-            async (string projectCode, ICustomerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            {
-                var result = await repo.GetRoadmapAsync(UserId(user), projectCode, ct);
-                return result is null ? Results.NotFound() : Results.Ok(result);
-            })
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapPost("/customer/projects/{projectCode}/roadmap/tasks/{taskId:int}/complete",
-            async (string projectCode, int taskId, ICustomerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            {
-                var result = await repo.CompleteTaskAsync(UserId(user), projectCode, taskId, ct);
-                if (!result.Success)
-                    return Results.BadRequest(new { error = result.Message });
-                return Results.Ok(result);
-            })
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapGet("/customer/roadmap",
-            async (IProjectRepository projects, ICustomerRoadmapRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            {
-                var userId = UserId(user);
-                var myProjects = await projects.GetProjectsAsync(userId, "Customer", ct);
-                if (myProjects.Count == 0) return Results.NotFound();
-                var result = await repo.GetRoadmapAsync(userId, myProjects[0].Id, ct);
-                return result is null ? Results.NotFound() : Results.Ok(result);
-            })
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        // C-06, C-07, C-08: Customer CR list, Create CR, Cost Impact detail & Approve / Reject / Request Adjustment (UC-08, UC-09, UC-10)
-        api.MapGet("/customer/change-requests",
-            async (string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                await repo.GetProjectChangeRequestsAsync(projectCode, UserId(user), "Customer", ct) is { } crs ? Results.Ok(crs) : Results.NotFound())
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapGet("/customer/change-requests/creation-context",
-            async (string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                await repo.GetCrCreationContextAsync(projectCode, UserId(user), ct) is { } ctx ? Results.Ok(ctx) : Results.NotFound())
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapPost("/customer/change-requests",
-            async (CreateCustomerCrRequest request, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                Results.Created("/api/wpsm/customer/change-requests",
-                    await repo.CreateCustomerChangeRequestAsync(UserId(user), request.ProjectCode, request.Type, request.Description, request.Items, ct)))
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapGet("/customer/change-requests/{crCode}",
-            async (string crCode, string? projectCode, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                await repo.GetCostImpactAsync(projectCode, crCode, UserId(user), "Customer", ct) is { } cr ? Results.Ok(cr) : Results.NotFound())
-            .RequireAuthorization(policy => policy.RequireRole("Customer"));
-
-        api.MapPost("/customer/change-requests/{crCode}/decision",
-            async (string crCode, CustomerCrDecisionRequest request, IAddendumRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                await repo.DecideCustomerCrAsync(crCode, UserId(user), request.Action, request.Note, ct) is { } cr ? Results.Ok(cr) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         // C-12, C-13: Post-event summary & Rate Services (UC-14, GBR-10, MSG16/26)

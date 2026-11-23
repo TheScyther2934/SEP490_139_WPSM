@@ -11,9 +11,20 @@ public partial class ExecutionPhoto
 
     public int UploaderId { get; set; }
 
+    /// <summary>Storage key of the file (same as StoredFiles.StorageKey), never a URL or a disk path.</summary>
     public string ImageFilePath { get; set; } = null!;
 
+    /// <summary>The StoredFiles row of this proof (type, size, original name).</summary>
+    public Guid? FileId { get; set; }
+
+    public virtual StoredFile? File { get; set; }
+
     public DateTime UploadedAt { get; set; }
+
+    public string? FileName { get; set; }
+
+    /// <summary>image/jpeg, image/png or application/pdf; null on legacy rows (images).</summary>
+    public string? ContentType { get; set; }
 
     public virtual DayOfTask DayOfTask { get; set; } = null!;
 

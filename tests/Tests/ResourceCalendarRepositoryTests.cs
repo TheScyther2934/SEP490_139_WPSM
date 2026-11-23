@@ -31,7 +31,7 @@ public sealed class ResourceCalendarRepositoryTests
 
     // ── Seed + helpers ────────────────────────────────────────────────────────
 
-    private async Task SeedAsync(string secondProjectStatus = "Baseline Frozen")
+    private async Task SeedAsync(string secondProjectStatus = "Locked")
     {
         _db.Users.AddRange(
             TestFixtures.NewUser(1, "Customer", "customer@test.local", "Cô dâu Ánh"),
@@ -44,9 +44,9 @@ public sealed class ResourceCalendarRepositoryTests
             new Resource { ResourceId = AudioResourceId, Name = "Dàn âm thanh JBL", Type = "Audio", TotalQuantity = 10 },
             new Resource { ResourceId = LightResourceId, Name = "Đèn follow", Type = "Follow Light", TotalQuantity = 4 });
         _db.WeddingProjects.AddRange(
-            TestFixtures.NewProject(14, ProjectCode, 1, ManagerId, eventDate: _eventDate, status: "Baseline Frozen", frozen: true),
+            TestFixtures.NewProject(14, ProjectCode, 1, ManagerId, eventDate: _eventDate, status: "Locked", frozen: true),
             TestFixtures.NewProject(15, "WPSM-2026-015", 1, ManagerId, eventDate: _eventDate, status: secondProjectStatus, frozen: true),
-            TestFixtures.NewProject(16, "WPSM-2026-016", 1, OtherManagerId, eventDate: _eventDate, status: "Baseline Frozen", frozen: true));
+            TestFixtures.NewProject(16, "WPSM-2026-016", 1, OtherManagerId, eventDate: _eventDate, status: "Locked", frozen: true));
         await _db.SaveChangesAsync();
     }
 
@@ -207,7 +207,7 @@ public sealed class ResourceCalendarRepositoryTests
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _repo.SaveAsync(null, Command(projectId: 15), ManagerId));
 
-        Assert.Contains("đã quyết toán", ex.Message);
+        Assert.Contains("đã tất toán", ex.Message);
     }
 
     [Fact]

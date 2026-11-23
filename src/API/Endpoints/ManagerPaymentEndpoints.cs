@@ -24,7 +24,7 @@ public static class ManagerPaymentEndpoints
         {
             var overview = await repo.GetProjectPaymentsAsync(id, UserId(user), Role(user), ct);
             return overview is null
-                ? Results.NotFound(new { message = "Không tìm thấy thông tin thanh toán cho dự án này." })
+                ? Results.NotFound(new { message = "Không tìm thấy thông tin thanh toán cho sự kiện này." })
                 : Results.Ok(overview);
         });
 
@@ -101,7 +101,7 @@ public static class ManagerPaymentEndpoints
         {
             var calc = await repo.GetSettlementCalculationAsync(id, UserId(user), Role(user), ct);
             return calc is null
-                ? Results.NotFound(new { message = "Không tìm thấy thông tin đối soát quyết toán." })
+                ? Results.NotFound(new { message = "Không tìm thấy thông tin đối soát tất toán." })
                 : Results.Ok(calc);
         });
 
@@ -117,7 +117,7 @@ public static class ManagerPaymentEndpoints
             {
                 var receipt = await repo.GenerateSettlementReceiptAsync(id, UserId(user), Role(user), ct);
                 return receipt is null
-                    ? Results.NotFound(new { message = "Không tìm thấy dự án." })
+                    ? Results.NotFound(new { message = "Không tìm thấy sự kiện." })
                     : Results.Ok(receipt);
             }
             catch (InvalidOperationException ex)
@@ -136,7 +136,7 @@ public static class ManagerPaymentEndpoints
         {
             var file = await repo.GetSettlementReceiptFileAsync(id, UserId(user), Role(user), ct);
             return file is null
-                ? Results.NotFound(new { message = "Biên nhận quyết toán chưa được phát hành hoặc không tồn tại." })
+                ? Results.NotFound(new { message = "Biên nhận tất toán chưa được phát hành hoặc không tồn tại." })
                 : Results.File(file.Content, file.ContentType, file.FileName);
         });
 

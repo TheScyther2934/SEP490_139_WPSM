@@ -1,7 +1,8 @@
-﻿using System.Net;
-using System.Net.Mail;
-using System.Text;
-using Application.Persistence;
+﻿using Application.Persistence;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
+using MimeKit.Text;
 
 namespace Infrastructure.Email;
 
@@ -18,40 +19,41 @@ public sealed class EmailOptions
     public string PublicBaseUrl { get; init; } = "http://localhost:5173";
 }
 
+/// <summary>
+/// API-03 through MailKit (System.Net.Mail.SmtpClient skipped AUTH against Brevo and is not recommended for new code).
+/// With Smtp:Host it sends over SMTP (STARTTLS on 587, implicit TLS on 465); without it, Development writes .eml files.
+/// </summary>
 public sealed class SmtpEmailSender(EmailOptions options) : IEmailSender
 {
+    public bool DeliversEmail => !string.IsNullOrWhiteSpace(options.Host);
+
     public async Task<string> SendAsync(string toEmail, string subject, string bodyHtml, CancellationToken cancellationToken = default)
     {
-        using var client = new SmtpClient();
+        var messageId = $"{Guid.NewGuid():N}@wpsm";
+        var message = new MimeMessage { Subject = subject, MessageId = messageId, Body = new TextPart(TextFormat.Html) { Text = bodyHtml } };
+        message.From.Add(MailboxAddress.Parse(options.From));
+        message.To.Add(MailboxAddress.Parse(toEmail));
+
         if (!string.IsNullOrWhiteSpace(options.Host))
         {
-            client.Host = options.Host;
-            client.Port = options.Port;
-            client.EnableSsl = options.EnableSsl;
-            if (!string.IsNullOrWhiteSpace(options.User)) client.Credentials = new NetworkCredential(options.User, options.Password);
+            using var client = new SmtpClient { Timeout = 30_000 };
+            var security = !options.EnableSsl ? SecureSocketOptions.None
+                : options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
+            await client.ConnectAsync(options.Host, options.Port, security, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(options.User))
+                await client.AuthenticateAsync(options.User, options.Password ?? "", cancellationToken);
+            await client.SendAsync(message, cancellationToken);
+            await client.DisconnectAsync(true, cancellationToken);
         }
         else if (!string.IsNullOrWhiteSpace(options.PickupDirectory))
         {
             Directory.CreateDirectory(options.PickupDirectory);
-            client.DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory;
-            client.PickupDirectoryLocation = options.PickupDirectory;
+            await message.WriteToAsync(Path.Combine(options.PickupDirectory, $"{Guid.NewGuid()}.eml"), cancellationToken);
         }
         else
         {
             throw new InvalidOperationException("Chưa cấu hình Smtp:Host.");
         }
-
-        var messageId = $"{Guid.NewGuid():N}@wpsm";
-        using var message = new MailMessage(options.From, toEmail)
-        {
-            Subject = subject,
-            SubjectEncoding = Encoding.UTF8,
-            Body = bodyHtml,
-            BodyEncoding = Encoding.UTF8,
-            IsBodyHtml = true
-        };
-        message.Headers.Add("Message-ID", $"<{messageId}>");
-        await client.SendMailAsync(message, cancellationToken);
         return messageId;
     }
 }

@@ -17,7 +17,7 @@ export default function PhotoAudit() {
   return (
     <>
       <PageHeader code="A-14" title="Kiểm tra ảnh minh chứng"
-        actions={<Button startIcon={<ArrowBackIcon />} component={RouterLink} to={data ? `${PATHS.admin.photoFeed}?projectCode=${encodeURIComponent(data.projectCode)}` : PATHS.admin.photoFeed}>Về luồng ảnh</Button>} />
+        actions={<Button startIcon={<ArrowBackIcon />} component={RouterLink} to={data ? PATHS.admin.project(data.projectCode, "evidence") : PATHS.admin.projects}>Về dẫn chứng sự kiện</Button>} />
       <DataState loading={loading} error={error} onRetry={reload}>
         {data && (
           <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { md: "2fr 1fr" } }}>

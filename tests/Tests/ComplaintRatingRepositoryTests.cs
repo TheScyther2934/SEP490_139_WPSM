@@ -42,9 +42,9 @@ public sealed class ComplaintRatingRepositoryTests
             SlotId = 1,
             EventDate = new DateOnly(2025, 10, 25),
             BaseContractValue = 100m,
-            Nrdamount = 30m,
+            DepositAmount = 30m,
             CurrentTotal = 100m,
-            Status = "Event Completed",
+            Status = "Completed",
             CreatedAt = DateTime.UtcNow
         };
         var beo1 = new Beo { Beoid = 101, ProjectId = 10, Version = 1, Status = "Frozen", FrozenAt = DateTime.UtcNow.AddDays(-5), Notes = "v1" };
@@ -85,9 +85,9 @@ public sealed class ComplaintRatingRepositoryTests
             SlotId = 1,
             EventDate = new DateOnly(2025, 10, 25),
             BaseContractValue = 100m,
-            Nrdamount = 30m,
+            DepositAmount = 30m,
             CurrentTotal = 100m,
-            Status = "Event Completed",
+            Status = "Completed",
             CreatedAt = DateTime.UtcNow
         };
         _db.Users.AddRange(customer, manager);
@@ -133,9 +133,9 @@ public sealed class ComplaintRatingRepositoryTests
             SlotId = 1,
             EventDate = new DateOnly(2025, 10, 25),
             BaseContractValue = 100m,
-            Nrdamount = 30m,
+            DepositAmount = 30m,
             CurrentTotal = 100m,
-            Status = "Event Completed",
+            Status = "Completed",
             CreatedAt = DateTime.UtcNow
         };
         var beo = new Beo { Beoid = 50, ProjectId = 10, Version = 1, Status = "Frozen", Notes = "BEO cam ket" };
