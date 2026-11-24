@@ -20,11 +20,6 @@ public sealed record ChangePasswordRequest(string CurrentPassword, string NewPas
 public sealed record ResolveComplaintRequest(string Decision);
 public sealed record ExceptionDecisionRequest(bool Approve, string Note);
 
-// FE-07: M-21 allocation dialog and the M-22 exception request.
-public sealed record ResourceAllocationRequest(int ResourceId, int ProjectId, DateTime StartTime, DateTime EndTime, int Quantity,
-    bool RequestException = false, string? ExceptionNote = null);
-public sealed record ResourceExceptionRequest(string Note);
-
 // Event stage flow: stage notes and addon contracts.
 public sealed record StageNoteRequest(string NoteType, string Content);
 public sealed record AddonRequest(string Title, string? Note, IReadOnlyList<AddonItemCommand> Items);
@@ -33,12 +28,11 @@ public sealed record AddonRequest(string Title, string? Note, IReadOnlyList<Addo
 public sealed record SaveBeoRequest(string? Notes = null);
 
 // Iteration 4 (FE-11): Post-event Ratings & Complaints (C-12..C-16, M-18..M-20)
-public sealed record SubmitRatingsRequest(string? ProjectCode, IReadOnlyList<ModuleRatingInput> Ratings);
+public sealed record SubmitRatingsRequest(string? ProjectCode, IReadOnlyList<Domain.Rules.RatingInput> Ratings);
 public sealed record CreateComplaintRequest(string? ProjectCode, int? BeoId, string Description);
 public sealed record ManagerComplaintActionRequest(string Action, string Note);
 
 // longtb: Manager task completion with proof photos.
-public sealed record CompleteManagerTaskRequest(IReadOnlyList<string>? ProofPhotoPaths = null);
 public sealed record AccountRequest(string FullName, string Email, string? Phone, string Role);
 public sealed record AccountStatusRequest(bool Active);
 public sealed record AccountCredentialResponse(UserAccountView Account, string? TemporaryPassword, bool EmailQueued = true);

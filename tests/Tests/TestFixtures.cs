@@ -1,7 +1,9 @@
 using Application.Persistence;
+using Application.UseCases.EventStages;
+using Infrastructure.UseCases;
 using Infrastructure.Email;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -117,7 +119,8 @@ internal static class TestFixtures
         UnitPrice = unitPrice
     };
 
-    public static SpecificationRepository NewSpecificationRepository(WpsmDbContext db) => new(db, new ProjectReadModel(db));
+    public static AdjustServices NewAdjustServices(WpsmDbContext db) =>
+        new(new EventWorkStore(db, null!), new ProjectRepository(db, new ProjectReadModel(db)), new UnitOfWork(db));
 
     /// <summary>Captures the e-mails the repositories enqueue.</summary>
     public sealed class RecordingEmailOutbox : IEmailOutbox

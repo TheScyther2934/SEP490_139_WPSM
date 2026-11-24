@@ -1,7 +1,8 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
+using Domain.Rules;
 
 namespace Infrastructure.Persistence.Repositories;
 
@@ -164,25 +165,6 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
             x.EscalatedAt is { } at ? Utc(at) : null, x.Version, x.Photos)).ToList();
     }
 
-    public async Task<bool> ResolveComplaintAsync(int complaintId, string decision, int adminId, CancellationToken cancellationToken = default)
-    {
-        decision = decision?.Trim() ?? "";
-        if (decision.Length == 0) throw new InvalidOperationException("Trường Quyết định là bắt buộc.");
-        if (decision.Length > 1000) throw new InvalidOperationException("Vượt quá độ dài tối đa 1000 ký tự.");
-        var complaint = await db.Complaints.Include(x => x.Project).FirstOrDefaultAsync(x => x.ComplaintId == complaintId, cancellationToken);
-        if (complaint is null) return false;
-        if (complaint.Status != "Escalated") throw new InvalidOperationException("Khiếu nại không còn ở trạng thái Escalated.");
-        complaint.Status = "Resolved";
-        complaint.ResolutionNote = decision;
-        complaint.ResolvedBy = adminId;
-        complaint.ResolvedAt = DateTime.UtcNow;
-        var message = $"Khiếu nại {complaint.ComplaintCode} đã được Admin giải quyết.";
-        db.Notifications.Add(new Notification { RecipientId = complaint.Project.ManagerId, Type = "Complaint", Message = message, LinkUrl = OperationsSupport.Links.ManagerComplaint(complaint.Project.ProjectCode, complaint.ComplaintCode) });
-        db.Notifications.Add(new Notification { RecipientId = complaint.Project.CustomerId, Type = "Complaint", Message = message, LinkUrl = OperationsSupport.Links.CustomerComplaint(complaint.ComplaintCode) });
-        await db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
     public async Task<ExceptionQueueView> GetExceptionRequestsAsync(CancellationToken cancellationToken = default)
     {
         var requests = await db.ExceptionRequests.AsNoTracking().AsSplitQuery()
@@ -219,7 +201,7 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
                 var otherQuantity = clashing.Where(ConsumesCapacity).Sum(other => other.AllocatedQuantity);
                 var shortage = Math.Max(0, otherQuantity + allocation.AllocatedQuantity - allocation.Resource.TotalQuantity);
                 resource = new ExceptionResourceContextView(
-                    allocation.AllocationId, allocation.Resource.Name, ResourceCalendarRepository.TypeLabel(allocation.Resource.Type),
+                    allocation.AllocationId, allocation.Resource.Name, OperationsSupport.ResourceTypeLabel(allocation.Resource.Type),
                     allocation.AllocatedQuantity, allocation.Resource.TotalQuantity, allocation.Hall.Name,
                     Utc(allocation.StartTime), Utc(allocation.EndTime), otherQuantity, shortage,
                     clashing.Select(other => new ExceptionClashingView(other.Project.ProjectCode, other.Project.Customer.FullName,
@@ -251,42 +233,5 @@ public sealed class AdminRepository(WpsmDbContext db) : IAdminRepository
         return new ExceptionQueueView(items, summary);
     }
 
-    private static bool ConsumesCapacity(ResourceAllocation allocation) =>
-        allocation.Status is "Reserved" or "Exception Approved";
-
-    public async Task<bool> DecideExceptionAsync(int requestId, bool approve, string note, int adminId, CancellationToken cancellationToken = default)
-    {
-        note = note?.Trim() ?? "";
-        if (note.Length == 0) throw new InvalidOperationException("Trường Ghi chú quyết định là bắt buộc.");
-        if (note.Length > 300) throw new InvalidOperationException("Vượt quá độ dài tối đa 300 ký tự.");
-        var request = await db.ExceptionRequests.Include(x => x.Allocation).Include(x => x.Project)
-            .FirstOrDefaultAsync(x => x.ExceptionRequestId == requestId, cancellationToken);
-        if (request is null) return false;
-        if (request.Status != "Pending") throw new InvalidOperationException("Yêu cầu ngoại lệ này đã được quyết định.");
-        var now = DateTime.UtcNow;
-        request.Status = approve ? "Approved" : "Rejected";
-        request.DecisionBy = adminId;
-        request.DecisionNote = note;
-        request.DecidedAt = now;
-        db.Notifications.Add(new Notification
-        {
-            RecipientId = request.RequestedBy, Type = "Overdue alert", LinkUrl = OperationsSupport.Links.ResourceCalendar, CreatedAt = now,
-            Message = $"Yêu cầu đặc biệt {request.RequestCode} ({request.Project.ProjectCode}) đã được {(approve ? "chấp thuận" : "từ chối")}."
-        });
-        if (approve && request.Allocation is { } allocation)
-        {
-            allocation.Status = "Exception Approved";
-            allocation.IsExceptionApproved = true;
-            allocation.ExceptionApprovedBy = adminId;
-            allocation.ExceptionApprovedAt = now;
-            allocation.ExceptionNote = note;
-        }
-        else if (!approve && request.Allocation is { } rejectedAllocation)
-        {
-            // A rejected resource exception never becomes valid, so the pending allocation is released.
-            rejectedAllocation.Status = "Released";
-        }
-        await db.SaveChangesAsync(cancellationToken);
-        return true;
-    }
+    private static bool ConsumesCapacity(ResourceAllocation allocation) => ResourceAllocationPolicy.CountsAgainstCapacity(allocation.Status);
 }

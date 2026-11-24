@@ -1,9 +1,13 @@
 using Application.Persistence;
+using Domain.Rules;
 using Domain.Services;
 using Infrastructure.Email;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
+using Application.UseCases.AddonContracts;
+using Application.UseCases.EventStages;
+using Infrastructure.UseCases;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -56,8 +60,14 @@ public sealed class EventStageFlowTests : IDisposable
     private static SpecificationCommand Lines(int tables, string? note = "Khách giảm bàn vì danh sách khách mời thay đổi") =>
         new("", 0, [new(10, "Thuê sảnh", 1, 30_000_000m), new(11, "Thực đơn", tables, 3_500_000m), new(12, "Hoa tươi", 1, 10_000_000m)], note);
 
-    private EventFlowRepository Events() => new(_db, _outbox, new EmailOptions { PublicBaseUrl = "http://test.local" });
-    private AddonContractRepository Addons() => new(_db, _outbox, new EmailOptions { PublicBaseUrl = "http://test.local" });
+    private EventFlowRepository Events() => new(_db);
+    // Writes go through the use cases (rules in Domain, data through the stores, one commit), as the API does.
+    private EventMessages Messages() => new(_db, _outbox, new EmailOptions { PublicBaseUrl = "http://test.local" });
+    private Task<AddonContractView> CreateAddon(string code, int userId, AddonCreateCommand command) =>
+        new CreateAddonContract(new AddonContractStore(_db), new AddonContractRepository(_db), Messages(), new UnitOfWork(_db)).HandleAsync(code, userId, command);
+    private Task<AddonContractView?> ConfirmAddon(int customerId, string addonCode) =>
+        new ConfirmAddonContract(new AddonContractStore(_db), new AddonContractRepository(_db), Messages(), new UnitOfWork(_db)).HandleAsync(customerId, addonCode);
+    private Task<int> LockDue() => new LockDueEvents(new EventStageStore(_db), Messages(), new UnitOfWork(_db)).HandleAsync(Today);
 
     // ── Rules ───────────────────────────────────────────────────────────────
 
@@ -101,7 +111,7 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Adjustment_within_the_floor_is_saved_with_a_note_and_before_after_totals()
     {
         SeedEvent(40);
-        var view = await TestFixtures.NewSpecificationRepository(_db).UpdateSpecificationAsync(Code, ManagerId, Lines(15));
+        var view = await TestFixtures.NewAdjustServices(_db).HandleAsync(Code, ManagerId, Lines(15));
 
         Assert.NotNull(view);
         Assert.Equal(92_500_000m, view!.CurrentTotal);
@@ -117,7 +127,7 @@ public sealed class EventStageFlowTests : IDisposable
     {
         SeedEvent(40);
         // 30 + 4 x 3.5 + 10 = 54M < 77M (70% of 110M)
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => TestFixtures.NewSpecificationRepository(_db).UpdateSpecificationAsync(Code, ManagerId, Lines(4)));
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => TestFixtures.NewAdjustServices(_db).HandleAsync(Code, ManagerId, Lines(4)));
         Assert.Contains("77.000.000", ex.Message.Replace(",", "."));
         Assert.Equal(110_000_000m, (await _db.WeddingProjects.SingleAsync()).CurrentTotal);
     }
@@ -126,14 +136,14 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Adjustment_needs_a_note()
     {
         SeedEvent(40);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => TestFixtures.NewSpecificationRepository(_db).UpdateSpecificationAsync(Code, ManagerId, Lines(18, note: " ")));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => TestFixtures.NewAdjustServices(_db).HandleAsync(Code, ManagerId, Lines(18, note: " ")));
     }
 
     [Fact]
     public async Task Adjustment_after_the_lock_date_is_refused_even_before_the_job_runs()
     {
         SeedEvent(9);   // lock date passed, status still Adjusting
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => TestFixtures.NewSpecificationRepository(_db).UpdateSpecificationAsync(Code, ManagerId, Lines(25)));
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() => TestFixtures.NewAdjustServices(_db).HandleAsync(Code, ManagerId, Lines(25)));
         Assert.Contains("hợp đồng phát sinh", ex.Message);
     }
 
@@ -143,7 +153,7 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Lock_job_locks_on_the_lock_date_and_tells_the_customer_who_to_contact()
     {
         SeedEvent(10);
-        var locked = await Events().LockDueEventsAsync(Today);
+        var locked = await LockDue();
 
         Assert.Equal(1, locked);
         var p = await _db.WeddingProjects.SingleAsync();
@@ -158,7 +168,7 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Lock_job_leaves_events_still_in_the_adjusting_window()
     {
         SeedEvent(11);
-        Assert.Equal(0, await Events().LockDueEventsAsync(Today));
+        Assert.Equal(0, await LockDue());
         Assert.Equal("Adjusting", (await _db.WeddingProjects.SingleAsync()).Status);
     }
 
@@ -171,9 +181,9 @@ public sealed class EventStageFlowTests : IDisposable
         _db.SupplierEvidences.Add(new SupplierEvidence { ProjectId = 50, SpecItemId = 501, SupplierName = "Bếp ABC", EvidenceType = "Contract", FileId = _db.StoredFiles.Local.First().FileId, UploadedBy = ManagerId, UploadedAt = DateTime.UtcNow });
         await _db.SaveChangesAsync();
 
-        Assert.Equal(1, await Events().RemindSupplierDeadlinesAsync(Today));
+        Assert.Equal(1, await new RemindSupplierDeadlines(new EventWorkStore(_db, null!), Messages(), new UnitOfWork(_db)).HandleAsync(Today));
         Assert.Contains(_db.Notifications, n => n.RecipientId == ManagerId && n.Message.Contains("Hoa tươi") && !n.Message.Contains("Thực đơn"));
-        Assert.Equal(0, await Events().RemindSupplierDeadlinesAsync(Today));
+        Assert.Equal(0, await new RemindSupplierDeadlines(new EventWorkStore(_db, null!), Messages(), new UnitOfWork(_db)).HandleAsync(Today));
     }
 
     // ── Addon contracts ─────────────────────────────────────────────────────
@@ -182,7 +192,7 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Addon_contract_is_only_for_locked_events()
     {
         SeedEvent(40);
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Addons().CreateAsync(Code, ManagerId, new("Thêm bàn", null, [new(11, "Bàn thêm", 2, 3_500_000m)])));
+        var ex = await Assert.ThrowsAsync<Domain.Rules.BusinessRuleException>(() => CreateAddon(Code, ManagerId, new("Thêm bàn", null, [new(11, "Bàn thêm", 2, 3_500_000m)])));
         Assert.Contains("điều chỉnh", ex.Message);
     }
 
@@ -190,19 +200,19 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Addon_contract_counts_only_after_the_customer_confirms()
     {
         SeedEvent(5, "Locked");
-        var created = await Addons().CreateAsync(Code, ManagerId, new("Thêm 2 bàn", "Khách báo qua điện thoại", [new(11, "Bàn thêm", 2, 3_500_000m)]));
+        var created = await CreateAddon(Code, ManagerId, new("Thêm 2 bàn", "Khách báo qua điện thoại", [new(11, "Bàn thêm", 2, 3_500_000m)]));
 
         Assert.Equal("PendingCustomer", created.Status);
         Assert.Equal(7_000_000m, created.Total);
         Assert.Equal(0m, await EventFlowSupport.ConfirmedAddonTotalAsync(_db, 50, default));
         Assert.Contains(_db.Notifications, n => n.RecipientId == CustomerId && n.Type == "Addon contract");
 
-        var confirmed = await Addons().ConfirmByCustomerAsync(CustomerId, created.Code);
+        var confirmed = await ConfirmAddon(CustomerId, created.Code);
         Assert.Equal("Confirmed", confirmed!.Status);
         Assert.Equal(7_000_000m, await EventFlowSupport.ConfirmedAddonTotalAsync(_db, 50, default));
         Assert.Contains(_db.Notifications, n => n.RecipientId == ManagerId && n.Message.Contains(created.Code));
         // Another customer cannot confirm it.
-        Assert.Null(await Addons().ConfirmByCustomerAsync(99, created.Code));
+        Assert.Null(await ConfirmAddon(99, created.Code));
     }
 
     [Fact]
@@ -213,8 +223,8 @@ public sealed class EventStageFlowTests : IDisposable
         await _db.SaveChangesAsync();
         Assert.Equal(77_000_000m, invoice.ContractTotal - invoice.DepositPaid);
 
-        var addon = await Addons().CreateAsync(Code, ManagerId, new("Kéo dài giờ tiệc", null, [new(null, "Phụ phí thêm giờ", 1, 5_000_000m)]));
-        await Addons().ConfirmByCustomerAsync(CustomerId, addon.Code);
+        var addon = await CreateAddon(Code, ManagerId, new("Kéo dài giờ tiệc", null, [new(null, "Phụ phí thêm giờ", 1, 5_000_000m)]));
+        await ConfirmAddon(CustomerId, addon.Code);
 
         var reloaded = await _db.SettlementInvoices.Include(i => i.Lines).SingleAsync();
         Assert.Equal(5_000_000m, reloaded.AddonTotal);
@@ -226,7 +236,7 @@ public sealed class EventStageFlowTests : IDisposable
     public async Task Cancelled_event_frees_the_slot_and_keeps_the_deposit()
     {
         SeedEvent(40);
-        var view = await Events().CancelEventAsync(Code, ManagerId, "Gia đình dời đám cưới sang năm sau");
+        var view = await new CancelEvent(new EventWorkStore(_db, null!), Events(), Messages(), new UnitOfWork(_db)).HandleAsync(Code, ManagerId, "Gia đình dời đám cưới sang năm sau");
 
         Assert.Equal("Cancelled", view!.Status);
         var p = await _db.WeddingProjects.SingleAsync();

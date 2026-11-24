@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Infrastructure.Files;
 using Infrastructure.Jobs;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Xunit;
 
 namespace Tests;

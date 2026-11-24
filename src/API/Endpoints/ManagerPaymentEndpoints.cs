@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Application.Persistence;
+using Application.UseCases.Settlement;
 using Domain.Services;
 using static API.Endpoints.EndpointHelpers;
 
@@ -33,7 +34,7 @@ public static class ManagerPaymentEndpoints
         group.MapPost("/payments/record", async (
             string id,
             HttpRequest httpRequest,
-            IManagerPaymentRepository repo,
+            RecordSettlement useCase,
             ClaimsPrincipal user,
             CancellationToken ct) =>
         {
@@ -83,7 +84,7 @@ public static class ManagerPaymentEndpoints
                 ReceiptContentType: receiptContentType
             );
 
-            var result = await repo.RecordPaymentAsync(id, UserId(user), Role(user), command, ct);
+            var result = await useCase.HandleAsync(id, UserId(user), Role(user), command, ct);
             if (!result.Success)
             {
                 return Results.BadRequest(new { message = result.Message });
@@ -109,21 +110,15 @@ public static class ManagerPaymentEndpoints
         // Generates receipt, marks project as Settled
         group.MapPost("/settlement/receipt", async (
             string id,
-            IManagerPaymentRepository repo,
+            IssueSettlementReceipt useCase,
             ClaimsPrincipal user,
             CancellationToken ct) =>
         {
-            try
-            {
-                var receipt = await repo.GenerateSettlementReceiptAsync(id, UserId(user), Role(user), ct);
-                return receipt is null
-                    ? Results.NotFound(new { message = "Không tìm thấy sự kiện." })
-                    : Results.Ok(receipt);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.BadRequest(new { message = ex.Message });
-            }
+            // Rule violations (event not held, money still due) answer 400 through the error middleware.
+            var receipt = await useCase.HandleAsync(id, UserId(user), Role(user), ct);
+            return receipt is null
+                ? Results.NotFound(new { message = "Không tìm thấy sự kiện." })
+                : Results.Ok(receipt);
         });
 
         // GET /api/wpsm/projects/{id}/settlement/receipt

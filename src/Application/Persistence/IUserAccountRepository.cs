@@ -9,10 +9,6 @@ public sealed record CreatedUserAccount(UserAccountView Account, string Temporar
 public interface IUserAccountRepository
 {
     Task<IReadOnlyList<UserAccountView>> GetAccountsAsync(CancellationToken cancellationToken = default);
-    /// <summary>Creates a Manager or Admin with a system password sent through the outbox (Customer accounts come from M-03).</summary>
-    Task<CreatedUserAccount> CreateAccountAsync(UserAccountCommand command, string passwordHash, string temporaryPassword, CancellationToken cancellationToken = default);
-    Task<UserAccountView?> UpdateAccountAsync(int userId, UserAccountCommand command, int adminId, CancellationToken cancellationToken = default);
-    /// <summary>Accounts are never deleted (SRS): deactivation keeps data and revokes every refresh token (SDS).</summary>
-    Task<UserAccountView?> SetStatusAsync(int userId, bool active, int adminId, CancellationToken cancellationToken = default);
-    Task<UserAccountView?> ResetPasswordAsync(int userId, string passwordHash, string temporaryPassword, CancellationToken cancellationToken = default);
+    Task<UserAccountView?> GetAccountAsync(int userId, CancellationToken cancellationToken = default);
+    // Changes are use cases: Application/UseCases/Accounts.
 }

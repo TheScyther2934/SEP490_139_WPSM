@@ -25,6 +25,17 @@ npm run dev
 
 Open `http://localhost:5173`. Vite proxies `/api/wpsm/*` to the API at `http://localhost:5128`. For a production build, run `npm run build` from `src/Client`; the built React app is written to `src/API/wwwroot` and served by the API. The API uses PostgreSQL through `WpsmDbContext` in `src/Infrastructure`. Persistence contracts are feature-scoped in `src/Application/Persistence`: `IProjectRepository`, `ISpecificationRoadmapRepository`, `IConfigurationRepository`, and `IAccountProfileRepository`. Their EF implementations live in `src/Infrastructure/Persistence/Repositories`; `IWpsmPortalSnapshotReader` composes data for the React bootstrap endpoint. API endpoints should depend on the feature contract they use, not on a catch-all repository or `DbContext`.
 
+## Architecture
+
+Clean Architecture, four projects, dependencies pointing inwards:
+
+- `src/Domain` — entities (`Domain/Entities`, one class per table, no EF attributes: the table/column mapping lives in `WpsmDbContext`) and business rules as pure functions, no database or web: `EventStageRules`, `PaymentCalculator`, and `Domain/Rules` (`CoordinationSheetPolicy`, `AddonContractPolicy`, `BusinessRuleException`).
+- `src/Application` — contracts: repository interfaces and view/command records (`Persistence`), and **use cases** (`UseCases`): one class per business action that applies the Domain rules and talks to ports (`I...Store`, `IEventMessages`, `IUnitOfWork`). Implemented so far: freeze/re-approve the coordination sheet, create/remind/cancel/confirm an addon contract, lock events on their lock date, coordination tasks (generate, add, edit, delete, complete, add proof; rules on the `DayOfTask` entity and `CoordinationTaskPolicy`), signing an event with its deposit, resending customer credentials, recording the deposit receipt (`EventBookingPolicy`, `WeddingProject.Book`).
+- `src/Infrastructure` — EF Core/PostgreSQL, the stores and repositories (data only), messages (notifications, email templates), Cloudinary, SMTP, JWT, Hangfire jobs.
+- `src/API` — Minimal API endpoints and composition (`Program.cs`). Endpoints call use cases (writes) or repositories (reads); they never use `WpsmDbContext` or entities.
+
+A new business action: put its rules in `Domain/Rules`, the use case in `Application/UseCases/<Area>`, its store in `Infrastructure/UseCases`, register both in `Program.cs`. Older features still keep their rules inside the repositories; they move the same way when changed. What is converted and what is not: [docs/explain/clean-architecture.md](docs/explain/clean-architecture.md).
+
 ## Database (PostgreSQL on Supabase)
 
 The API uses PostgreSQL (hosted on Supabase) through EF Core (`Npgsql.EntityFrameworkCore.PostgreSQL`). The schema is managed with EF Core migrations in `src/Infrastructure/Persistence/Migrations`; rules the EF model does not describe (CHECK constraints, the append-only audit log trigger, row level security) are in `InitialPostgresExtras.cs`. Hangfire stores its jobs in the `hangfire` schema of the same database (created on first start).

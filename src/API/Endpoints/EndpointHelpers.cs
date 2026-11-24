@@ -1,8 +1,6 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Identity;
 using Application.Persistence;
 using Infrastructure.Email;
-using Infrastructure.Persistence.Entities;
 
 namespace API.Endpoints;
 
@@ -11,17 +9,6 @@ public static class EndpointHelpers
     public static bool ShowsPasswordOnScreen(IWebHostEnvironment environment, EmailOptions email) =>
         environment.IsDevelopment() && string.IsNullOrWhiteSpace(email.Host);
 
-    public static PasswordVerificationResult VerifyPassword(IPasswordHasher<User> hasher, AccountView account, string password)
-    {
-        try
-        {
-            return hasher.VerifyHashedPassword(new User { UserId = account.UserId, Email = account.Email, Role = account.Role }, account.PasswordHash, password);
-        }
-        catch (FormatException)
-        {
-            return PasswordVerificationResult.Failed;
-        }
-    }
 
     /// <summary>
     /// Serves a stored file after the caller checked access: a photo on Cloudinary is a redirect to a download link valid 5 minutes,

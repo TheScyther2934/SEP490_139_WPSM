@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Auditing;
 
@@ -16,15 +16,6 @@ public interface IAuditActor
     string? Email { get; }
     string? Role { get; }
     string? IpAddress { get; }
-}
-
-public sealed class SystemAuditActor : IAuditActor
-{
-    public int? UserId => null;
-    public string? Name => "Hệ thống";
-    public string? Email => null;
-    public string? Role => "System";
-    public string? IpAddress => null;
 }
 
 /// <summary>

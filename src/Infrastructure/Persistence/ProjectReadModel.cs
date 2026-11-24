@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Domain.Services;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence;
 

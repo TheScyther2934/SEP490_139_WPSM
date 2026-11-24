@@ -1,10 +1,11 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using Microsoft.AspNetCore.Identity;
+using Application.Auth;
 using static API.Endpoints.EndpointHelpers;
 using Application.Persistence;
+using Application.UseCases.Accounts;
+using Application.UseCases.PostEvent;
+using Application.UseCases.Resources;
 using Infrastructure.Email;
-using Infrastructure.Persistence.Entities;
 
 
 namespace API.Endpoints;
@@ -53,40 +54,36 @@ public static class AdminEndpoints
             await repo.GetPhotoFileAsync(photoId, ct) is { } file ? await ServeStoredFile(files, file, context, ct) : Results.NotFound());
         admin.MapGet("/overdue-alerts", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetOverdueAlertsAsync(ct)));
         admin.MapGet("/complaints", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetEscalatedComplaintsAsync(ct)));
-        admin.MapPost("/complaints/{complaintId:int}/resolve", async (int complaintId, ResolveComplaintRequest request, IAdminRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.ResolveComplaintAsync(complaintId, request.Decision, UserId(user), ct) ? Results.NoContent() : Results.NotFound());
+        admin.MapPost("/complaints/{complaintId:int}/resolve", async (int complaintId, ResolveComplaintRequest request, ResolveEscalatedComplaint useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(complaintId, request.Decision, UserId(user), ct) ? Results.NoContent() : Results.NotFound());
         admin.MapGet("/exception-requests", async (IAdminRepository repo, CancellationToken ct) => Results.Ok(await repo.GetExceptionRequestsAsync(ct)));
-        admin.MapPost("/exception-requests/{requestId:int}/decision", async (int requestId, ExceptionDecisionRequest request, IAdminRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.DecideExceptionAsync(requestId, request.Approve, request.Note, UserId(user), ct) ? Results.NoContent() : Results.NotFound());
+        admin.MapPost("/exception-requests/{requestId:int}/decision", async (int requestId, ExceptionDecisionRequest request, DecideExceptionRequest useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(requestId, request.Approve, request.Note, UserId(user), ct) ? Results.NoContent() : Results.NotFound());
 
         // A-19 account management: list, create (Manager/Admin), edit, lock/unlock (never delete), reissue password.
         admin.MapGet("/accounts", async (IUserAccountRepository repo, CancellationToken ct) => Results.Ok(await repo.GetAccountsAsync(ct)));
-        admin.MapPost("/accounts", async (AccountRequest request, IUserAccountRepository repo, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, CancellationToken ct) =>
+        admin.MapPost("/accounts", async (AccountRequest request, CreateStaffAccount useCase, EmailOptions email, IWebHostEnvironment environment, CancellationToken ct) =>
         {
-            var (password, hash) = TemporaryPassword(hasher);
-            var created = await repo.CreateAccountAsync(new UserAccountCommand(request.FullName, request.Email, request.Phone, request.Role), hash, password, ct);
+            var created = await useCase.HandleAsync(new UserAccountCommand(request.FullName, request.Email, request.Phone, request.Role), ct);
             return Results.Created($"/api/wpsm/admin/accounts/{created.Account.Id}",
-                new AccountCredentialResponse(created.Account, ShowsPasswordOnScreen(environment, email) ? password : null));
+                new AccountCredentialResponse(created.Account, ShowsPasswordOnScreen(environment, email) ? created.TemporaryPassword : null));
         });
-        admin.MapPut("/accounts/{userId:int}", async (int userId, AccountRequest request, IUserAccountRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.UpdateAccountAsync(userId, new UserAccountCommand(request.FullName, request.Email, request.Phone, request.Role), UserId(user), ct) is { } account
+        admin.MapPut("/accounts/{userId:int}", async (int userId, AccountRequest request, UpdateAccount useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(userId, new UserAccountCommand(request.FullName, request.Email, request.Phone, request.Role), UserId(user), ct) is { } account
                 ? Results.Ok(account) : Results.NotFound());
-        admin.MapPost("/accounts/{userId:int}/status", async (int userId, AccountStatusRequest request, IUserAccountRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.SetStatusAsync(userId, request.Active, UserId(user), ct) is { } account ? Results.Ok(account) : Results.NotFound());
-        admin.MapPost("/accounts/{userId:int}/reset-password", async (int userId, IUserAccountRepository repo, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, CancellationToken ct) =>
-        {
-            var (password, hash) = TemporaryPassword(hasher);
-            return await repo.ResetPasswordAsync(userId, hash, password, ct) is { } account
-                ? Results.Ok(new AccountCredentialResponse(account, ShowsPasswordOnScreen(environment, email) ? password : null))
-                : Results.NotFound();
-        });
+        admin.MapPost("/accounts/{userId:int}/status", async (int userId, AccountStatusRequest request, SetAccountStatus useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(userId, request.Active, UserId(user), ct) is { } account ? Results.Ok(account) : Results.NotFound());
+        admin.MapPost("/accounts/{userId:int}/reset-password", async (int userId, ResetAccountPassword useCase, EmailOptions email, IWebHostEnvironment environment, CancellationToken ct) =>
+            await useCase.HandleAsync(userId, ct) is { } reset
+                ? Results.Ok(new AccountCredentialResponse(reset.Account, ShowsPasswordOnScreen(environment, email) ? reset.TemporaryPassword : null))
+                : Results.NotFound());
         return api;
     }
 
-    private static (string Password, string Hash) TemporaryPassword(IPasswordHasher<User> hasher)
+    private static (string Password, string Hash) TemporaryPassword(IPasswordService passwords)
     {
-        // Same alphabet as M-03 credentials; always contains letters and digits in practice, and must be changed at first login.
-        var password = RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*", 16);
-        return (password, hasher.HashPassword(new User(), password));
+        // Same generator as the customer credentials of M-03; must be changed at first login.
+        var password = passwords.NewTemporaryPassword();
+        return (password, passwords.Hash(password));
     }
 }

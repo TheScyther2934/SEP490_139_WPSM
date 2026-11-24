@@ -110,6 +110,10 @@ export default function Ratings() {
                 <Alert severity="warning" icon={<LockOutlinedIcon />}>
                   Bạn đã gửi đánh giá cho sự kiện <strong>{data.projectCode}</strong>. Kết quả đánh giá là bất biến và không thể chỉnh sửa lại.
                 </Alert>
+              ) : !data.canRate ? (
+                <Alert severity="info" icon={<LockOutlinedIcon />}>
+                  Bạn có thể đánh giá sau khi sự kiện <strong>{data.projectCode}</strong> đã tất toán.
+                </Alert>
               ) : (
                 <Alert severity="info">
                   Vui lòng chọn số sao (1–5 sao) cho từng hạng mục dưới đây. Sau khi nhấn <strong>Gửi đánh giá</strong>, kết quả sẽ được lưu cố định và không thể thay đổi.
@@ -164,7 +168,7 @@ export default function Ratings() {
                 })}
               </Grid>
 
-              {!data.isLocked && (
+              {!data.isLocked && data.canRate && (
                 <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
                   <Button component={RouterLink} to={PATHS.customer.postEvent} disabled={submitting}>
                     Hủy

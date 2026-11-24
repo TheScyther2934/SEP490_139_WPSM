@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Domain.Enums;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 

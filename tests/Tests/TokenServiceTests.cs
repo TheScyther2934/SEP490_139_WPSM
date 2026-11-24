@@ -7,7 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Application.Persistence;
 using Infrastructure.Identity;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Xunit;
 
 namespace Tests;

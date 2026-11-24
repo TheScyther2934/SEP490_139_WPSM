@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
@@ -56,6 +56,17 @@ public static class OperationsSupport
 
     public static bool IsDepartment(string? value) => Departments.Contains(value);
 
+    /// <summary>Vietnamese label of a resource type (A-18 queue).</summary>
+    public static string ResourceTypeLabel(string type) => type switch
+    {
+        "Audio" => "Âm thanh",
+        "Follow Light" => "Đèn follow",
+        "Decor Frame" => "Khung trang trí",
+        "Technician" => "Kỹ thuật viên",
+        "Kitchen" => "Bếp & nhân sự",
+        _ => type
+    };
+
     public static readonly string[] Departments = ["Kitchen", "Service", "Decor", "Tech-MC"];
 
     public static decimal Outstanding(WeddingProject project, IEnumerable<Payment> payments) =>
@@ -82,6 +93,7 @@ public static class OperationsSupport
         public static string ManagerComplaint(string code, string complaint) => $"{ManagerProject(code)}/complaints/{Seg(complaint)}";
         public const string ResourceCalendar = "/manager/resource-calendar";
         public static string CustomerComplaint(string complaint) => $"/customer/complaints/{Seg(complaint)}";
+        public const string AdminComplaints = "/admin/complaints";
         public const string CustomerEvent = "/customer/event";
         public const string CustomerPayments = "/customer/payments";
         public const string CustomerOverview = "/customer/overview";

@@ -13,7 +13,7 @@ using Infrastructure.Email;
 using Infrastructure.Events;
 using Infrastructure.OverdueAlerts;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

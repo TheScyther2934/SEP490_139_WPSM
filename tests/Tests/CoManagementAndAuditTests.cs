@@ -1,11 +1,17 @@
+using Application.Persistence;
+using Domain.Rules;
+using Application.UseCases.CoOperators;
 using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Application.UseCases.CoordinationSheets;
+using Infrastructure.Email;
+using Infrastructure.UseCases;
 using Infrastructure.Auditing;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
 using Xunit;
 
@@ -55,15 +61,22 @@ public sealed class CoManagementAndAuditTests : IDisposable
     private static User User(int id, string role, string email) =>
         new() { UserId = id, Email = email, FullName = $"{role} {id}", Role = role, Status = "Active", PasswordHash = "secret-hash", CreatedAt = DateTime.UtcNow };
 
-    private ProjectManagerRepository Managers() => new(_db);
+    private EventMessages Messages() => new(_db, new TestFixtures.RecordingEmailOutbox(), new EmailOptions());
+    private Task<ProjectManagerResult> Add(int managerId, string reason, int actorId, string role) =>
+        new AddCoOperator(new CoOperatorStore(_db), new ProjectManagerRepository(_db), Messages(), new UnitOfWork(_db)).HandleAsync("WPSM-T-001", managerId, reason, actorId, role);
+    private Task<ProjectManagerResult> Remove(int rowId, string reason, int actorId, string role) =>
+        new RemoveCoOperator(new CoOperatorStore(_db), new ProjectManagerRepository(_db), Messages(), new UnitOfWork(_db)).HandleAsync("WPSM-T-001", rowId, reason, actorId, role);
 
-    private Task<bool> CanAccess(int userId) => new ProjectRepository(_db, null!, null!, null!).CanAccessAsync("WPSM-T-001", userId, "Manager");
+    private FreezeCoordinationSheet Freeze() => new(new CoordinationSheetStore(_db), new BeoRepository(_db),
+        new EventMessages(_db, new TestFixtures.RecordingEmailOutbox(), new EmailOptions()), new UnitOfWork(_db));
+
+    private Task<bool> CanAccess(int userId) => new ProjectRepository(_db, null!).CanAccessAsync("WPSM-T-001", userId, "Manager");
 
     [Fact]
     public async Task Primary_adds_a_co_manager_who_then_gets_access()
     {
         Assert.False(await CanAccess(OtherManagerId));
-        var result = await Managers().AddAsync("WPSM-T-001", OtherManagerId, "Nghỉ phép một tuần", PrimaryId, "Manager");
+        var result = await Add(OtherManagerId, "Nghỉ phép một tuần", PrimaryId, "Manager");
         Assert.Null(result.Error);
         Assert.Equal(2, result.View!.Managers.Count(m => m.Active));
         Assert.True(await CanAccess(OtherManagerId));
@@ -76,10 +89,10 @@ public sealed class CoManagementAndAuditTests : IDisposable
     [Fact]
     public async Task Co_manager_cannot_delegate_further_but_admin_can()
     {
-        await Managers().AddAsync("WPSM-T-001", OtherManagerId, "Hỗ trợ ngày cưới", PrimaryId, "Manager");
-        var byCoManager = await Managers().AddAsync("WPSM-T-001", ThirdManagerId, "Ủy quyền tiếp", OtherManagerId, "Manager");
+        await Add(OtherManagerId, "Hỗ trợ ngày cưới", PrimaryId, "Manager");
+        var byCoManager = await Add(ThirdManagerId, "Ủy quyền tiếp", OtherManagerId, "Manager");
         Assert.True(byCoManager.Forbidden);
-        var byAdmin = await Managers().AddAsync("WPSM-T-001", ThirdManagerId, "Admin điều phối", AdminId, "Admin");
+        var byAdmin = await Add(ThirdManagerId, "Admin điều phối", AdminId, "Admin");
         Assert.Null(byAdmin.Error);
         Assert.Equal(3, byAdmin.View!.Managers.Count(m => m.Active));
     }
@@ -87,21 +100,21 @@ public sealed class CoManagementAndAuditTests : IDisposable
     [Fact]
     public async Task Rules_reason_required_no_duplicates_primary_cannot_be_removed()
     {
-        Assert.NotNull((await Managers().AddAsync("WPSM-T-001", OtherManagerId, "", PrimaryId, "Manager")).Error);
-        Assert.NotNull((await Managers().AddAsync("WPSM-T-001", PrimaryId, "Thêm chính mình", PrimaryId, "Manager")).Error);
-        Assert.NotNull((await Managers().AddAsync("WPSM-T-001", CustomerId, "Không phải Manager", PrimaryId, "Manager")).Error);
-        var added = await Managers().AddAsync("WPSM-T-001", OtherManagerId, "Hỗ trợ ngày cưới", PrimaryId, "Manager");
-        Assert.NotNull((await Managers().AddAsync("WPSM-T-001", OtherManagerId, "Thêm lần hai", PrimaryId, "Manager")).Error);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Add(OtherManagerId, "", PrimaryId, "Manager"));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Add(PrimaryId, "Thêm chính mình", PrimaryId, "Manager"));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Add(CustomerId, "Không phải Manager", PrimaryId, "Manager"));
+        var added = await Add(OtherManagerId, "Hỗ trợ ngày cưới", PrimaryId, "Manager");
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Add(OtherManagerId, "Thêm lần hai", PrimaryId, "Manager"));
         var primaryRow = added.View!.Managers.Single(m => m.Role == "Primary");
-        Assert.NotNull((await Managers().RemoveAsync("WPSM-T-001", primaryRow.ProjectManagerId, "Gỡ người tạo", AdminId, "Admin")).Error);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Remove(primaryRow.ProjectManagerId, "Gỡ người tạo", AdminId, "Admin"));
     }
 
     [Fact]
     public async Task Removed_co_manager_loses_access_but_stays_in_history()
     {
-        var added = await Managers().AddAsync("WPSM-T-001", OtherManagerId, "Hỗ trợ ngày cưới", PrimaryId, "Manager");
+        var added = await Add(OtherManagerId, "Hỗ trợ ngày cưới", PrimaryId, "Manager");
         var row = added.View!.Managers.Single(m => m.ManagerId == OtherManagerId);
-        var removed = await Managers().RemoveAsync("WPSM-T-001", row.ProjectManagerId, "Đã hết thời gian hỗ trợ", PrimaryId, "Manager");
+        var removed = await Remove(row.ProjectManagerId, "Đã hết thời gian hỗ trợ", PrimaryId, "Manager");
         Assert.Null(removed.Error);
         Assert.False(await CanAccess(OtherManagerId));
         var history = removed.View!.Managers.Single(m => m.ManagerId == OtherManagerId);
@@ -142,7 +155,7 @@ public sealed class CoManagementAndAuditTests : IDisposable
         project.Status = "Adjusting";
         project.LockedAt = null;
         await _db.SaveChangesAsync();
-        var early = await Assert.ThrowsAsync<InvalidOperationException>(() => new BeoRepository(_db).FreezeOrReapproveBeoAsync("WPSM-T-001", PrimaryId, null));
+        var early = await Assert.ThrowsAsync<Domain.Rules.BusinessRuleException>(() => Freeze().HandleAsync("WPSM-T-001", PrimaryId, null));
         Assert.Contains("khóa dịch vụ", early.Message);
 
         // Locked with an addon contract still waiting for the customer: it is not in the sheet, so it does not block (20/11/2026).
@@ -152,7 +165,7 @@ public sealed class CoManagementAndAuditTests : IDisposable
         addon.Items.Add(new AddonContractItem { Description = "Bàn", Quantity = 1, UnitPrice = 3_500_000m });
         _db.AddonContracts.Add(addon);
         await _db.SaveChangesAsync();
-        var frozen = await new BeoRepository(_db).FreezeOrReapproveBeoAsync("WPSM-T-001", PrimaryId, null);
+        var frozen = await Freeze().HandleAsync("WPSM-T-001", PrimaryId, null);
         Assert.Equal("Frozen", frozen!.Status);
         Assert.DoesNotContain(frozen.Items, i => i.ChangedByAddon);
     }

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Domain.Services;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
 using Xunit;
 

@@ -19,10 +19,6 @@ public sealed record NotificationListResponse(
 
 public sealed record UnreadCountResponse(int UnreadCount);
 
-public sealed record MarkAsReadResult(bool Success, string Message);
-
-public sealed record MarkAllAsReadResult(bool Success, int UpdatedCount);
-
 public interface INotificationRepository
 {
     Task<NotificationListResponse> GetNotificationsAsync(

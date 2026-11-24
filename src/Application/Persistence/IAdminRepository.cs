@@ -82,9 +82,6 @@ public interface IAdminRepository
     Task<StoredFileRef?> GetPhotoFileAsync(int photoId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OverdueAlertView>> GetOverdueAlertsAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EscalatedComplaintView>> GetEscalatedComplaintsAsync(CancellationToken cancellationToken = default);
-    /// <summary>UC-46. Returns false when the complaint does not exist or is not Escalated.</summary>
-    Task<bool> ResolveComplaintAsync(int complaintId, string decision, int adminId, CancellationToken cancellationToken = default);
+    /// <summary>A-18 queue. The decision (UC-47) is the DecideExceptionRequest use case.</summary>
     Task<ExceptionQueueView> GetExceptionRequestsAsync(CancellationToken cancellationToken = default);
-    /// <summary>UC-47. Returns false when the request does not exist.</summary>
-    Task<bool> DecideExceptionAsync(int requestId, bool approve, string note, int adminId, CancellationToken cancellationToken = default);
 }

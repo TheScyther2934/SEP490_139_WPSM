@@ -1,5 +1,6 @@
+using Domain.Rules;
 using System;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Xunit;
 
 namespace Tests;
@@ -152,7 +153,7 @@ public sealed class DayOfTaskTests
             PhotoRequired = true
         };
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<BusinessRuleException>(() =>
             task.Complete(userId: 5, nowUtc: DateTime.UtcNow, photoCount: 0));
 
         Assert.Contains("yêu cầu từ 1 đến 3 ảnh minh chứng", ex.Message);
@@ -171,7 +172,7 @@ public sealed class DayOfTaskTests
             PhotoRequired = true
         };
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<BusinessRuleException>(() =>
             task.Complete(userId: 5, nowUtc: DateTime.UtcNow, photoCount: 4));
 
         Assert.Contains("tối đa 3 ảnh minh chứng", ex.Message);
@@ -190,7 +191,7 @@ public sealed class DayOfTaskTests
             CompletedAt = DateTime.UtcNow
         };
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<BusinessRuleException>(() =>
             task.Complete(userId: 5, nowUtc: DateTime.UtcNow, photoCount: 1));
 
         Assert.Contains("đã được hoàn thành trước đó", ex.Message);

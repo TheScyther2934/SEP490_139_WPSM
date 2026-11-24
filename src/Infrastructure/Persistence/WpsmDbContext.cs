@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence;
 
@@ -142,6 +142,11 @@ public partial class WpsmDbContext : DbContext
 
         modelBuilder.Entity<DayOfTask>(entity =>
         {
+            // Behaviour-only members of the Domain entity: never stored.
+            entity.Ignore(e => e.DomainEvents);
+            entity.Ignore(e => e.IsLate);
+            entity.Ignore(e => e.IsCustom);
+            entity.Ignore(e => e.IsDone);
             entity.HasIndex(e => new { e.ProjectId, e.DeadlineTime, e.Status }, "IX_DayOf_Project_Deadline");
             entity.HasIndex(e => new { e.Status, e.DeadlineTime }, "IX_DayOfTasks_Status_Deadline");
 

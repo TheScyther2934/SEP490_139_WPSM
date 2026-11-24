@@ -3,21 +3,19 @@ using Application.Persistence;
 using Domain.Enums;
 using Domain.Services;
 using Infrastructure.Files;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Payments of an event seen by its operators: the deposit (stage 1) and the settlement (stage 5).
 /// Settlement = contract total after adjustments + confirmed addon contracts - deposit, recorded once after the event.
+/// Read only: recording the settlement and issuing its receipt are use cases (Application/UseCases/Settlement).
 /// </summary>
-public sealed class ManagerPaymentRepository(
-    WpsmDbContext db,
-    IFileService files,
-    INotificationRepository notifications) : IManagerPaymentRepository
+public sealed class ManagerPaymentRepository(WpsmDbContext db, IFileService files) : IManagerPaymentRepository
 {
 
-    private sealed record Money(decimal ContractTotal, decimal AddonTotal, decimal GrandTotal, decimal DepositPaid, decimal SettlementPaid,
+    internal sealed record Money(decimal ContractTotal, decimal AddonTotal, decimal GrandTotal, decimal DepositPaid, decimal SettlementPaid,
         decimal TotalPaid, decimal Outstanding);
 
     public async Task<ManagerPaymentOverviewView?> GetProjectPaymentsAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
@@ -26,120 +24,18 @@ public sealed class ManagerPaymentRepository(
         return project is null ? null : await BuildOverviewAsync(project, cancellationToken);
     }
 
-    public async Task<RecordPaymentResult> RecordPaymentAsync(string projectCode, int managerId, string role, RecordPaymentCommand command,
-        CancellationToken cancellationToken = default)
-    {
-        var project = await ResolveProjectAsync(projectCode, managerId, role, cancellationToken);
-        if (project is null) return new RecordPaymentResult(false, "Không tìm thấy sự kiện trong phạm vi quyền hạn.");
-        if (project.Status is EventStatus.Settled or EventStatus.Closed)
-            return new RecordPaymentResult(false, "Sự kiện đã tất toán hoặc đã đóng, không thể ghi nhận thêm thanh toán.");
-        if (project.Status == EventStatus.Cancelled)
-            return new RecordPaymentResult(false, "Sự kiện đã hủy, không ghi nhận thanh toán.");
-
-        var type = (command.PaymentType ?? "").Trim();
-        if (string.Equals(type, PaymentKinds.Deposit, StringComparison.OrdinalIgnoreCase))
-            return new RecordPaymentResult(false, "Tiền đặt cọc được ghi nhận khi ký hợp đồng, không ghi nhận lại ở đây.");
-        if (!string.Equals(type, PaymentKinds.Settlement, StringComparison.OrdinalIgnoreCase))
-            return new RecordPaymentResult(false, "Chỉ ghi nhận được khoản tất toán.");
-
-        var today = PaymentCalculator.GetVietnamToday();
-        if (!PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today))
-            return new RecordPaymentResult(false, "Chỉ ghi nhận tất toán sau ngày cưới.");
-        if (command.PaymentDate > today)
-            return new RecordPaymentResult(false, "Ngày thanh toán không được ở tương lai (giờ Việt Nam).");
-
-        // The invoice fixes the amount: issue it now if the daily job has not run yet.
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
-        if (project.Status == EventStatus.Locked) project.Status = EventStatus.Completed;
-        var invoice = await EventFlowSupport.IssueInvoiceAsync(db, project, managerId, policy, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        await db.Entry(project).Collection(p => p.Payments).LoadAsync(cancellationToken);
-
-        var money = await ComputeMoneyAsync(project, cancellationToken);
-        if (command.Amount <= 0) return new RecordPaymentResult(false, "Số tiền thanh toán phải lớn hơn 0.");
-        if (command.Amount != money.Outstanding)
-            return new RecordPaymentResult(false, $"Tất toán thanh toán một lần đúng số còn lại {EventStageRules.Vnd(money.Outstanding)} (đã nhập {EventStageRules.Vnd(command.Amount)}).");
-
-        var method = (command.Method ?? "").Trim().ToLowerInvariant() is "cash" or "tien mat" ? "Cash" : "Bank";
-        var hasReceipt = command.ReceiptBytes is { Length: > 0 };
-        if (method == "Bank" && !hasReceipt)
-            return new RecordPaymentResult(false, "Chuyển khoản bắt buộc tải lên chứng từ (JPG, PNG hoặc PDF).");
-
-        // The receipt is stored like every file (type checked by content, HEIC photos converted): Payments keeps its key, not its bytes.
-        StoredFileView? receipt = null;
-        if (hasReceipt)
-        {
-            try
-            {
-                receipt = await files.StoreAsync(project.ProjectId, "PaymentReceipt", command.ReceiptFileName ?? $"Settlement_{project.ProjectCode}", command.ReceiptBytes!, managerId, cancellationToken);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return new RecordPaymentResult(false, ex.Message);
-            }
-        }
-
-        var payment = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Settlement);
-        if (payment is null)
-        {
-            payment = new Payment { ProjectId = project.ProjectId, PaymentType = PaymentKinds.Settlement, DueDate = invoice.DueDate };
-            db.Payments.Add(payment);
-            project.Payments.Add(payment);
-        }
-        payment.Status = "Paid";
-        payment.Amount = command.Amount;
-        payment.PaymentMethod = method;
-        payment.PaidDate = command.PaymentDate;
-        payment.RecordedBy = managerId;
-        if (receipt is not null)
-        {
-            payment.ReceiptFileName = receipt.OriginalName;
-            payment.ReceiptContentType = receipt.ContentType;
-            payment.ReceiptFilePath = receipt.StorageKey;
-        }
-
-        // One payment closes the event: settled, invoice paid, settlement receipt generated.
-        project.Status = EventStatus.Settled;
-        invoice.Status = "Paid";
-        invoice.PaidAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
-
-        var managerName = (await db.Users.FindAsync([managerId], cancellationToken))?.FullName ?? "Ban quản lý tiệc cưới";
-        money = await ComputeMoneyAsync(project, cancellationToken);
-        await StoreSettlementReceiptAsync(project, money, managerName, managerId, cancellationToken);
-
-        try
-        {
-            await notifications.CreateNotificationAsync(project.CustomerId, NotificationTypes.Payment,
-                $"Sự kiện {project.ProjectCode} đã tất toán {EventStageRules.Vnd(command.Amount)}. Biên nhận tất toán đã sẵn sàng tải về.",
-                "/customer/payments", "Payment", payment.PaymentId.ToString(), cancellationToken);
-        }
-        catch (Exception) { /* a failed notification must not undo the recorded payment */ }
-
-        return new RecordPaymentResult(true, $"Đã ghi nhận tất toán {EventStageRules.Vnd(command.Amount)}. Sự kiện chuyển sang Đã tất toán.",
-            payment.PaymentId, 0m, true, await BuildOverviewAsync(project, cancellationToken));
-    }
-
     public async Task<SettlementCalculationView?> GetSettlementCalculationAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
     {
         var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
         return project is null ? null : BuildSettlement(project, await ComputeMoneyAsync(project, cancellationToken));
     }
 
-    public async Task<FinalSettlementReceiptView?> GenerateSettlementReceiptAsync(string projectCode, int managerId, string role, CancellationToken cancellationToken = default)
+    public async Task<FinalSettlementReceiptView?> GetSettlementReceiptAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
     {
-        var project = await ResolveProjectAsync(projectCode, managerId, role, cancellationToken);
+        var project = await ResolveProjectAsync(projectCode, userId, role, cancellationToken);
         if (project is null) return null;
-        var money = await ComputeMoneyAsync(project, cancellationToken);
-        var calc = BuildSettlement(project, money);
-        if (!calc.IsEventCompleted) throw new InvalidOperationException("Chỉ phát hành biên nhận tất toán sau ngày cưới.");
-        if (calc.FinalAmountDue > 0) throw new InvalidOperationException($"Còn {EventStageRules.Vnd(calc.FinalAmountDue)} chưa thanh toán.");
-
-        var managerName = (await db.Users.FindAsync([managerId], cancellationToken))?.FullName ?? "Ban quản lý tiệc cưới";
-        await StoreSettlementReceiptAsync(project, money, managerName, managerId, cancellationToken);
-        project.Status = EventStatus.Settled;
-        await db.SaveChangesAsync(cancellationToken);
-        return MapReceiptView(project, money, managerName, DateTime.UtcNow);
+        var managerName = (await db.Users.FindAsync([userId], cancellationToken))?.FullName ?? "Ban quản lý tiệc cưới";
+        return MapReceiptView(project, await ComputeMoneyAsync(project, cancellationToken), managerName, DateTime.UtcNow);
     }
 
     public async Task<FileContentResultModel?> GetSettlementReceiptFileAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default)
@@ -175,23 +71,23 @@ public sealed class ManagerPaymentRepository(
         return content is null ? null : new FileContentResultModel(content, stored.ContentType, stored.OriginalName);
     }
 
-    private async Task StoreSettlementReceiptAsync(WeddingProject project, Money money, string managerName, int managerId, CancellationToken cancellationToken)
-    {
-        var pdf = ReceiptPdfGenerator.GenerateFinalSettlementReceiptPdf(BuildPdfModel(project, money, managerName, DateTime.UtcNow));
-        await files.StoreAsync(project.ProjectId, "SettlementReceipt", $"Bien_nhan_tat_toan_{project.ProjectCode}.pdf", pdf, managerId, cancellationToken);
-    }
+    private Task<WeddingProject?> ResolveProjectAsync(string projectCode, int userId, string role, CancellationToken cancellationToken) =>
+        ScopedProjects(db, projectCode, userId, role).FirstOrDefaultAsync(cancellationToken);
 
-    private async Task<WeddingProject?> ResolveProjectAsync(string projectCode, int userId, string role, CancellationToken cancellationToken)
+    /// <summary>The event with what the payment screens need, within the caller's scope (customer: their own; Manager: operated; Admin: all).</summary>
+    internal static IQueryable<WeddingProject> ScopedProjects(WpsmDbContext db, string projectCode, int userId, string role)
     {
         var query = db.WeddingProjects.Include(p => p.Customer).Include(p => p.Manager).Include(p => p.Hall).Include(p => p.Slot)
             .Include(p => p.Payments).ThenInclude(p => p.RecordedByNavigation)
             .Where(p => p.ProjectCode == projectCode);
         if (role == "Customer") query = query.Where(p => p.CustomerId == userId);
         else if (role == "Manager") query = query.Where(p => p.ManagerId == userId || p.ProjectManagers.Any(pm => pm.ManagerId == userId && pm.RemovedAt == null));
-        return await query.FirstOrDefaultAsync(cancellationToken);
+        return query;
     }
 
-    private async Task<Money> ComputeMoneyAsync(WeddingProject project, CancellationToken cancellationToken)
+    private Task<Money> ComputeMoneyAsync(WeddingProject project, CancellationToken cancellationToken) => ComputeMoneyAsync(db, project, cancellationToken);
+
+    internal static async Task<Money> ComputeMoneyAsync(WpsmDbContext db, WeddingProject project, CancellationToken cancellationToken)
     {
         var addonTotal = await EventFlowSupport.ConfirmedAddonTotalAsync(db, project.ProjectId, cancellationToken);
         var grand = PaymentCalculator.CalculateGrandTotal(project.CurrentTotal, addonTotal);
@@ -248,7 +144,7 @@ public sealed class ManagerPaymentRepository(
             money.TotalPaid, money.Outstanding, completed, completed && money.Outstanding == 0, project.Status == EventStatus.Settled, DateTime.UtcNow);
     }
 
-    private static FinalSettlementReceiptPdfModel BuildPdfModel(WeddingProject project, Money money, string managerName, DateTime issueDate) =>
+    internal static FinalSettlementReceiptPdfModel BuildPdfModel(WeddingProject project, Money money, string managerName, DateTime issueDate) =>
         new($"BN-{project.ProjectCode}-{issueDate:yyyyMMddHHmm}", project.ProjectCode, project.Customer.FullName, project.Customer.Email,
             project.Customer.Phone ?? "", project.EventDate, project.Hall.Name, money.ContractTotal, money.AddonTotal, money.GrandTotal, money.TotalPaid,
             0m, EventStatus.Settled, managerName, issueDate,

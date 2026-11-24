@@ -1,3 +1,5 @@
+using Infrastructure.UseCases;
+using Application.UseCases.Settlement;
 using System;
 using System.Linq;
 using System.Threading;
@@ -7,9 +9,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Application.Persistence;
 using Infrastructure.Email;
 using Infrastructure.Jobs;
-using Infrastructure.Payments;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
 using Xunit;
 
@@ -22,7 +23,7 @@ namespace Tests;
 public sealed class FinalSettlementJobTests : IDisposable
 {
     private readonly WpsmDbContext _db;
-    private readonly FinalSettlementService _service;
+    private readonly IssueSettlementInvoices _service;
     private readonly User _customer;
     private readonly User _manager;
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
@@ -41,8 +42,8 @@ public sealed class FinalSettlementJobTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    private FinalSettlementService NewService(IEmailOutbox outbox) => new(_db, new NotificationRepository(_db), outbox,
-        new EmailOptions { PublicBaseUrl = "http://localhost:5173" }, NullLogger<FinalSettlementService>.Instance);
+    private IssueSettlementInvoices NewService(IEmailOutbox outbox) => new(new SettlementStore(_db, null!),
+        new EventMessages(_db, outbox, new EmailOptions { PublicBaseUrl = "http://localhost:5173" }), new UnitOfWork(_db));
 
     private WeddingProject CreateEvent(string code, DateOnly eventDate, decimal total = 100_000_000m, decimal deposit = 30_000_000m, string status = "Locked")
     {

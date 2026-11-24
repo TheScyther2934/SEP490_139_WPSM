@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Application.Dashboard;
 using Infrastructure.Dashboard;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Xunit;
 
 namespace Tests;

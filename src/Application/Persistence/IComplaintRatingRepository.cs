@@ -1,6 +1,5 @@
 namespace Application.Persistence;
 
-public sealed record ModuleRatingInput(string Module, int Stars, string? Comment);
 
 public sealed record ModuleRatingView(
     string Module,
@@ -58,16 +57,13 @@ public interface IComplaintRatingRepository
 {
     // C-12, C-13: Post-event summary & Rate Services (UC-14 | GBR-10 | MSG16/26)
     Task<PostEventSummaryView?> GetPostEventSummaryAsync(int customerId, string? projectCode = null, CancellationToken cancellationToken = default);
-    Task<PostEventSummaryView?> SubmitRatingsAsync(int customerId, string? projectCode, IReadOnlyList<ModuleRatingInput> ratings, CancellationToken cancellationToken = default);
 
     // C-14, C-15, C-16: Customer Complaints (UC-15, UC-16 | MSG25)
     Task<IReadOnlyList<ComplaintView>> GetCustomerComplaintsAsync(int customerId, string? projectCode = null, CancellationToken cancellationToken = default);
     Task<ComplaintView?> GetCustomerComplaintAsync(int customerId, string complaintCode, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BeoOptionView>> GetCustomerBeoOptionsAsync(int customerId, string? projectCode = null, CancellationToken cancellationToken = default);
-    Task<ComplaintView> CreateCustomerComplaintAsync(int customerId, string? projectCode, int? beoId, string description, CancellationToken cancellationToken = default);
 
     // M-18, M-19, M-20: Manager Complaints (UC-35, UC-36 | BF-08)
     Task<IReadOnlyList<ComplaintView>> GetManagerComplaintsAsync(int managerId, string? projectCode = null, CancellationToken cancellationToken = default);
     Task<ComplaintView?> GetManagerComplaintAsync(int managerId, string complaintCode, CancellationToken cancellationToken = default);
-    Task<ComplaintView?> RespondOrEscalateComplaintAsync(int managerId, string complaintCode, string action, string note, CancellationToken cancellationToken = default);
 }

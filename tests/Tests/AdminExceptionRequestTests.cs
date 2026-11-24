@@ -1,6 +1,10 @@
 using Application.Persistence;
+using Application.UseCases.Resources;
+using Infrastructure.Email;
+using Infrastructure.UseCases;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
+using Domain.Rules;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -75,6 +79,9 @@ public sealed class AdminExceptionRequestTests
         await _db.SaveChangesAsync();
     }
 
+    private DecideExceptionRequest Decide() =>
+        new(new ResourceAllocationStore(_db), new EventMessages(_db, new TestFixtures.RecordingEmailOutbox(), new EmailOptions()), new UnitOfWork(_db));
+
     private DateTime At(int hour) =>
         DateTime.SpecifyKind(TestFixtures.Today.AddDays(10).ToDateTime(new TimeOnly(hour, 0)), DateTimeKind.Utc);
 
@@ -147,8 +154,8 @@ public sealed class AdminExceptionRequestTests
     {
         await SeedAsync();
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _repo.DecideExceptionAsync(1, approve: true, note: "   ", AdminId));
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            Decide().HandleAsync(1, approve: true, note: "   ", AdminId));
 
         Assert.Contains("Ghi chú quyết định", ex.Message);
     }
@@ -158,8 +165,8 @@ public sealed class AdminExceptionRequestTests
     {
         await SeedAsync();
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _repo.DecideExceptionAsync(1, approve: true, note: new string('n', 301), AdminId));
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            Decide().HandleAsync(1, approve: true, note: new string('n', 301), AdminId));
 
         Assert.Contains("300", ex.Message);
     }
@@ -169,7 +176,7 @@ public sealed class AdminExceptionRequestTests
     {
         await SeedAsync();
 
-        var decided = await _repo.DecideExceptionAsync(999, approve: true, note: "Hợp lệ", AdminId);
+        var decided = await Decide().HandleAsync(999, approve: true, note: "Hợp lệ", AdminId);
 
         Assert.False(decided);
     }
@@ -179,8 +186,8 @@ public sealed class AdminExceptionRequestTests
     {
         await SeedAsync();
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _repo.DecideExceptionAsync(DecidedRequestId, approve: true, note: "Duyệt lại", AdminId));
+        var ex = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            Decide().HandleAsync(DecidedRequestId, approve: true, note: "Duyệt lại", AdminId));
 
         Assert.Contains("đã được quyết định", ex.Message);
     }
@@ -190,7 +197,7 @@ public sealed class AdminExceptionRequestTests
     {
         await SeedAsync();
 
-        var decided = await _repo.DecideExceptionAsync(ResourceRequestId, approve: true, note: "Cho phép vượt công suất", AdminId);
+        var decided = await Decide().HandleAsync(ResourceRequestId, approve: true, note: "Cho phép vượt công suất", AdminId);
 
         Assert.True(decided);
         var allocation = await _db.ResourceAllocations.SingleAsync(a => a.AllocationId == 202);
@@ -207,7 +214,7 @@ public sealed class AdminExceptionRequestTests
     {
         await SeedAsync();
 
-        var decided = await _repo.DecideExceptionAsync(ResourceRequestId, approve: false, note: "Không thể bố trí thêm thiết bị", AdminId);
+        var decided = await Decide().HandleAsync(ResourceRequestId, approve: false, note: "Không thể bố trí thêm thiết bị", AdminId);
 
         Assert.True(decided);
         var allocation = await _db.ResourceAllocations.SingleAsync(a => a.AllocationId == 202);

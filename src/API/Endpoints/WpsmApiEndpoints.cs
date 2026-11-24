@@ -40,14 +40,12 @@ public static class WpsmApiEndpoints
         api.MapAuthEndpoints();
         api.MapCustomerEndpoints();
         api.MapEventFlowEndpoints();
-        api.MapResourceCalendarEndpoints();
         api.MapOperationsEndpoints();
         api.MapCustomerPaymentEndpoints();
         api.MapManagerPaymentEndpoints();
         api.MapNotificationEndpoints();
         api.MapOverdueAlertEndpoints();
         api.MapManagerDashboardEndpoints();
-        api.MapDayOfTaskEndpoints();
         // OperationsEndpoints (day-of, feedback, resources, catalog) is mapped once above:
         // mapping it twice makes every one of its routes ambiguous at runtime.
         return api;

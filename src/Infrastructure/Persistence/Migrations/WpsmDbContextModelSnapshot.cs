@@ -23,7 +23,7 @@ namespace Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "citext");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.AddonContract", b =>
+            modelBuilder.Entity("Domain.Entities.AddonContract", b =>
                 {
                     b.Property<int>("AddonId")
                         .ValueGeneratedOnAdd()
@@ -92,7 +92,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("AddonContracts", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.AddonContractItem", b =>
+            modelBuilder.Entity("Domain.Entities.AddonContractItem", b =>
                 {
                     b.Property<int>("AddonItemId")
                         .ValueGeneratedOnAdd()
@@ -131,7 +131,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("AddonContractItems", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.AuditLog", b =>
+            modelBuilder.Entity("Domain.Entities.AuditLog", b =>
                 {
                     b.Property<long>("AuditId")
                         .ValueGeneratedOnAdd()
@@ -206,7 +206,7 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Beo", b =>
+            modelBuilder.Entity("Domain.Entities.Beo", b =>
                 {
                     b.Property<int>("Beoid")
                         .ValueGeneratedOnAdd()
@@ -254,7 +254,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("BEOs", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.BeodepartmentSheet", b =>
+            modelBuilder.Entity("Domain.Entities.BeodepartmentSheet", b =>
                 {
                     b.Property<int>("SheetId")
                         .ValueGeneratedOnAdd()
@@ -290,7 +290,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("BEODepartmentSheets", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Complaint", b =>
+            modelBuilder.Entity("Domain.Entities.Complaint", b =>
                 {
                     b.Property<int>("ComplaintId")
                         .ValueGeneratedOnAdd()
@@ -367,7 +367,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Complaints");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.DayOfTask", b =>
+            modelBuilder.Entity("Domain.Entities.DayOfTask", b =>
                 {
                     b.Property<int>("DayOfTaskId")
                         .ValueGeneratedOnAdd()
@@ -449,7 +449,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("DayOfTasks");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.EmailOutboxMessage", b =>
+            modelBuilder.Entity("Domain.Entities.EmailOutboxMessage", b =>
                 {
                     b.Property<long>("EmailId")
                         .ValueGeneratedOnAdd()
@@ -519,7 +519,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("EmailOutbox", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ExceptionRequest", b =>
+            modelBuilder.Entity("Domain.Entities.ExceptionRequest", b =>
                 {
                     b.Property<int>("ExceptionRequestId")
                         .ValueGeneratedOnAdd()
@@ -586,7 +586,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("ExceptionRequests");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ExecutionPhoto", b =>
+            modelBuilder.Entity("Domain.Entities.ExecutionPhoto", b =>
                 {
                     b.Property<int>("PhotoId")
                         .ValueGeneratedOnAdd()
@@ -634,7 +634,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("ExecutionPhotos");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Hall", b =>
+            modelBuilder.Entity("Domain.Entities.Hall", b =>
                 {
                     b.Property<int>("HallId")
                         .ValueGeneratedOnAdd()
@@ -671,7 +671,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Halls");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Notification", b =>
+            modelBuilder.Entity("Domain.Entities.Notification", b =>
                 {
                     b.Property<int>("NotificationId")
                         .ValueGeneratedOnAdd()
@@ -713,7 +713,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Notifications");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Payment", b =>
+            modelBuilder.Entity("Domain.Entities.Payment", b =>
                 {
                     b.Property<int>("PaymentId")
                         .ValueGeneratedOnAdd()
@@ -774,7 +774,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Payments");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.PolicyConfig", b =>
+            modelBuilder.Entity("Domain.Entities.PolicyConfig", b =>
                 {
                     b.Property<int>("PolicyId")
                         .ValueGeneratedOnAdd()
@@ -812,7 +812,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("PolicyConfigs");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.PriceFrame", b =>
+            modelBuilder.Entity("Domain.Entities.PriceFrame", b =>
                 {
                     b.Property<int>("PriceFrameId")
                         .ValueGeneratedOnAdd()
@@ -851,7 +851,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("PriceFrames");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ProjectManager", b =>
+            modelBuilder.Entity("Domain.Entities.ProjectManager", b =>
                 {
                     b.Property<int>("ProjectManagerId")
                         .ValueGeneratedOnAdd()
@@ -907,7 +907,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("ProjectManagers", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Rating", b =>
+            modelBuilder.Entity("Domain.Entities.Rating", b =>
                 {
                     b.Property<int>("RatingId")
                         .ValueGeneratedOnAdd()
@@ -944,7 +944,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Ratings");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.RefreshToken", b =>
+            modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<int>("RefreshTokenId")
                         .ValueGeneratedOnAdd()
@@ -1004,7 +1004,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Resource", b =>
+            modelBuilder.Entity("Domain.Entities.Resource", b =>
                 {
                     b.Property<int>("ResourceId")
                         .ValueGeneratedOnAdd()
@@ -1033,7 +1033,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Resources");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ResourceAllocation", b =>
+            modelBuilder.Entity("Domain.Entities.ResourceAllocation", b =>
                 {
                     b.Property<int>("AllocationId")
                         .ValueGeneratedOnAdd()
@@ -1095,7 +1095,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("ResourceAllocations");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ServiceCatalogItem", b =>
+            modelBuilder.Entity("Domain.Entities.ServiceCatalogItem", b =>
                 {
                     b.Property<int>("ItemId")
                         .ValueGeneratedOnAdd()
@@ -1141,7 +1141,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("ServiceCatalogItems");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SettlementInvoice", b =>
+            modelBuilder.Entity("Domain.Entities.SettlementInvoice", b =>
                 {
                     b.Property<int>("InvoiceId")
                         .ValueGeneratedOnAdd()
@@ -1205,7 +1205,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("SettlementInvoices", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SettlementInvoiceLine", b =>
+            modelBuilder.Entity("Domain.Entities.SettlementInvoiceLine", b =>
                 {
                     b.Property<int>("LineId")
                         .ValueGeneratedOnAdd()
@@ -1239,7 +1239,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("SettlementInvoiceLines", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Slot", b =>
+            modelBuilder.Entity("Domain.Entities.Slot", b =>
                 {
                     b.Property<int>("SlotId")
                         .ValueGeneratedOnAdd()
@@ -1274,7 +1274,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Slots");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SpecItem", b =>
+            modelBuilder.Entity("Domain.Entities.SpecItem", b =>
                 {
                     b.Property<int>("SpecItemId")
                         .ValueGeneratedOnAdd()
@@ -1313,7 +1313,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("SpecItems");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.StageNote", b =>
+            modelBuilder.Entity("Domain.Entities.StageNote", b =>
                 {
                     b.Property<int>("StageNoteId")
                         .ValueGeneratedOnAdd()
@@ -1361,7 +1361,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("StageNotes", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.StoredFile", b =>
+            modelBuilder.Entity("Domain.Entities.StoredFile", b =>
                 {
                     b.Property<Guid>("FileId")
                         .ValueGeneratedOnAdd()
@@ -1409,7 +1409,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("StoredFiles");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SupplierEvidence", b =>
+            modelBuilder.Entity("Domain.Entities.SupplierEvidence", b =>
                 {
                     b.Property<int>("EvidenceId")
                         .ValueGeneratedOnAdd()
@@ -1462,7 +1462,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("SupplierEvidences", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SystemSetting", b =>
+            modelBuilder.Entity("Domain.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("SettingKey")
                         .HasMaxLength(50)
@@ -1487,7 +1487,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("SystemSettings", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.User", b =>
+            modelBuilder.Entity("Domain.Entities.User", b =>
                 {
                     b.Property<int>("UserId")
                         .ValueGeneratedOnAdd()
@@ -1545,7 +1545,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.UserSession", b =>
+            modelBuilder.Entity("Domain.Entities.UserSession", b =>
                 {
                     b.Property<Guid>("SessionId")
                         .ValueGeneratedOnAdd()
@@ -1593,7 +1593,7 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("UserSessions", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.WeddingProject", b =>
+            modelBuilder.Entity("Domain.Entities.WeddingProject", b =>
                 {
                     b.Property<int>("ProjectId")
                         .ValueGeneratedOnAdd()
@@ -1687,14 +1687,14 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("WeddingProjects");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.AddonContract", b =>
+            modelBuilder.Entity("Domain.Entities.AddonContract", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "CreatedByNavigation")
+                    b.HasOne("Domain.Entities.User", "CreatedByNavigation")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("AddonContracts")
                         .HasForeignKey("ProjectId")
                         .IsRequired();
@@ -1704,15 +1704,15 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.AddonContractItem", b =>
+            modelBuilder.Entity("Domain.Entities.AddonContractItem", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.AddonContract", "Addon")
+                    b.HasOne("Domain.Entities.AddonContract", "Addon")
                         .WithMany("Items")
                         .HasForeignKey("AddonId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.ServiceCatalogItem", "CatalogItem")
+                    b.HasOne("Domain.Entities.ServiceCatalogItem", "CatalogItem")
                         .WithMany()
                         .HasForeignKey("CatalogItemId");
 
@@ -1721,14 +1721,14 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("CatalogItem");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Beo", b =>
+            modelBuilder.Entity("Domain.Entities.Beo", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "ApprovedByNavigation")
+                    b.HasOne("Domain.Entities.User", "ApprovedByNavigation")
                         .WithMany("Beos")
                         .HasForeignKey("ApprovedBy")
                         .HasConstraintName("FK_BEO_ApprovedBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("Beos")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
@@ -1739,9 +1739,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.BeodepartmentSheet", b =>
+            modelBuilder.Entity("Domain.Entities.BeodepartmentSheet", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.Beo", "Beo")
+                    b.HasOne("Domain.Entities.Beo", "Beo")
                         .WithMany("BeodepartmentSheets")
                         .HasForeignKey("Beoid")
                         .IsRequired()
@@ -1750,15 +1750,15 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Beo");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Complaint", b =>
+            modelBuilder.Entity("Domain.Entities.Complaint", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("Complaints")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
                         .HasConstraintName("FK_Complaint_Project");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.Beo", "Beo")
+                    b.HasOne("Domain.Entities.Beo", "Beo")
                         .WithMany("Complaints")
                         .HasForeignKey("Beoid", "ProjectId")
                         .HasPrincipalKey("Beoid", "ProjectId")
@@ -1770,19 +1770,19 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.DayOfTask", b =>
+            modelBuilder.Entity("Domain.Entities.DayOfTask", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "CompletedByUser")
+                    b.HasOne("Domain.Entities.User", "CompletedByUser")
                         .WithMany()
                         .HasForeignKey("CompletedBy")
                         .HasConstraintName("FK_DayOf_CompletedBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "CreatedByUser")
+                    b.HasOne("Domain.Entities.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
                         .HasConstraintName("FK_DayOf_CreatedBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("DayOfTasks")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
@@ -1795,23 +1795,23 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ExceptionRequest", b =>
+            modelBuilder.Entity("Domain.Entities.ExceptionRequest", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.ResourceAllocation", "Allocation")
+                    b.HasOne("Domain.Entities.ResourceAllocation", "Allocation")
                         .WithMany()
                         .HasForeignKey("AllocationId")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "DecisionByNavigation")
+                    b.HasOne("Domain.Entities.User", "DecisionByNavigation")
                         .WithMany()
                         .HasForeignKey("DecisionBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "RequestedByNavigation")
+                    b.HasOne("Domain.Entities.User", "RequestedByNavigation")
                         .WithMany()
                         .HasForeignKey("RequestedBy")
                         .IsRequired();
@@ -1825,20 +1825,20 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("RequestedByNavigation");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ExecutionPhoto", b =>
+            modelBuilder.Entity("Domain.Entities.ExecutionPhoto", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.DayOfTask", "DayOfTask")
+                    b.HasOne("Domain.Entities.DayOfTask", "DayOfTask")
                         .WithMany("ExecutionPhotos")
                         .HasForeignKey("DayOfTaskId")
                         .IsRequired()
                         .HasConstraintName("FK_Photo_Task");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.StoredFile", "File")
+                    b.HasOne("Domain.Entities.StoredFile", "File")
                         .WithMany()
                         .HasForeignKey("FileId")
                         .HasConstraintName("FK_Photo_File");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "Uploader")
+                    b.HasOne("Domain.Entities.User", "Uploader")
                         .WithMany("ExecutionPhotos")
                         .HasForeignKey("UploaderId")
                         .IsRequired()
@@ -1851,9 +1851,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Uploader");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Notification", b =>
+            modelBuilder.Entity("Domain.Entities.Notification", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "Recipient")
+                    b.HasOne("Domain.Entities.User", "Recipient")
                         .WithMany("Notifications")
                         .HasForeignKey("RecipientId")
                         .IsRequired()
@@ -1862,15 +1862,15 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Recipient");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Payment", b =>
+            modelBuilder.Entity("Domain.Entities.Payment", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("Payments")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
                         .HasConstraintName("FK_Payment_Project");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "RecordedByNavigation")
+                    b.HasOne("Domain.Entities.User", "RecordedByNavigation")
                         .WithMany("Payments")
                         .HasForeignKey("RecordedBy")
                         .HasConstraintName("FK_Payment_RecordedBy");
@@ -1880,9 +1880,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("RecordedByNavigation");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.PolicyConfig", b =>
+            modelBuilder.Entity("Domain.Entities.PolicyConfig", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "UpdatedByNavigation")
+                    b.HasOne("Domain.Entities.User", "UpdatedByNavigation")
                         .WithMany("PolicyConfigs")
                         .HasForeignKey("UpdatedBy")
                         .IsRequired()
@@ -1891,15 +1891,15 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("UpdatedByNavigation");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.PriceFrame", b =>
+            modelBuilder.Entity("Domain.Entities.PriceFrame", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.ServiceCatalogItem", "Item")
+                    b.HasOne("Domain.Entities.ServiceCatalogItem", "Item")
                         .WithMany("PriceFrames")
                         .HasForeignKey("ItemId")
                         .IsRequired()
                         .HasConstraintName("FK_PriceFrames_Item");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "UpdatedByNavigation")
+                    b.HasOne("Domain.Entities.User", "UpdatedByNavigation")
                         .WithMany("PriceFrames")
                         .HasForeignKey("UpdatedBy")
                         .IsRequired()
@@ -1910,23 +1910,23 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("UpdatedByNavigation");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ProjectManager", b =>
+            modelBuilder.Entity("Domain.Entities.ProjectManager", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "AssignedByNavigation")
+                    b.HasOne("Domain.Entities.User", "AssignedByNavigation")
                         .WithMany()
                         .HasForeignKey("AssignedBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "Manager")
+                    b.HasOne("Domain.Entities.User", "Manager")
                         .WithMany()
                         .HasForeignKey("ManagerId")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("ProjectManagers")
                         .HasForeignKey("ProjectId")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "RemovedByNavigation")
+                    b.HasOne("Domain.Entities.User", "RemovedByNavigation")
                         .WithMany()
                         .HasForeignKey("RemovedBy");
 
@@ -1939,9 +1939,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("RemovedByNavigation");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Rating", b =>
+            modelBuilder.Entity("Domain.Entities.Rating", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("Ratings")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
@@ -1950,17 +1950,17 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.RefreshToken", b =>
+            modelBuilder.Entity("Domain.Entities.RefreshToken", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.RefreshToken", "ReplacedByToken")
+                    b.HasOne("Domain.Entities.RefreshToken", "ReplacedByToken")
                         .WithMany()
                         .HasForeignKey("ReplacedByTokenId");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.UserSession", "Session")
+                    b.HasOne("Domain.Entities.UserSession", "Session")
                         .WithMany("RefreshTokens")
                         .HasForeignKey("SessionId");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "User")
+                    b.HasOne("Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .IsRequired();
@@ -1972,26 +1972,26 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ResourceAllocation", b =>
+            modelBuilder.Entity("Domain.Entities.ResourceAllocation", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "ExceptionApprovedByNavigation")
+                    b.HasOne("Domain.Entities.User", "ExceptionApprovedByNavigation")
                         .WithMany("ResourceAllocations")
                         .HasForeignKey("ExceptionApprovedBy")
                         .HasConstraintName("FK_Alloc_ExceptionBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.Hall", "Hall")
+                    b.HasOne("Domain.Entities.Hall", "Hall")
                         .WithMany("ResourceAllocations")
                         .HasForeignKey("HallId")
                         .IsRequired()
                         .HasConstraintName("FK_Alloc_Hall");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("ResourceAllocations")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
                         .HasConstraintName("FK_Alloc_Project");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.Resource", "Resource")
+                    b.HasOne("Domain.Entities.Resource", "Resource")
                         .WithMany("ResourceAllocations")
                         .HasForeignKey("ResourceId")
                         .IsRequired()
@@ -2006,19 +2006,19 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Resource");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SettlementInvoice", b =>
+            modelBuilder.Entity("Domain.Entities.SettlementInvoice", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithOne("SettlementInvoice")
-                        .HasForeignKey("Infrastructure.Persistence.Entities.SettlementInvoice", "ProjectId")
+                        .HasForeignKey("Domain.Entities.SettlementInvoice", "ProjectId")
                         .IsRequired();
 
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SettlementInvoiceLine", b =>
+            modelBuilder.Entity("Domain.Entities.SettlementInvoiceLine", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.SettlementInvoice", "Invoice")
+                    b.HasOne("Domain.Entities.SettlementInvoice", "Invoice")
                         .WithMany("Lines")
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2027,9 +2027,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Invoice");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Slot", b =>
+            modelBuilder.Entity("Domain.Entities.Slot", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.Hall", "Hall")
+                    b.HasOne("Domain.Entities.Hall", "Hall")
                         .WithMany("Slots")
                         .HasForeignKey("HallId")
                         .IsRequired()
@@ -2038,15 +2038,15 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Hall");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SpecItem", b =>
+            modelBuilder.Entity("Domain.Entities.SpecItem", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.ServiceCatalogItem", "CatalogItem")
+                    b.HasOne("Domain.Entities.ServiceCatalogItem", "CatalogItem")
                         .WithMany("SpecItems")
                         .HasForeignKey("CatalogItemId")
                         .IsRequired()
                         .HasConstraintName("FK_Spec_Catalog");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("SpecItems")
                         .HasForeignKey("ProjectId")
                         .IsRequired()
@@ -2057,14 +2057,14 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.StageNote", b =>
+            modelBuilder.Entity("Domain.Entities.StageNote", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "CreatedByNavigation")
+                    b.HasOne("Domain.Entities.User", "CreatedByNavigation")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("StageNotes")
                         .HasForeignKey("ProjectId")
                         .IsRequired();
@@ -2074,32 +2074,32 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.StoredFile", b =>
+            modelBuilder.Entity("Domain.Entities.StoredFile", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId");
 
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SupplierEvidence", b =>
+            modelBuilder.Entity("Domain.Entities.SupplierEvidence", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.StoredFile", "File")
+                    b.HasOne("Domain.Entities.StoredFile", "File")
                         .WithMany()
                         .HasForeignKey("FileId")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.WeddingProject", "Project")
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
                         .WithMany("SupplierEvidences")
                         .HasForeignKey("ProjectId")
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.Persistence.Entities.SpecItem", "SpecItem")
+                    b.HasOne("Domain.Entities.SpecItem", "SpecItem")
                         .WithMany()
                         .HasForeignKey("SpecItemId");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "UploadedByNavigation")
+                    b.HasOne("Domain.Entities.User", "UploadedByNavigation")
                         .WithMany()
                         .HasForeignKey("UploadedBy")
                         .IsRequired();
@@ -2113,9 +2113,9 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("UploadedByNavigation");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.UserSession", b =>
+            modelBuilder.Entity("Domain.Entities.UserSession", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "User")
+                    b.HasOne("Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .IsRequired();
@@ -2123,37 +2123,37 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.WeddingProject", b =>
+            modelBuilder.Entity("Domain.Entities.WeddingProject", b =>
                 {
-                    b.HasOne("Infrastructure.Persistence.Entities.User", null)
+                    b.HasOne("Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("CancelledBy")
                         .HasConstraintName("FK_Projects_CancelledBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "CreatedByNavigation")
+                    b.HasOne("Domain.Entities.User", "CreatedByNavigation")
                         .WithMany()
                         .HasForeignKey("CreatedBy")
                         .HasConstraintName("FK_Projects_CreatedBy");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "Customer")
+                    b.HasOne("Domain.Entities.User", "Customer")
                         .WithMany("WeddingProjectCustomers")
                         .HasForeignKey("CustomerId")
                         .IsRequired()
                         .HasConstraintName("FK_Projects_Customer");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.Hall", "Hall")
+                    b.HasOne("Domain.Entities.Hall", "Hall")
                         .WithMany("WeddingProjects")
                         .HasForeignKey("HallId")
                         .IsRequired()
                         .HasConstraintName("FK_Projects_Hall");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.User", "Manager")
+                    b.HasOne("Domain.Entities.User", "Manager")
                         .WithMany("WeddingProjectManagers")
                         .HasForeignKey("ManagerId")
                         .IsRequired()
                         .HasConstraintName("FK_Projects_Manager");
 
-                    b.HasOne("Infrastructure.Persistence.Entities.Slot", "Slot")
+                    b.HasOne("Domain.Entities.Slot", "Slot")
                         .WithMany("WeddingProjects")
                         .HasForeignKey("SlotId", "HallId")
                         .HasPrincipalKey("SlotId", "HallId")
@@ -2171,24 +2171,24 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Slot");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.AddonContract", b =>
+            modelBuilder.Entity("Domain.Entities.AddonContract", b =>
                 {
                     b.Navigation("Items");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Beo", b =>
+            modelBuilder.Entity("Domain.Entities.Beo", b =>
                 {
                     b.Navigation("BeodepartmentSheets");
 
                     b.Navigation("Complaints");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.DayOfTask", b =>
+            modelBuilder.Entity("Domain.Entities.DayOfTask", b =>
                 {
                     b.Navigation("ExecutionPhotos");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Hall", b =>
+            modelBuilder.Entity("Domain.Entities.Hall", b =>
                 {
                     b.Navigation("ResourceAllocations");
 
@@ -2197,29 +2197,29 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("WeddingProjects");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Resource", b =>
+            modelBuilder.Entity("Domain.Entities.Resource", b =>
                 {
                     b.Navigation("ResourceAllocations");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.ServiceCatalogItem", b =>
+            modelBuilder.Entity("Domain.Entities.ServiceCatalogItem", b =>
                 {
                     b.Navigation("PriceFrames");
 
                     b.Navigation("SpecItems");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.SettlementInvoice", b =>
+            modelBuilder.Entity("Domain.Entities.SettlementInvoice", b =>
                 {
                     b.Navigation("Lines");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.Slot", b =>
+            modelBuilder.Entity("Domain.Entities.Slot", b =>
                 {
                     b.Navigation("WeddingProjects");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.User", b =>
+            modelBuilder.Entity("Domain.Entities.User", b =>
                 {
                     b.Navigation("Beos");
 
@@ -2240,12 +2240,12 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("WeddingProjectManagers");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.UserSession", b =>
+            modelBuilder.Entity("Domain.Entities.UserSession", b =>
                 {
                     b.Navigation("RefreshTokens");
                 });
 
-            modelBuilder.Entity("Infrastructure.Persistence.Entities.WeddingProject", b =>
+            modelBuilder.Entity("Domain.Entities.WeddingProject", b =>
                 {
                     b.Navigation("AddonContracts");
 

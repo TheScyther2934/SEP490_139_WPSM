@@ -8,7 +8,7 @@ using Application.OverdueAlerts;
 using Domain.Events;
 using Domain.Services;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 

@@ -122,24 +122,13 @@ public interface IManagerPaymentRepository
         string role,
         CancellationToken cancellationToken = default);
 
-    Task<RecordPaymentResult> RecordPaymentAsync(
-        string projectCode,
-        int managerId,
-        string role,
-        RecordPaymentCommand command,
-        CancellationToken cancellationToken = default);
-
     Task<SettlementCalculationView?> GetSettlementCalculationAsync(
         string projectCode,
         int userId,
         string role,
         CancellationToken cancellationToken = default);
 
-    Task<FinalSettlementReceiptView?> GenerateSettlementReceiptAsync(
-        string projectCode,
-        int managerId,
-        string role,
-        CancellationToken cancellationToken = default);
+    Task<FinalSettlementReceiptView?> GetSettlementReceiptAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default);
 
     Task<FileContentResultModel?> GetSettlementReceiptFileAsync(
         string projectCode,

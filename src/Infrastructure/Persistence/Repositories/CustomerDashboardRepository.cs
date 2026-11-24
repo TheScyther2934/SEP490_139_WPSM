@@ -112,4 +112,10 @@ public sealed class CustomerDashboardRepository(WpsmDbContext db) : ICustomerDas
             Hotline = await EventFlowSupport.LoadHotlineAsync(db, cancellationToken)
         };
     }
+
+    public Task<StoredFileRef?> GetProofPhotoAsync(int customerId, int photoId, CancellationToken cancellationToken = default) =>
+        db.ExecutionPhotos.AsNoTracking()
+            .Where(p => p.PhotoId == photoId && p.DayOfTask.Project.CustomerId == customerId && (p.ContentType == null || p.ContentType.StartsWith("image/")))
+            .Select(p => new StoredFileRef(p.ImageFilePath, p.ContentType ?? "image/jpeg", p.FileName ?? "anh"))
+            .FirstOrDefaultAsync(cancellationToken);
 }

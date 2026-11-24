@@ -1,6 +1,6 @@
 ﻿using Application.Persistence;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Email;
 

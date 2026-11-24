@@ -36,7 +36,6 @@ export const ENDPOINTS = {
   beoFreeze: (code) => `/projects/${encodeURIComponent(code)}/beo/freeze`,
   beoDepartmentSheets: (code) => `/projects/${encodeURIComponent(code)}/beo/department-sheets`,
   beoDepartmentPdf: (code, department) => `/projects/${encodeURIComponent(code)}/beo/department-sheets/${encodeURIComponent(department)}/pdf`,
-  compileBeoDrafts: "/projects/beo/compile-t7",
   managerComplaints: "/manager/complaints",
   managerComplaint: (complaintCode) => `/manager/complaints/${encodeURIComponent(complaintCode)}`,
   managerComplaintAction: (complaintCode) => `/manager/complaints/${encodeURIComponent(complaintCode)}/action`,
@@ -75,14 +74,10 @@ export const ENDPOINTS = {
   manager: {
     dashboard: "/manager/dashboard",
     overdueAlerts: "/manager/overdue-alerts",
-    dayOfTasks: (code) => `/projects/${encodeURIComponent(code)}/day-of-tasks`,
-    completeDayOfTask: (code, taskId) => `/projects/${encodeURIComponent(code)}/day-of-tasks/${taskId}/complete`,
-    completeDayOfTaskDirect: (taskId) => `/day-of-tasks/${taskId}/complete`,
   },
   managerPayments: {
     getPayments: (code) => `/projects/${encodeURIComponent(code)}/payments`,
     recordPayment: (code) => `/projects/${encodeURIComponent(code)}/payments/record`,
-    getSettlement: (code) => `/projects/${encodeURIComponent(code)}/settlement`,
     generateReceipt: (code) => `/projects/${encodeURIComponent(code)}/settlement/receipt`,
     getReceiptFile: (code) => `/projects/${encodeURIComponent(code)}/settlement/receipt`,
     downloadPaymentReceipt: (code, paymentType) => `/projects/${encodeURIComponent(code)}/payments/${encodeURIComponent(paymentType)}/receipt`,
@@ -98,22 +93,13 @@ export const ENDPOINTS = {
     complaintBeoOptions: "/customer/complaints/beo-options",
     complaint: (complaintCode) => `/customer/complaints/${encodeURIComponent(complaintCode)}`,
   },
-  // FE-07. Manager calendar, allocation dialog and conflict detail.
-  resourceCalendar: "/resource-calendar",
-  resources: "/resources",
-  resourceAllocations: "/resource-allocations",
-  resourceAllocation: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}`,
-  allocationException: (allocationId) => `/resource-allocations/${encodeURIComponent(allocationId)}/exception`,
   customerPayments: {
     overview: (projectCode) => `/customer/payments${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
-    summary: (projectCode) => `/customer/payments/summary${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
-    milestones: (projectCode) => `/customer/payments/milestones${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
     receipt: (paymentType, projectCode) =>
       `/customer/payments/${encodeURIComponent(paymentType)}/receipt${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
     finalReceipt: (projectCode) =>
       `/customer/payments/final-receipt${projectCode ? `?projectCode=${encodeURIComponent(projectCode)}` : ""}`,
   },
-  files: "/files",
   file: (id) => `/files/${encodeURIComponent(id)}`,
 };
 

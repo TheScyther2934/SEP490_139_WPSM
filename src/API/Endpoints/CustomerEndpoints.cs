@@ -1,7 +1,6 @@
 using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
-using Infrastructure.Persistence;
+using Application.UseCases.PostEvent;
 using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
@@ -20,23 +19,11 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/photos/{photoId:int}",
-            async (int photoId, WpsmDbContext db, IFileService files, HttpContext context, ClaimsPrincipal user, CancellationToken ct) =>
-            {
-                var userId = UserId(user);
-                var photo = await db.ExecutionPhotos
-                    .AsNoTracking()
-                    .Include(ep => ep.DayOfTask)
-                        .ThenInclude(dot => dot.Project)
-                    .FirstOrDefaultAsync(ep => ep.PhotoId == photoId, ct);
-
-                if (photo is null) return Results.NotFound();
-                if (photo.DayOfTask.Project.CustomerId != userId)
-                    return Results.Forbid();
-
-                // Customers see photos only, never internal documents (PDF proof).
-                if (photo.ContentType is { } type && !type.StartsWith("image/", StringComparison.Ordinal)) return Results.NotFound();
-                return await ServeStoredFile(files, new StoredFileRef(photo.ImageFilePath, photo.ContentType ?? "image/jpeg", photo.FileName ?? "anh"), context, ct);
-            })
+            // Own events and photos only (never internal PDF documents): anything else is simply not found.
+            async (int photoId, ICustomerDashboardRepository dashboard, IFileService files, HttpContext context, ClaimsPrincipal user, CancellationToken ct) =>
+                await dashboard.GetProofPhotoAsync(UserId(user), photoId, ct) is { } photo
+                    ? await ServeStoredFile(files, photo, context, ct)
+                    : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/dashboard",
@@ -57,8 +44,8 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapPost("/customer/ratings",
-            async (SubmitRatingsRequest request, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                await repo.SubmitRatingsAsync(UserId(user), request.ProjectCode, request.Ratings, ct) is { } summary ? Results.Ok(summary) : Results.NotFound())
+            async (SubmitRatingsRequest request, SubmitRatings useCase, ClaimsPrincipal user, CancellationToken ct) =>
+                await useCase.HandleAsync(UserId(user), request.ProjectCode, request.Ratings, ct) is { } summary ? Results.Ok(summary) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         // C-14, C-15, C-16: Customer Complaints List, File Complaint, Complaint Status (UC-15, UC-16, MSG25)
@@ -73,8 +60,8 @@ public static class CustomerEndpoints
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapPost("/customer/complaints",
-            async (CreateComplaintRequest request, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-                Results.Created("/api/wpsm/customer/complaints", await repo.CreateCustomerComplaintAsync(UserId(user), request.ProjectCode, request.BeoId, request.Description, ct)))
+            async (CreateComplaintRequest request, FileComplaint useCase, ClaimsPrincipal user, CancellationToken ct) =>
+                Results.Created("/api/wpsm/customer/complaints", await useCase.HandleAsync(UserId(user), request.ProjectCode, request.BeoId, request.Description, ct)))
             .RequireAuthorization(policy => policy.RequireRole("Customer"));
 
         api.MapGet("/customer/complaints/{complaintCode}",

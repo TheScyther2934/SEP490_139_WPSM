@@ -1,8 +1,7 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Identity;
 using Application.Auth;
+using Application.UseCases.Accounts;
 using Application.Persistence;
-using Infrastructure.Persistence.Entities;
 using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
@@ -17,12 +16,12 @@ public static class AuthEndpoints
 
     public static RouteGroupBuilder MapAuthEndpoints(this RouteGroupBuilder api)
     {
-        api.MapPost("/auth/token", async (LoginRequest request, IAccountProfileRepository repo, IPasswordHasher<User> hasher,
+        api.MapPost("/auth/token", async (LoginRequest request, IAccountProfileRepository repo, IPasswordService passwords,
             ITokenService tokens, IRefreshTokenService refreshTokens, IAuditLogRepository audit, HttpContext context, CancellationToken ct) =>
         {
             var account = await repo.FindAccountAsync(request.Email ?? "", ct);
             // GBR-11: one generic answer whether the email, the password or the account status is wrong.
-            if (account is null || account.Status != "Active" || VerifyPassword(hasher, account, request.Password ?? "") == PasswordVerificationResult.Failed)
+            if (account is null || account.Status != "Active" || !passwords.Verify(account.PasswordHash, request.Password ?? ""))
                 return Results.Json(new { message = "Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại." }, statusCode: StatusCodes.Status401Unauthorized);
             await audit.LogLoginAsync(new LoginAuditCommand(account.UserId, account.FullName, account.Email, account.Role, ClientIp(context)), ct);
             return await IssueTokensAsync(account, tokens, refreshTokens, context, ct);
@@ -55,24 +54,18 @@ public static class AuthEndpoints
         api.MapGet("/profile", async (IAccountProfileRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             await repo.GetProfileAsync(UserId(user), ct) is { } profile ? Results.Ok(profile) : Results.NotFound())
             .RequireAuthorization();
-        api.MapPut("/profile", async (ProfileRequest request, IAccountProfileRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.UpdateProfileAsync(UserId(user), new ProfileCommand(request.FullName, request.Phone), ct) is { } profile
+        api.MapPut("/profile", async (ProfileRequest request, UpdateProfile useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(UserId(user), new ProfileCommand(request.FullName, request.Phone), ct) is { } profile
                 ? Results.Ok(profile) : Results.BadRequest())
             .RequireAuthorization();
 
-        api.MapPost("/auth/change-password", async (ChangePasswordRequest request, IAccountProfileRepository repo, IPasswordHasher<User> hasher,
+        api.MapPost("/auth/change-password", async (ChangePasswordRequest request, IAccountProfileRepository repo, ChangePassword changePassword,
             ITokenService tokens, IRefreshTokenService refreshTokens, SessionGuard guard, ClaimsPrincipal user, HttpContext context, CancellationToken ct) =>
         {
-            if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword) || request.NewPassword.Length < 8 || request.NewPassword != request.ConfirmPassword)
-                return Results.BadRequest(new { message = "Mật khẩu mới phải dài ít nhất 8 ký tự và hai lần nhập phải trùng nhau." });
-            if (request.NewPassword == request.CurrentPassword)
-                return Results.BadRequest(new { message = "Mật khẩu mới không được trùng với mật khẩu hiện tại." });
-            var account = await repo.FindAccountAsync(user.Identity?.Name ?? user.FindFirstValue(ClaimTypes.Name) ?? "", ct);
-            if (account is null || VerifyPassword(hasher, account, request.CurrentPassword) == PasswordVerificationResult.Failed)
-                return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng." });
-            var hash = hasher.HashPassword(new User { UserId = account.UserId, Email = account.Email }, request.NewPassword);
-            if (!await repo.UpdatePasswordAsync(account.UserId, hash, ct)) return Results.Unauthorized();
-            var refreshed = await repo.FindAccountAsync(account.Email, ct);
+            // The rules (length, confirmation, different from the current one, current one correct) are in the use case.
+            if (!await changePassword.HandleAsync(UserId(user), request.CurrentPassword, request.NewPassword, request.ConfirmPassword, ct))
+                return Results.Unauthorized();
+            var refreshed = await repo.FindAccountByIdAsync(UserId(user), ct);
             if (refreshed is null) return Results.Unauthorized();
             // A new password signs out every other device; this one keeps its session (a new access token clears "must change").
             var current = SessionGuard.SessionOf(user);

@@ -16,6 +16,4 @@ public interface IProjectManagerRepository
     Task<ProjectManagersView?> GetAsync(string projectCode, int userId, string role, CancellationToken cancellationToken = default);
     /// <summary>Active Managers who could be added (not already operating the project).</summary>
     Task<IReadOnlyList<OptionItem>> GetCandidatesAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<ProjectManagerResult> AddAsync(string projectCode, int managerId, string? reason, int actorId, string actorRole, CancellationToken cancellationToken = default);
-    Task<ProjectManagerResult> RemoveAsync(string projectCode, int projectManagerId, string? reason, int actorId, string actorRole, CancellationToken cancellationToken = default);
 }

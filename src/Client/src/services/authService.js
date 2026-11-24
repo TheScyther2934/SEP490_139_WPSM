@@ -13,7 +13,6 @@ export const authService = {
   revoke: () => axiosClient.post(ENDPOINTS.auth.revoke),
   changePassword: (body) => axiosClient.post(ENDPOINTS.auth.changePassword, body).then((r) => r.data),
   getProfile: () => axiosClient.get(ENDPOINTS.profile).then((r) => r.data),
-  updateProfile: (body) => axiosClient.put(ENDPOINTS.profile, body).then((r) => r.data),
   // Signed-in devices of this account.
   listSessions: () => axiosClient.get(ENDPOINTS.auth.sessions).then((r) => r.data),
   revokeSession: (id) => axiosClient.delete(ENDPOINTS.auth.session(id)),

@@ -3,7 +3,7 @@ using Application.Persistence;
 using Domain.Services;
 using Infrastructure.Files;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 

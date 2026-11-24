@@ -49,41 +49,8 @@ public interface IDayOfRepository
     Task<DayOfBoardView?> GetBoardAsync(string projectCode, CancellationToken cancellationToken = default);
     /// <summary>UC-13 / C-11: every proof photo of the project (photos only, no documents), newest first.</summary>
     Task<IReadOnlyList<ProjectPhotoView>> GetPhotosAsync(string projectCode, CancellationToken cancellationToken = default);
-    /// <summary>Generates the missing coordination tasks from the locked services (any time after the lock).</summary>
-    Task<DayOfBoardView?> LoadTimelineAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<DayOfBoardView?> CreateTaskAsync(string projectCode, int managerId, CoordinationTaskCommand command, CancellationToken cancellationToken = default);
-    Task<DayOfBoardView?> UpdateTaskAsync(string projectCode, int taskId, CoordinationTaskCommand command, CancellationToken cancellationToken = default);
-    /// <summary>Deletes a task added by hand that is not done and has no proof.</summary>
-    Task<DayOfBoardView?> DeleteTaskAsync(string projectCode, int taskId, CancellationToken cancellationToken = default);
-    Task<DayOfBoardView?> CompleteTaskAsync(string projectCode, int taskId, int managerId, IReadOnlyList<ProofPhotoUpload> photos, string? note, CancellationToken cancellationToken = default);
-    /// <summary>Adds 1–3 proof files to a task (done or not), e.g. a task completed without its proof. Up to MaxPhotosPerTask per task.</summary>
-    Task<DayOfBoardView?> AddPhotosAsync(string projectCode, int taskId, int managerId, IReadOnlyList<ProofPhotoUpload> photos, CancellationToken cancellationToken = default);
-    /// <summary>JOB-04: generates the tasks of every locked project whose event is today (safety net).</summary>
-    Task<int> LoadTodayAsync(DateOnly today, CancellationToken cancellationToken = default);
-    /// <summary>JOB-05: flags Pending tasks past their deadline (GBR-07) and notifies the Manager (MSG21).</summary>
-    Task<int> DetectOverdueAsync(DateTime utcNow, CancellationToken cancellationToken = default);
-}
-
-// ── Ratings and complaints (UC-14..UC-16, UC-35, UC-36) ────────────────────
-public sealed record RatingView(string Module, int Stars, string? Comment, DateTime CreatedAt);
-public sealed record RatingCommand(string Module, int Stars, string? Comment);
-public sealed record PostEventView(string ProjectCode, string ProjectStatus, bool CanRate, bool CanComplain, IReadOnlyList<RatingView> Ratings,
-    IReadOnlyList<int> FrozenBeoVersions);
-public sealed record BeoSheetView(string Department, DateTime GeneratedAt, Guid? FileId);
-public sealed record ComplaintSummaryView(string Code, int BeoVersion, string Description, string Status, DateTime CreatedAt, DateTime? ResolvedAt);
-public sealed record ComplaintDetailView(string Code, string ProjectCode, string CoupleName, int BeoVersion, string Description, string Status,
-    string? EscalationNote, string? ResolutionNote, DateTime CreatedAt, DateTime? EscalatedAt, DateTime? ResolvedAt,
-    IReadOnlyList<BeoSheetView> BeoSheets, IReadOnlyList<DayOfPhotoView> Photos);
-
-public interface IFeedbackRepository
-{
-    Task<PostEventView?> GetPostEventAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<PostEventView?> SubmitRatingsAsync(string projectCode, IReadOnlyList<RatingCommand> ratings, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ComplaintSummaryView>> ListComplaintsAsync(string projectCode, CancellationToken cancellationToken = default);
-    Task<ComplaintDetailView?> GetComplaintAsync(string projectCode, string complaintCode, CancellationToken cancellationToken = default);
-    Task<ComplaintDetailView> FileComplaintAsync(string projectCode, int beoVersion, string description, CancellationToken cancellationToken = default);
-    Task<ComplaintDetailView?> ResolveAsync(string projectCode, string complaintCode, int managerId, string response, CancellationToken cancellationToken = default);
-    Task<ComplaintDetailView?> EscalateAsync(string projectCode, string complaintCode, string note, CancellationToken cancellationToken = default);
+    // Changes (generate, add, edit, delete, complete, add proof) are use cases: Application/UseCases/CoordinationTasks.
+    // JOB-04 and JOB-05 run through ILoadDayOfTimelineService and IDetectOverdueTasksService.
 }
 
 // ── Resource calendar (UC-25, UC-26, SDS III.2.2) ──────────────────────────
@@ -99,13 +66,9 @@ public sealed record AllocationResult(AllocationView? Allocation, string? Messag
 public interface IResourceRepository
 {
     Task<OpResourceCalendarView> GetCalendarAsync(int managerId, DateOnly from, DateOnly to, int? hallId, string? type, CancellationToken cancellationToken = default);
-    /// <summary>Saves the allocation, or returns the conflicts (MSG08) without saving. Null when the project is not the Manager's.</summary>
-    Task<AllocationResult?> AllocateAsync(int managerId, AllocationCommand command, CancellationToken cancellationToken = default);
-    Task<AllocationResult?> UpdateAsync(int managerId, int allocationId, AllocationCommand command, CancellationToken cancellationToken = default);
-    Task<bool> ReleaseAsync(int managerId, int allocationId, CancellationToken cancellationToken = default);
     Task<AllocationResult?> GetConflictAsync(int managerId, int allocationId, CancellationToken cancellationToken = default);
-    /// <summary>UC-47 from UC-25: keeps the allocation out of the conflict check until the Admin decides.</summary>
-    Task<AllocationResult?> RequestExceptionAsync(int managerId, AllocationCommand command, string note, CancellationToken cancellationToken = default);
+    /// <summary>One allocation of the caller's events; null otherwise. Writes go through Application/UseCases/Resources.</summary>
+    Task<AllocationView?> GetAllocationAsync(int managerId, int allocationId, CancellationToken cancellationToken = default);
 }
 
 // ── PDF (SDS I.1 QuestPDF) ─────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 using Application.Persistence;
 using Domain.Services;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -8,7 +8,7 @@ namespace Infrastructure.Persistence;
 /// <summary>Shared pieces of the event stage flow: policy, money of an event, mapping and the settlement invoice.</summary>
 public static class EventFlowSupport
 {
-    public const string HotlineKey = "Hotline";
+    public const string HotlineKey = SystemSetting.HotlineKey;
     public const string DefaultHotline = "0976586668";
 
     public static async Task<EventPolicy> LoadPolicyAsync(WpsmDbContext db, CancellationToken cancellationToken)

@@ -140,16 +140,21 @@ Contract giữa API và persistence, cùng DTO/command cho các luồng hiện t
 
 ### `src/Domain`
 
-Nơi đặt quy tắc nghiệp vụ thuần, trạng thái và value objects, không phụ thuộc database, HTTP hay giao diện. Hiện project còn trống/placeholder; không nhầm với entity EF đang nằm trong Infrastructure. Khi bổ sung quy tắc phức tạp (ví dụ chuyển trạng thái Change Request hoặc tính surcharge), đưa logic thuần vào Domain thay vì nhồi thêm vào endpoint hoặc EF repository. Dùng `Services/` cho thuật toán nghiệp vụ thuần.
+Nơi đặt entity và quy tắc nghiệp vụ thuần, không phụ thuộc database, HTTP hay giao diện.
 
-Các folder `Entities/`, `Enums/`, `Events/`, `Exceptions/`, `ValueObjects/`, `Services/` trong Domain hiện chỉ là folder khung. Tương tự, `Application/Behaviors`, `Common`, `Features` chưa có implementation đầy đủ. Folder chỉ tổ chức file; nó không tự chạy hay tự được DI sử dụng.
+- `Entities/`: mỗi bảng một class (namespace `Domain.Entities`), không có attribute EF. Tên bảng, cột, khóa, index khai báo ở `Infrastructure/Persistence/WpsmDbContext.cs`. Thay đổi schema phải sửa cả entity, DbContext và tạo migration.
+- `Rules/`: quy tắc của từng luồng ghi (`CoordinationSheetPolicy`, `AddonContractPolicy`), báo lỗi bằng `BusinessRuleException`.
+- `Services/`: thuật toán nghiệp vụ thuần (`EventStageRules`, `PaymentCalculator`).
+- `Events/`, `Enums/`: sự kiện miền và hằng số.
+
+Khi bổ sung quy tắc, đặt vào Domain thay vì nhồi vào endpoint hoặc repository. Phần đã chuyển / chưa chuyển: `docs/explain/clean-architecture.md`.
 
 ### `src/Infrastructure`
 
 Chi tiết truy cập dữ liệu/EF Core và implementation của contract Application.
 
 - `Persistence/WpsmDbContext.cs`: ánh xạ DbSet, quan hệ, cột, index và constraint với database-first schema.
-- `Persistence/Entities`: EF entity sinh/ánh xạ bảng SQL. Thay đổi schema phải rà cả file này và DbContext.
+- Entity không còn ở đây: đã chuyển sang `src/Domain/Entities` (2026-11-22). DbContext chỉ giữ phần ánh xạ.
 - `Persistence/Repositories/ProjectRepository.cs`: thao tác dữ liệu dự án và NRD.
 - `Persistence/Repositories/SpecificationRoadmapRepository.cs`: đặc tả, baseline freeze, roadmap.
 - `Persistence/Repositories/ConfigurationRepository.cs`: Catalog, PriceFrames, Policies.

@@ -1,10 +1,11 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
+/// <summary>Reads of the coordination sheet (M-13, M-14) and the PDF of a department sheet.</summary>
 public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
 {
     private static readonly string[] Departments = ["Kitchen", "Service", "Decor", "Tech-MC"];
@@ -15,145 +16,8 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
         return project is null ? null : MapBeoView(project);
     }
 
-    public async Task<ProjectBeoView?> SaveDraftBeoAsync(string projectCode, int managerId, string? notes, CancellationToken cancellationToken = default)
-    {
-        var project = await db.WeddingProjects
-            .Include(p => p.Beos)
-            .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
-        if (project is null) return null;
-
-        var latest = project.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
-        var trimmedNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-
-        if (latest is null)
-        {
-            latest = new Beo
-            {
-                ProjectId = project.ProjectId,
-                Version = 1,
-                Status = "Draft",
-                Notes = trimmedNotes ?? "Bản thảo BEO khởi tạo từ hợp đồng đặc tả và phụ lục."
-            };
-            db.Beos.Add(latest);
-        }
-        else if (latest.Status == "Draft")
-        {
-            latest.Notes = trimmedNotes;
-        }
-        else
-        {
-            // Keep existing Frozen/Stale notes updated or create a new draft note
-            latest.Notes = trimmedNotes ?? latest.Notes;
-        }
-
-        await db.SaveChangesAsync(cancellationToken);
-        var reloaded = await LoadProjectForBeoAsync(projectCode, managerId, cancellationToken);
-        return reloaded is null ? null : MapBeoView(reloaded);
-    }
-
-    public async Task<ProjectBeoView?> FreezeOrReapproveBeoAsync(string projectCode, int managerId, string? notes, CancellationToken cancellationToken = default)
-    {
-        var project = await db.WeddingProjects
-            .Include(p => p.Beos).ThenInclude(b => b.BeodepartmentSheets)
-            .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
-        if (project is null) return null;
-
-        // The sheet is frozen from the services locked in stage 3. An addon contract still waiting for the customer is not in the sheet:
-        // it does not block; if the customer confirms it later, the sheet turns stale and is re-approved once more.
-        if (project.Status != Domain.Services.EventStatus.Locked)
-            throw new InvalidOperationException("Phiếu điều phối chỉ chốt khi sự kiện đã khóa dịch vụ (giai đoạn 3).");
-        var now = DateTime.UtcNow;
-        var trimmedNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-        var latest = project.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
-
-        Beo targetBeo;
-        if (latest is null)
-        {
-            targetBeo = new Beo
-            {
-                ProjectId = project.ProjectId,
-                Version = 1,
-                Status = "Frozen",
-                FrozenAt = now,
-                ApprovedBy = managerId,
-                Notes = trimmedNotes ?? "Chốt phiếu điều phối phiên bản v1."
-            };
-            db.Beos.Add(targetBeo);
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        else if (latest.Status == "Draft")
-        {
-            latest.Status = "Frozen";
-            latest.FrozenAt = now;
-            latest.ApprovedBy = managerId;
-            if (trimmedNotes is not null) latest.Notes = trimmedNotes;
-            targetBeo = latest;
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        else
-        {
-            // M-12 (UC-29, GBR-05): Re-approving a Stale (or updating a Frozen) BEO issues a new version
-            var nextVersion = latest.Version + 1;
-            targetBeo = new Beo
-            {
-                ProjectId = project.ProjectId,
-                Version = nextVersion,
-                Status = "Frozen",
-                FrozenAt = now,
-                ApprovedBy = managerId,
-                Notes = trimmedNotes ?? $"Duyệt lại phiếu điều phối v{nextVersion} sau hợp đồng phát sinh."
-            };
-            db.Beos.Add(targetBeo);
-            await db.SaveChangesAsync(cancellationToken);
-        }
-
-        await EnsureDepartmentSheetsAsync(targetBeo, project.ProjectCode, now, cancellationToken);
-        // Coordination tasks of the new lines (confirmed addon contracts); tasks already done stay as they are.
-        await CoordinationPlan.EnsureTasksAsync(db, project.ProjectId, cancellationToken);
-
-        db.Notifications.Add(new Notification
-        {
-            RecipientId = project.CustomerId,
-            Type = "BEO",
-            Message = $"Phiếu điều phối v{targetBeo.Version} của sự kiện {project.ProjectCode} đã được duyệt và chuyển tới 4 bộ phận.",
-            LinkUrl = OperationsSupport.Links.CustomerEvent,
-            IsRead = false,
-            CreatedAt = now
-        });
-
-        await db.SaveChangesAsync(cancellationToken);
-        var reloaded = await LoadProjectForBeoAsync(projectCode, managerId, cancellationToken);
-        return reloaded is null ? null : MapBeoView(reloaded);
-    }
-
-    public async Task<ProjectBeoView?> GenerateDepartmentSheetsAsync(string projectCode, int managerId, CancellationToken cancellationToken = default)
-    {
-        var project = await db.WeddingProjects
-            .Include(p => p.Beos).ThenInclude(b => b.BeodepartmentSheets)
-            .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && (p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
-        if (project is null) return null;
-
-        var latest = project.Beos.OrderByDescending(b => b.Version).FirstOrDefault();
-        var now = DateTime.UtcNow;
-        if (latest is null)
-        {
-            latest = new Beo
-            {
-                ProjectId = project.ProjectId,
-                Version = 1,
-                Status = "Draft",
-                Notes = "Bản thảo BEO tự động tổng hợp."
-            };
-            db.Beos.Add(latest);
-            await db.SaveChangesAsync(cancellationToken);
-        }
-
-        await EnsureDepartmentSheetsAsync(latest, project.ProjectCode, now, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var reloaded = await LoadProjectForBeoAsync(projectCode, managerId, cancellationToken);
-        return reloaded is null ? null : MapBeoView(reloaded);
-    }
+    // Saving the draft notes, freezing / re-approving, issuing the department sheets and the daily draft compilation are use cases:
+    // Application/UseCases/CoordinationSheets (rules in Domain/Rules/CoordinationSheetPolicy and on Domain/Entities/Beo).
 
     public async Task<(byte[] Content, string ContentType, string FileName)?> ExportDepartmentSheetAsync(
         string projectCode,
@@ -173,83 +37,6 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
         var pdfBytes = BuildSimplePdf(view, normalizedDept, DepartmentLabel(normalizedDept), deptItems);
         var fileName = $"BEO_{view.ProjectCode}_v{view.Version}_{normalizedDept}.pdf";
         return (pdfBytes, "application/pdf", fileName);
-    }
-
-    public async Task<int> CompileLockedDraftsAsync(CancellationToken cancellationToken = default)
-    {
-        var today = Domain.Services.VietnamTime.GetVietnamToday();
-
-        var candidates = await db.WeddingProjects
-            .Include(p => p.Beos)
-            .Where(p => p.Status == "Locked" && p.EventDate >= today)
-            .ToListAsync(cancellationToken);
-
-        var compiledCount = 0;
-        var now = DateTime.UtcNow;
-
-        foreach (var project in candidates)
-        {
-            if (project.Beos.Count > 0) continue;
-
-            var draft = new Beo
-            {
-                ProjectId = project.ProjectId,
-                Version = 1,
-                Status = "Draft",
-                Notes = $"Tự động tổng hợp bản thảo phiếu điều phối khi khóa dịch vụ ({today:dd/MM/yyyy})."
-            };
-            db.Beos.Add(draft);
-            await db.SaveChangesAsync(cancellationToken);
-
-            await EnsureDepartmentSheetsAsync(draft, project.ProjectCode, now, cancellationToken);
-            // Coordination tasks open right after the lock: preparation work is done (with proof) before the event day.
-            await CoordinationPlan.EnsureTasksAsync(db, project.ProjectId, cancellationToken);
-
-            db.Notifications.Add(new Notification
-            {
-                RecipientId = project.ManagerId,
-                Type = "BEO",
-                Message = $"Sự kiện {project.ProjectCode} đã khóa dịch vụ. Bản thảo phiếu điều phối v1 đã sẵn sàng, vui lòng kiểm tra và chốt.",
-                LinkUrl = OperationsSupport.Links.ManagerBeo(project.ProjectCode),
-                IsRead = false,
-                CreatedAt = now
-            });
-
-            compiledCount++;
-        }
-
-        if (compiledCount > 0)
-            await db.SaveChangesAsync(cancellationToken);
-
-        return compiledCount;
-    }
-
-    private async Task EnsureDepartmentSheetsAsync(Beo beo, string projectCode, DateTime now, CancellationToken cancellationToken)
-    {
-        var existing = await db.BeodepartmentSheets
-            .Where(s => s.Beoid == beo.Beoid)
-            .ToListAsync(cancellationToken);
-
-        foreach (var dept in Departments)
-        {
-            var sheet = existing.FirstOrDefault(s => s.Department == dept);
-            var path = $"beo/{projectCode}_v{beo.Version}_{dept}.pdf";
-            if (sheet is null)
-            {
-                db.BeodepartmentSheets.Add(new BeodepartmentSheet
-                {
-                    Beoid = beo.Beoid,
-                    Department = dept,
-                    PdfFilePath = path,
-                    GeneratedAt = now
-                });
-            }
-            else
-            {
-                sheet.PdfFilePath = path;
-                sheet.GeneratedAt = now;
-            }
-        }
     }
 
     private Task<WeddingProject?> LoadProjectForBeoAsync(string projectCode, int managerId, CancellationToken cancellationToken) =>

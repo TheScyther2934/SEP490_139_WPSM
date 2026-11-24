@@ -1,11 +1,10 @@
 using System.Security.Claims;
-using System.Security.Cryptography;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
+using Application.UseCases.PostEvent;
+using Application.UseCases.CoordinationSheets;
+using Application.UseCases.EventBooking;
+using Application.UseCases.EventStages;
 using Infrastructure.Email;
-using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
 using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
@@ -26,76 +25,49 @@ public static class ProjectEndpoints
             await repo.GetProjectAsync(id, ct) is { } project ? Results.Ok(project) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
-        api.MapPost("/projects", async (CreateProjectRequest request, IProjectRepository repo, IAccountProfileRepository accounts, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
+        api.MapPost("/projects", async (CreateProjectRequest request, BookEvent book, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            var temporaryPassword = RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*", 16);
-            var newCustomer = await accounts.FindAccountAsync(request.CustomerEmail, ct) is null;
-            var passwordHash = hasher.HashPassword(new User { Email = request.CustomerEmail, Role = "Customer" }, temporaryPassword);
-            var created = await repo.CreateProjectAsync(new CreateProjectCommand(request.CoupleName, request.CustomerEmail, request.CustomerPhone,
+            var created = await book.HandleAsync(new CreateProjectCommand(request.CoupleName, request.CustomerEmail, request.CustomerPhone,
                 request.Hall, request.Slot, request.EventDate, request.BaseValue, request.DepositAmount, request.PaymentMethod, request.ReceiptFilePath, request.Items),
-                UserId(user), passwordHash, temporaryPassword, ct);
+                UserId(user), ct);
             // Without SMTP the credentials email is only saved as a file: say so, the Manager hands the password over.
             var emailStatus = created.TemporaryPassword is null ? "ExistingAccount" : string.IsNullOrWhiteSpace(email.Host) ? "NotConfigured" : "Pending";
             // The password travels only by email once SMTP is configured; the screen shows it only in Development without SMTP.
-            var shownPassword = newCustomer && ShowsPasswordOnScreen(environment, email) ? created.TemporaryPassword : null;
+            var shownPassword = ShowsPasswordOnScreen(environment, email) ? created.TemporaryPassword : null;
             return Results.Created($"/api/wpsm/projects/{created.Project.Id}", new CreatedProjectResponse(created.Project, shownPassword, emailStatus));
         }).RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapPost("/projects/{id}/resend-credentials", async (string id, IProjectRepository repo, IPasswordHasher<User> hasher, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
-        {
-            var temporaryPassword = RandomNumberGenerator.GetString("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*", 16);
-            var passwordHash = hasher.HashPassword(new User { Role = "Customer" }, temporaryPassword);
-            var sent = await repo.ResendCredentialsAsync(id, UserId(user), passwordHash, temporaryPassword, ct);
-            if (!sent) return Results.NotFound();
-            return Results.Ok(new { temporaryPassword = ShowsPasswordOnScreen(environment, email) ? temporaryPassword : null, emailQueued = true });
-        }).RequireAuthorization(policy => policy.RequireRole("Manager"));
+        api.MapPost("/projects/{id}/resend-credentials", async (string id, ResendCustomerCredentials resend, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
+            await resend.HandleAsync(id, UserId(user), ct) is { } temporaryPassword
+                ? Results.Ok(new { temporaryPassword = ShowsPasswordOnScreen(environment, email) ? temporaryPassword : null, emailQueued = true })
+                : Results.NotFound())
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapPut("/projects/{id}/specification", async (string id, SpecificationRequest request, ISpecificationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.UpdateSpecificationAsync(id, UserId(user), new SpecificationCommand(request.Summary, request.GuestCount, request.Items, request.Note, request.NoteType), ct) is { } project
+        api.MapPut("/projects/{id}/specification", async (string id, SpecificationRequest request, AdjustServices useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(id, UserId(user), new SpecificationCommand(request.Summary, request.GuestCount, request.Items, request.Note, request.NoteType), ct) is { } project
                 ? Results.Ok(project) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapPost("/projects/{id}/deposit-receipt", async (string id, IFormFile receipt, IProjectRepository repo, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
+        api.MapPost("/projects/{id}/deposit-receipt", async (string id, IFormFile receipt, RecordDepositReceipt record, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
         {
             if (receipt.Length is <= 0 or > 10 * 1024 * 1024)
                 return Results.BadRequest(new { message = "Chứng từ không được trống và tối đa 10 MB." });
             // Stored like every file (type checked by content, phone photos converted); the payment keeps the storage key.
             await using var content = receipt.OpenReadStream();
             var stored = await files.UploadAsync(new FileUploadCommand(content, receipt.FileName, "DepositReceipt", id, UserId(user)), ct);
-            if (stored is null || !await repo.RecordDepositReceiptAsync(id, UserId(user), stored, ct)) return Results.NotFound();
+            if (stored is null || !await record.HandleAsync(id, UserId(user), stored, ct)) return Results.NotFound();
             return Results.Ok(new { message = "Đã lưu biên nhận tiền đặt cọc.", paymentStatus = "Paid" });
         }).RequireAuthorization(policy => policy.RequireRole("Manager")).DisableAntiforgery();
 
-        api.MapGet("/halls", async (DateOnly? date, WpsmDbContext dbContext, CancellationToken ct) =>
-        {
-            var halls = await dbContext.Halls.AsNoTracking().Where(h => h.Status == "Active")
-                .OrderBy(h => h.Name)
-                .Select(h => new HallView(
-                    h.HallId,
-                    h.Name,
-                    h.MinCapacity,
-                    h.MaxCapacity,
-                    h.BasePrice,
-                    h.Status,
-                    h.Slots.Select(s => new SlotView(
-                        s.SlotId,
-                        s.SlotName,
-                        s.StartTime,
-                        s.EndTime,
-                        date == null || !s.WeddingProjects.Any(p => p.EventDate == date && p.Status != "Cancelled")
-                    )).ToList()
-                )).ToListAsync(ct);
-            return Results.Ok(halls);
-        }).RequireAuthorization(policy => policy.RequireRole("Manager"));
+        api.MapGet("/halls", async (DateOnly? date, IProjectRepository repo, CancellationToken ct) => Results.Ok(await repo.GetHallsAsync(date, ct)))
+            .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapGet("/projects/{id}/deposit-receipt", async (string id, WpsmDbContext db, IProjectRepository repo, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
+        api.MapGet("/projects/{id}/deposit-receipt", async (string id, IProjectRepository repo, IFileService files, ClaimsPrincipal user, CancellationToken ct) =>
         {
             // Only the event's operators (and Admin) may read it.
             if (!await repo.CanAccessAsync(id, UserId(user), user.FindFirstValue(ClaimTypes.Role) ?? "", ct)) return Results.NotFound();
-            var payment = await db.Payments.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Project.ProjectCode == id && p.PaymentType == "Deposit", ct);
-            if (payment?.ReceiptFilePath is { Length: > 0 } key && await files.ReadAsync(key, ct) is { } content)
-                return Results.File(content, payment.ReceiptContentType ?? "application/octet-stream", payment.ReceiptFileName ?? $"Dat_coc_{id}");
+            if (await repo.GetDepositReceiptAsync(id, ct) is { } receipt && await files.ReadAsync(receipt.StorageKey, ct) is { } content)
+                return Results.File(content, receipt.ContentType, receipt.FileName);
             return Results.NotFound(new { message = "Không tìm thấy biên nhận tiền đặt cọc." });
         }).RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
@@ -104,16 +76,16 @@ public static class ProjectEndpoints
             await repo.GetBeoAsync(id, UserId(user), ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
-        api.MapPut("/projects/{id}/beo/draft", async (string id, SaveBeoRequest request, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.SaveDraftBeoAsync(id, UserId(user), request.Notes, ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+        api.MapPut("/projects/{id}/beo/draft", async (string id, SaveBeoRequest request, SaveCoordinationSheetDraft useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(id, UserId(user), request.Notes, ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapPost("/projects/{id}/beo/freeze", async (string id, SaveBeoRequest? request, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.FreezeOrReapproveBeoAsync(id, UserId(user), request?.Notes, ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+        api.MapPost("/projects/{id}/beo/freeze", async (string id, SaveBeoRequest? request, FreezeCoordinationSheet freeze, ClaimsPrincipal user, CancellationToken ct) =>
+            await freeze.HandleAsync(id, UserId(user), request?.Notes, ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapPost("/projects/{id}/beo/department-sheets", async (string id, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.GenerateDepartmentSheetsAsync(id, UserId(user), ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
+        api.MapPost("/projects/{id}/beo/department-sheets", async (string id, GenerateDepartmentSheets useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(id, UserId(user), ct) is { } beo ? Results.Ok(beo) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
         api.MapGet("/projects/{id}/beo/department-sheets/{department}/pdf", async (string id, string department, IBeoRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
@@ -122,8 +94,8 @@ public static class ProjectEndpoints
                 : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
-        api.MapPost("/projects/beo/compile-t7", async (IBeoRepository repo, CancellationToken ct) =>
-            Results.Ok(new { compiled = await repo.CompileLockedDraftsAsync(ct) }))
+        api.MapPost("/projects/beo/compile-t7", async (CompileLockedDrafts useCase, CancellationToken ct) =>
+            Results.Ok(new { compiled = await useCase.HandleAsync(ct) }))
             .RequireAuthorization(policy => policy.RequireRole("Manager", "Admin"));
 
         // M-18, M-19, M-20: Manager Complaints List, Detail & Respond / Escalate (UC-35, UC-36, BF-08)
@@ -135,8 +107,8 @@ public static class ProjectEndpoints
             await repo.GetManagerComplaintAsync(UserId(user), complaintCode, ct) is { } item ? Results.Ok(item) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
-        api.MapPost("/manager/complaints/{complaintCode}/action", async (string complaintCode, ManagerComplaintActionRequest request, IComplaintRatingRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.RespondOrEscalateComplaintAsync(UserId(user), complaintCode, request.Action, request.Note, ct) is { } item ? Results.Ok(item) : Results.NotFound())
+        api.MapPost("/manager/complaints/{complaintCode}/action", async (string complaintCode, ManagerComplaintActionRequest request, RespondToComplaint useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(UserId(user), complaintCode, request.Action, request.Note, ct) is { } item ? Results.Ok(item) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Manager"));
 
         return api;

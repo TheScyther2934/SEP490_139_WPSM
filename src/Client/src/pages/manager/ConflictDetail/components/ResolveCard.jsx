@@ -5,7 +5,6 @@ import {
 import SaveIcon from "@mui/icons-material/Save";
 import UndoIcon from "@mui/icons-material/Undo";
 import { errorMessage, dateVi } from "../../../../utils/format";
-import { conflictOf } from "../../../../services/resourceCalendarService";
 import { timeOfIso, toIsoUtc } from "../../ResourceCalendar/calendarRange";
 
 const toMinutes = (value) => {
@@ -49,10 +48,8 @@ export default function ResolveCard({ allocation, resources, onSave, onRelease }
         quantity: value,
       });
     } catch (e) {
-      const conflict = conflictOf(e);
-      setError(conflict
-        ? `${errorMessage(e)} (${conflict.resourceName}: đã giữ ${conflict.otherQuantity}/${conflict.totalQuantity}, yêu cầu ${conflict.requestedQuantity})`
-        : errorMessage(e));
+      // A GBR-09 conflict comes back as 409 with the MSG08 message naming the clashing event.
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }

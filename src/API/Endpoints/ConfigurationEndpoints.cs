@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Application.Persistence;
+using Application.UseCases.Configuration;
 using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
@@ -11,21 +12,21 @@ public static class ConfigurationEndpoints
     {
         api.MapGet("/catalog", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetCatalogAsync(ct)))
             .RequireAuthorization();
-        api.MapPost("/catalog", async (CatalogItemRequest request, IConfigurationRepository repo, CancellationToken ct) =>
-            Results.Ok(await repo.AddCatalogItemAsync(new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active), ct)))
+        api.MapPost("/catalog", async (CatalogItemRequest request, AddCatalogItem useCase, CancellationToken ct) =>
+            Results.Ok(await useCase.HandleAsync(new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active), ct)))
             .RequireAuthorization(policy => policy.RequireRole("Admin"));
 
         api.MapGet("/price-frames", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetPriceFramesAsync(ct)))
             .RequireAuthorization();
-        api.MapPut("/price-frames/{id:int}", async (int id, PriceFrameRequest request, IConfigurationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.UpdatePriceFrameAsync(id, new PriceFrameCommand(request.MinPrice, request.MaxPrice, request.EffectiveFrom), UserId(user), ct) is { } frame
+        api.MapPut("/price-frames/{id:int}", async (int id, PriceFrameRequest request, UpdatePriceFrame useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(id, new PriceFrameCommand(request.MinPrice, request.MaxPrice, request.EffectiveFrom), UserId(user), ct) is { } frame
                 ? Results.Ok(frame) : Results.NotFound())
             .RequireAuthorization(policy => policy.RequireRole("Admin"));
 
         api.MapGet("/policies", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetPoliciesAsync(ct)))
             .RequireAuthorization();
-        api.MapPut("/policies", async (PolicyRequest request, IConfigurationRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            Results.Ok(await repo.UpdatePoliciesAsync(new PolicyCommand(request.DepositRatio, request.MaxDecreaseRatio, request.BookingMinDays, request.BookingMaxDays,
+        api.MapPut("/policies", async (PolicyRequest request, UpdateEventPolicies useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            Results.Ok(await useCase.HandleAsync(new PolicyCommand(request.DepositRatio, request.MaxDecreaseRatio, request.BookingMinDays, request.BookingMaxDays,
                 request.LockDays, request.SupplierDeadlineDays, request.SettlementDueDays, request.Hotline, request.EffectiveFrom), UserId(user), ct)))
             .RequireAuthorization(policy => policy.RequireRole("Admin"));
 

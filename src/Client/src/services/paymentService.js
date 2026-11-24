@@ -13,12 +13,6 @@ export const paymentService = {
   getOverview: (projectCode) =>
     orNullOn404(axiosClient.get(ENDPOINTS.customerPayments.overview(projectCode))),
 
-  getSummary: (projectCode) =>
-    orNullOn404(axiosClient.get(ENDPOINTS.customerPayments.summary(projectCode))),
-
-  getMilestones: (projectCode) =>
-    orNullOn404(axiosClient.get(ENDPOINTS.customerPayments.milestones(projectCode))),
-
   downloadReceipt: (paymentType, projectCode) =>
     axiosClient
       .get(ENDPOINTS.customerPayments.receipt(paymentType, projectCode), {

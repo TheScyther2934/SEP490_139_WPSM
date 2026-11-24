@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using static Infrastructure.Persistence.Repositories.OperationsSupport;
 
 namespace Infrastructure.Persistence.Repositories;

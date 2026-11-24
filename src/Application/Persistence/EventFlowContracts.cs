@@ -48,33 +48,21 @@ public sealed record CustomerLookupView(int UserId, string FullName, string Emai
 
 public interface IEventFlowRepository
 {
-    Task<EventPolicy> GetPolicyAsync(CancellationToken cancellationToken = default);
-    Task<string> GetHotlineAsync(CancellationToken cancellationToken = default);
     Task<EventWorkspaceView?> GetWorkspaceAsync(string eventCode, CancellationToken cancellationToken = default);
-    Task<StageNoteView> AddNoteAsync(string eventCode, int userId, StageNoteCommand command, CancellationToken cancellationToken = default);
-    Task<EventWorkspaceView?> CancelEventAsync(string eventCode, int userId, string reason, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CustomerEventRef>> GetCustomerEventsAsync(int customerId, CancellationToken cancellationToken = default);
     Task<CustomerEventView?> GetCustomerEventAsync(int customerId, string? eventCode, CancellationToken cancellationToken = default);
     /// <summary>Customers (with their events) for the "addon contract for an existing event" choice of the create form.</summary>
     Task<IReadOnlyList<CustomerLookupView>> SearchCustomersAsync(string? query, int userId, string role, CancellationToken cancellationToken = default);
-    /// <summary>Daily job: lock every adjusting event that reached its lock date. Returns how many were locked.</summary>
-    Task<int> LockDueEventsAsync(DateOnly today, CancellationToken cancellationToken = default);
-    /// <summary>Daily job: remind the operators of locked events past the supplier deadline that still miss evidence.</summary>
-    Task<int> RemindSupplierDeadlinesAsync(DateOnly today, CancellationToken cancellationToken = default);
 }
 
 public interface IAddonContractRepository
 {
     Task<IReadOnlyList<AddonContractView>> ListAsync(string eventCode, CancellationToken cancellationToken = default);
-    Task<AddonContractView> CreateAsync(string eventCode, int userId, AddonCreateCommand command, CancellationToken cancellationToken = default);
-    Task<AddonContractView?> RemindCustomerAsync(string eventCode, string addonCode, int userId, CancellationToken cancellationToken = default);
-    Task<AddonContractView?> CancelAsync(string eventCode, string addonCode, int userId, string reason, CancellationToken cancellationToken = default);
-    Task<AddonContractView?> ConfirmByCustomerAsync(int customerId, string addonCode, CancellationToken cancellationToken = default);
+    Task<AddonContractView?> GetAsync(string eventCode, string addonCode, CancellationToken cancellationToken = default);
 }
 
 public interface ISupplierEvidenceRepository
 {
     Task<SupplierBoardView?> GetBoardAsync(string eventCode, CancellationToken cancellationToken = default);
-    Task<SupplierEvidenceView> AddAsync(string eventCode, int userId, SupplierEvidenceCommand command, CancellationToken cancellationToken = default);
     Task<(byte[] Content, string ContentType, string FileName)?> GetFileAsync(string eventCode, int evidenceId, CancellationToken cancellationToken = default);
 }

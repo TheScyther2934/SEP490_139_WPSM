@@ -55,17 +55,11 @@ public interface IBeoRepository
     Task<ProjectBeoView?> GetBeoAsync(string projectCode, int managerId, CancellationToken cancellationToken = default);
 
     /// <summary>UC-27 (M-10). Creates or updates draft BEO operational notes.</summary>
-    Task<ProjectBeoView?> SaveDraftBeoAsync(string projectCode, int managerId, string? notes, CancellationToken cancellationToken = default);
-
-    /// <summary>UC-27, UC-29 (M-10, M-12). Freezes a Draft BEO or re-approves a Stale BEO as a new Frozen version and generates the 4 department sheets.</summary>
-    Task<ProjectBeoView?> FreezeOrReapproveBeoAsync(string projectCode, int managerId, string? notes, CancellationToken cancellationToken = default);
 
     /// <summary>UC-28 (M-11). Generates or refreshes the 4 department BEO sheets (Kitchen, Service, Decor, Tech-MC).</summary>
-    Task<ProjectBeoView?> GenerateDepartmentSheetsAsync(string projectCode, int managerId, CancellationToken cancellationToken = default);
 
     /// <summary>UC-28 (M-11). Exports a printable department sheet document.</summary>
     Task<(byte[] Content, string ContentType, string FileName)?> ExportDepartmentSheetAsync(string projectCode, string department, int managerId, CancellationToken cancellationToken = default);
 
     /// <summary>Daily job: compiles the coordination sheet draft of every locked event that has none and notifies the Manager.</summary>
-    Task<int> CompileLockedDraftsAsync(CancellationToken cancellationToken = default);
 }

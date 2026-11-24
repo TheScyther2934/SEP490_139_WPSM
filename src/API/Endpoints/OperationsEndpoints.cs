@@ -1,15 +1,14 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Application.Persistence;
+using Application.UseCases.Configuration;
+using Application.UseCases.Resources;
+using Application.UseCases.CoordinationTasks;
 using static API.Endpoints.EndpointHelpers;
 
 namespace API.Endpoints;
 
-public sealed record NoteRequest(string? Note);
 public sealed record ReasonRequest(string? Reason);
-public sealed record RatingsRequest(IReadOnlyList<RatingCommand> Ratings);
-public sealed record ComplaintRequest(int BeoVersion, string Description);
-public sealed record ResponseRequest(string Response);
 public sealed record AllocationRequest(int ResourceId, string ProjectCode, DateTime StartTime, DateTime EndTime, int Quantity, string? Note = null);
 public sealed record CatalogStatusRequest(bool Active);
 public sealed record CoordinationTaskRequest(string? TaskName, string? Department, DateTime Deadline, bool PhotoRequired, string? Note);
@@ -24,7 +23,7 @@ public static class OperationsEndpoints
     public static RouteGroupBuilder MapOperationsEndpoints(this RouteGroupBuilder api)
     {
         MapBeoAndDayOf(api);
-        MapFeedback(api);
+        MapProofPhotos(api);
         MapResources(api);
         MapConfiguration(api);
         return api;
@@ -39,24 +38,24 @@ public static class OperationsEndpoints
         // Keeping them here causes AmbiguousMatchException in ASP.NET Core routing.
 
         manager.MapGet("/day-of", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.GetBoardAsync(id, ct), links)));
-        manager.MapPost("/day-of/load", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await repo.LoadTimelineAsync(id, ct), links)));
+        manager.MapPost("/day-of/load", async (string id, GenerateCoordinationTasks generate, PhotoLinks links, CancellationToken ct) => OkOrNotFound(WithUrls(await generate.HandleAsync(id, ct), links)));
         // Coordination tasks by department, open from the lock: added by hand, edited (deadline, proof required), deleted.
-        manager.MapPost("/day-of/tasks", async (string id, CoordinationTaskRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(WithUrls(await repo.CreateTaskAsync(id, UserId(user), ToCommand(request), ct), links)));
-        manager.MapPut("/day-of/{taskId:int}", async (string id, int taskId, CoordinationTaskRequest request, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
-            OkOrNotFound(WithUrls(await repo.UpdateTaskAsync(id, taskId, ToCommand(request), ct), links)));
-        manager.MapDelete("/day-of/{taskId:int}", async (string id, int taskId, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
-            OkOrNotFound(WithUrls(await repo.DeleteTaskAsync(id, taskId, ct), links)));
-        manager.MapPost("/day-of/{taskId:int}/complete", async (string id, int taskId, HttpRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
+        manager.MapPost("/day-of/tasks", async (string id, CoordinationTaskRequest request, AddCoordinationTask add, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await add.HandleAsync(id, UserId(user), ToCommand(request), ct), links)));
+        manager.MapPut("/day-of/{taskId:int}", async (string id, int taskId, CoordinationTaskRequest request, EditCoordinationTask edit, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await edit.HandleAsync(id, taskId, ToCommand(request), ct), links)));
+        manager.MapDelete("/day-of/{taskId:int}", async (string id, int taskId, DeleteCoordinationTask delete, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await delete.HandleAsync(id, taskId, ct), links)));
+        manager.MapPost("/day-of/{taskId:int}/complete", async (string id, int taskId, HttpRequest request, CompleteCoordinationTask complete, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var (photos, note, error) = await ReadProofPhotosAsync(request, ct);
-            return error ?? OkOrNotFound(WithUrls(await repo.CompleteTaskAsync(id, taskId, UserId(user), photos, note, ct), links));
+            return error ?? OkOrNotFound(WithUrls(await complete.HandleAsync(id, taskId, UserId(user), photos, note, ct), links));
         }).DisableAntiforgery();
         // Adds proof to a task afterwards (a task completed without it, or more angles of the same work).
-        manager.MapPost("/day-of/{taskId:int}/photos", async (string id, int taskId, HttpRequest request, IDayOfRepository repo, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
+        manager.MapPost("/day-of/{taskId:int}/photos", async (string id, int taskId, HttpRequest request, AddCoordinationProof addProof, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var (photos, _, error) = await ReadProofPhotosAsync(request, ct);
-            return error ?? OkOrNotFound(WithUrls(await repo.AddPhotosAsync(id, taskId, UserId(user), photos, ct), links));
+            return error ?? OkOrNotFound(WithUrls(await addProof.HandleAsync(id, taskId, UserId(user), photos, ct), links));
         }).DisableAntiforgery();
     }
 
@@ -78,32 +77,12 @@ public static class OperationsEndpoints
         return (photos, string.IsNullOrWhiteSpace(note) ? null : note, null);
     }
 
-    private static void MapFeedback(RouteGroupBuilder api)
+    // Proof photos for the customer and the operator (ratings and complaints: CustomerEndpoints, ProjectEndpoints).
+    private static void MapProofPhotos(RouteGroupBuilder api)
     {
         var both = api.MapGroup("/projects/{id}").RequireAuthorization(policy => policy.RequireRole("Customer", "Manager"));
         both.MapGet("/proof-photos", async (string id, IDayOfRepository repo, PhotoLinks links, CancellationToken ct) =>
             Results.Ok((await repo.GetPhotosAsync(id, ct)).Select(p => p with { ImageUrl = links.Url(p.PhotoId) })));
-        both.MapGet("/post-event", async (string id, IFeedbackRepository repo, CancellationToken ct) => OkOrNotFound(await repo.GetPostEventAsync(id, ct)));
-        both.MapGet("/complaints", async (string id, IFeedbackRepository repo, CancellationToken ct) => Results.Ok(await repo.ListComplaintsAsync(id, ct)));
-        both.MapGet("/complaints/{complaintCode}", async (string id, string complaintCode, IFeedbackRepository repo, PhotoLinks links, CancellationToken ct) =>
-            await repo.GetComplaintAsync(id, complaintCode, ct) is { } complaint
-                ? Results.Ok(complaint with { Photos = complaint.Photos.Select(p => p with { ImageUrl = links.Url(p.PhotoId) }).ToList() })
-                : Results.NotFound());
-
-        var customer = api.MapGroup("/projects/{id}").RequireAuthorization(policy => policy.RequireRole("Customer"));
-        customer.MapPost("/ratings", async (string id, RatingsRequest request, IFeedbackRepository repo, CancellationToken ct) =>
-            OkOrNotFound(await repo.SubmitRatingsAsync(id, request.Ratings ?? [], ct)));
-        customer.MapPost("/complaints", async (string id, ComplaintRequest request, IFeedbackRepository repo, CancellationToken ct) =>
-        {
-            var created = await repo.FileComplaintAsync(id, request.BeoVersion, request.Description, ct);
-            return Results.Created($"/api/wpsm/projects/{id}/complaints/{created.Code}", created);
-        });
-
-        var manager = api.MapGroup("/projects/{id}/complaints/{complaintCode}").RequireAuthorization(policy => policy.RequireRole("Manager"));
-        manager.MapPost("/resolve", async (string id, string complaintCode, ResponseRequest request, IFeedbackRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.ResolveAsync(id, complaintCode, UserId(user), request.Response, ct)));
-        manager.MapPost("/escalate", async (string id, string complaintCode, NoteRequest request, IFeedbackRepository repo, CancellationToken ct) =>
-            OkOrNotFound(await repo.EscalateAsync(id, complaintCode, request.Note ?? "", ct)));
     }
 
     private static void MapResources(RouteGroupBuilder api)
@@ -114,25 +93,25 @@ public static class OperationsEndpoints
             var start = from ?? DateOnly.FromDateTime(DateTime.Today);
             return Results.Ok(await repo.GetCalendarAsync(UserId(user), start, to ?? start.AddDays(6), hallId, type, ct));
         });
-        manager.MapPost("/resource-allocations", async (AllocationRequest request, IResourceRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            AllocationResult(await repo.AllocateAsync(UserId(user), ToCommand(request), ct)));
-        manager.MapPut("/resource-allocations/{allocationId:int}", async (int allocationId, AllocationRequest request, IResourceRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            AllocationResult(await repo.UpdateAsync(UserId(user), allocationId, ToCommand(request), ct)));
-        manager.MapDelete("/resource-allocations/{allocationId:int}", async (int allocationId, IResourceRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            await repo.ReleaseAsync(UserId(user), allocationId, ct) ? Results.NoContent() : Results.NotFound());
+        manager.MapPost("/resource-allocations", async (AllocationRequest request, AllocateResource useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            AllocationResult(await useCase.HandleAsync(UserId(user), ToCommand(request), ct)));
+        manager.MapPut("/resource-allocations/{allocationId:int}", async (int allocationId, AllocationRequest request, UpdateResourceAllocation useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            AllocationResult(await useCase.HandleAsync(UserId(user), allocationId, ToCommand(request), ct)));
+        manager.MapDelete("/resource-allocations/{allocationId:int}", async (int allocationId, ReleaseResourceAllocation useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            await useCase.HandleAsync(UserId(user), allocationId, ct) ? Results.NoContent() : Results.NotFound());
         manager.MapGet("/resource-allocations/{allocationId:int}/conflict", async (int allocationId, IResourceRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
             OkOrNotFound(await repo.GetConflictAsync(UserId(user), allocationId, ct)));
-        manager.MapPost("/resource-allocations/exception-requests", async (AllocationRequest request, IResourceRepository repo, ClaimsPrincipal user, CancellationToken ct) =>
-            OkOrNotFound(await repo.RequestExceptionAsync(UserId(user), ToCommand(request), request.Note ?? "", ct)));
+        manager.MapPost("/resource-allocations/exception-requests", async (AllocationRequest request, RequestResourceException useCase, ClaimsPrincipal user, CancellationToken ct) =>
+            OkOrNotFound(await useCase.HandleAsync(UserId(user), ToCommand(request), request.Note, ct)));
     }
 
     private static void MapConfiguration(RouteGroupBuilder api)
     {
         var admin = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Admin"));
-        admin.MapPut("/catalog/{itemId:int}", async (int itemId, CatalogItemRequest request, IConfigurationAdminRepository repo, CancellationToken ct) =>
-            OkOrNotFound(await repo.UpdateCatalogItemAsync(itemId, new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active), ct)));
-        admin.MapPost("/catalog/{itemId:int}/status", async (int itemId, CatalogStatusRequest request, IConfigurationAdminRepository repo, CancellationToken ct) =>
-            OkOrNotFound(await repo.SetCatalogStatusAsync(itemId, request.Active, ct)));
+        admin.MapPut("/catalog/{itemId:int}", async (int itemId, CatalogItemRequest request, UpdateCatalogItem useCase, CancellationToken ct) =>
+            OkOrNotFound(await useCase.HandleAsync(itemId, new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active), ct)));
+        admin.MapPost("/catalog/{itemId:int}/status", async (int itemId, CatalogStatusRequest request, SetCatalogItemStatus useCase, CancellationToken ct) =>
+            OkOrNotFound(await useCase.HandleAsync(itemId, request.Active, ct)));
         admin.MapGet("/price-frames/history/{itemId:int}", async (int itemId, IConfigurationAdminRepository repo, CancellationToken ct) =>
             Results.Ok(await repo.GetPriceFrameHistoryAsync(itemId, ct)));
     }

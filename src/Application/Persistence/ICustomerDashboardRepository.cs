@@ -14,4 +14,7 @@ public interface ICustomerDashboardRepository
         int customerId,
         string projectCode,
         CancellationToken cancellationToken = default);
+
+    /// <summary>A proof photo of the customer's own event (photos only, never internal documents); null otherwise.</summary>
+    Task<StoredFileRef?> GetProofPhotoAsync(int customerId, int photoId, CancellationToken cancellationToken = default);
 }

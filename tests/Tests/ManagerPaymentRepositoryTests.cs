@@ -1,3 +1,7 @@
+using Infrastructure.Email;
+using Infrastructure.UseCases;
+using Domain.Rules;
+using Application.UseCases.Settlement;
 using System;
 using System.IO;
 using System.Linq;
@@ -9,7 +13,7 @@ using Application.Persistence;
 using Domain.Services;
 using Infrastructure.Files;
 using Infrastructure.Persistence;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 using Infrastructure.Persistence.Repositories;
 using Xunit;
 
@@ -22,15 +26,10 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
     private readonly User _manager;
     private readonly User _otherManager;
     private readonly WeddingProject _project;
-    private readonly DummyNotificationRepository _notifications;
 
     public ManagerPaymentRepositoryTests()
     {
-        var options = new DbContextOptionsBuilder<WpsmDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _db = new WpsmDbContext(options);
-        _notifications = new DummyNotificationRepository();
+        _db = TestFixtures.NewDb();
 
         var hall = new Hall { HallId = 1, Name = "Sanh Diamond", Status = "Active" };
         var slot = new Slot { SlotId = 1, HallId = 1, SlotName = "Toi" };
@@ -84,7 +83,13 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
 
     public void Dispose() => _db.Dispose();
 
-    private ManagerPaymentRepository Repo() => new(_db, new FileService(_db, new TestFileStorage(), new FileStorageOptions { RootPath = ".", SigningKey = "test" }), _notifications);
+    private FileService Files() => new(_db, new TestFileStorage(), new FileStorageOptions { RootPath = ".", SigningKey = "test" });
+    private ManagerPaymentRepository Repo() => new(_db, Files());
+    private Task<RecordPaymentResult> Record(RecordPaymentCommand command) =>
+        new RecordSettlement(new SettlementStore(_db, Files()), new SettlementDocuments(_db, Files()),
+            new EventMessages(_db, new TestFixtures.RecordingEmailOutbox(), new EmailOptions()), Repo(), new UnitOfWork(_db))
+        .HandleAsync(_project.ProjectCode, _manager.UserId, "Manager", command);
+    private async Task<string> Refused(RecordPaymentCommand command) => (await Assert.ThrowsAsync<BusinessRuleException>(() => Record(command))).Message;
 
     private void EventHeld()
     {
@@ -124,54 +129,46 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
     [Fact]
     public async Task RecordPaymentAsync_RejectsTheDeposit()
     {
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager",
-            new RecordPaymentCommand("Deposit", 10_000_000m, DateOnly.FromDateTime(DateTime.UtcNow), "Cash"));
-        Assert.False(result.Success);
-        Assert.Contains("đặt cọc", result.Message);
+        var message = await Refused(new RecordPaymentCommand("Deposit", 10_000_000m, DateOnly.FromDateTime(DateTime.UtcNow), "Cash"));
+        Assert.Contains("đặt cọc", message);
     }
 
     [Fact]
     public async Task RecordPaymentAsync_RejectsTheOldThirtyDayPayment()
     {
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager",
-            new RecordPaymentCommand("T30", 10_000_000m, DateOnly.FromDateTime(DateTime.UtcNow), "Cash"));
-        Assert.False(result.Success);
-        Assert.Contains("tất toán", result.Message);
+        var message = await Refused(new RecordPaymentCommand("T30", 10_000_000m, DateOnly.FromDateTime(DateTime.UtcNow), "Cash"));
+        Assert.Contains("tất toán", message);
     }
 
     [Fact]
     public async Task RecordPaymentAsync_RejectsSettlementBeforeTheEvent()
     {
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(180_000_000m));
-        Assert.False(result.Success);
-        Assert.Contains("sau ngày cưới", result.Message);
+        var message = await Refused(Settlement(180_000_000m));
+        Assert.Contains("sau ngày cưới", message);
     }
 
     [Fact]
     public async Task RecordPaymentAsync_RejectsFutureDate()
     {
         EventHeld();
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(180_000_000m, dayOffset: 5));
-        Assert.False(result.Success);
-        Assert.Contains("tương lai", result.Message);
+        var message = await Refused(Settlement(180_000_000m, dayOffset: 5));
+        Assert.Contains("tương lai", message);
     }
 
     [Fact]
     public async Task RecordPaymentAsync_SettlementIsPaidOnceForTheExactRemainder()
     {
         EventHeld();
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(100_000_000m));
-        Assert.False(result.Success);
-        Assert.Contains("180.000.000", result.Message.Replace(",", "."));
+        var message = await Refused(Settlement(100_000_000m));
+        Assert.Contains("180.000.000", message.Replace(",", "."));
     }
 
     [Fact]
     public async Task RecordPaymentAsync_RejectsBankTransferWithoutReceipt()
     {
         EventHeld();
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(180_000_000m, "Bank"));
-        Assert.False(result.Success);
-        Assert.Contains("Chuyển khoản", result.Message);
+        var message = await Refused(Settlement(180_000_000m, "Bank"));
+        Assert.Contains("Chuyển khoản", message);
     }
 
     [Fact]
@@ -179,7 +176,7 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
     {
         EventHeld();
 
-        var result = await Repo().RecordPaymentAsync(_project.ProjectCode, _manager.UserId, "Manager", Settlement(180_000_000m, "Bank", receipt: Encoding.ASCII.GetBytes("%PDF-1.4 %%EOF")));
+        var result = await Record(Settlement(180_000_000m, "Bank", receipt: Encoding.ASCII.GetBytes("%PDF-1.4 %%EOF")));
 
         Assert.True(result.Success);
         Assert.Equal(0m, result.NewBalance);
@@ -191,7 +188,8 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
         Assert.Equal(10_000_000m, invoice.AddonTotal);
         Assert.Equal(40_000_000m, invoice.DepositPaid);
         Assert.NotNull(_db.StoredFiles.FirstOrDefault(f => f.ProjectId == _project.ProjectId && f.Purpose == "SettlementReceipt"));
-        Assert.True(_notifications.CreatedCount > 0);
+        Assert.Contains(_db.Notifications, n => n.RecipientId == _customer.UserId && n.Type == "Payment");
+        Assert.Equal("Paid", _db.Payments.Single(p => p.PaymentType == "Settlement").Status);
     }
 
     [Fact]
@@ -214,22 +212,5 @@ public sealed class ManagerPaymentRepositoryTests : IDisposable
         Assert.Contains("%%EOF", text);
         Assert.Contains("BN-001", text);
         Assert.Contains("Hop dong phat sinh da xac nhan", text);
-    }
-
-    private sealed class DummyNotificationRepository : INotificationRepository
-    {
-        public int CreatedCount { get; private set; }
-
-        public Task<NotificationView> CreateNotificationAsync(int recipientId, string type, string message, string? linkUrl = null, string? relatedEntityType = null, string? relatedEntityId = null, CancellationToken cancellationToken = default)
-        {
-            CreatedCount++;
-            return Task.FromResult(new NotificationView(CreatedCount, type, message, linkUrl, false, DateTime.UtcNow, relatedEntityType, relatedEntityId));
-        }
-
-        public Task<NotificationListResponse> GetNotificationsAsync(int userId, string? filter = "All", int page = 1, int pageSize = 20, CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
-        public Task<int> GetUnreadCountAsync(int userId, CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task<bool> MarkAsReadAsync(int userId, int notificationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<int> MarkAllAsReadAsync(int userId, CancellationToken cancellationToken = default) => Task.FromResult(0);
     }
 }

@@ -1,18 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Application.Persistence;
 using Domain.Services;
-using Infrastructure.Persistence.Entities;
+using Domain.Entities;
 
 namespace Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// Stage 3: once services are locked the operator books the outside suppliers and attaches evidence (transfer note,
 /// invoice or contract). The checklist lists every locked service that needs a supplier; no purchase-order tracking.
+/// Read only: attaching evidence is a use case (Application/UseCases/EventStages/AddSupplierEvidence).
 /// </summary>
 public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileService files) : ISupplierEvidenceRepository
 {
-    private static readonly HashSet<string> Types = ["Transfer", "Invoice", "Contract", "Other"];
-
     public async Task<SupplierBoardView?> GetBoardAsync(string eventCode, CancellationToken cancellationToken = default)
     {
         var p = await db.WeddingProjects.AsNoTracking().AsSplitQuery()
@@ -35,33 +34,6 @@ public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileService fi
         return new SupplierBoardView(p.ProjectCode, p.Status, EventStageRules.LockDate(p.EventDate, policy), deadline,
             p.Status is EventStatus.Locked or EventStatus.Completed, p.Status == EventStatus.Locked && today > deadline && lines.Any(l => l.EvidenceCount == 0),
             lines, evidences);
-    }
-
-    public async Task<SupplierEvidenceView> AddAsync(string eventCode, int userId, SupplierEvidenceCommand command, CancellationToken cancellationToken = default)
-    {
-        var project = await db.WeddingProjects.Include(p => p.SpecItems).FirstOrDefaultAsync(p => p.ProjectCode == eventCode, cancellationToken)
-            ?? throw new KeyNotFoundException("Không tìm thấy sự kiện.");
-        if (project.Status is not (EventStatus.Locked or EventStatus.Completed))
-            throw new InvalidOperationException("Minh chứng nhà cung cấp được tải lên sau khi sự kiện đã khóa dịch vụ (giai đoạn 3).");
-        var supplier = command.SupplierName?.Trim() ?? "";
-        if (supplier.Length is < 2 or > 150) throw new InvalidOperationException("Tên nhà cung cấp cần từ 2 đến 150 ký tự.");
-        if (!Types.Contains(command.EvidenceType)) throw new InvalidOperationException("Loại minh chứng phải là chuyển khoản, hóa đơn, hợp đồng hoặc khác.");
-        if (command.SpecItemId is int specId && project.SpecItems.All(s => s.SpecItemId != specId))
-            throw new InvalidOperationException("Dịch vụ không thuộc sự kiện này.");
-        if (command.Note is { Length: > 500 }) throw new InvalidOperationException("Ghi chú tối đa 500 ký tự.");
-        if (command.Content is not { Length: > 0 }) throw new InvalidOperationException("Hãy chọn tệp minh chứng.");
-        // Type (by content), size, photo conversion and the storage key follow the common file rules.
-        var file = await files.StoreAsync(project.ProjectId, "SupplierEvidence", command.FileName ?? "minh-chung", command.Content, userId, cancellationToken);
-        var evidence = new SupplierEvidence
-        {
-            ProjectId = project.ProjectId, SpecItemId = command.SpecItemId, SupplierName = supplier, EvidenceType = command.EvidenceType,
-            FileId = file.Id, Note = string.IsNullOrWhiteSpace(command.Note) ? null : command.Note.Trim(), UploadedBy = userId, UploadedAt = DateTime.UtcNow
-        };
-        db.SupplierEvidences.Add(evidence);
-        await db.SaveChangesAsync(cancellationToken);
-
-        var board = await GetBoardAsync(eventCode, cancellationToken);
-        return board!.Evidences.Single(e => e.Id == evidence.EvidenceId);
     }
 
     public async Task<(byte[] Content, string ContentType, string FileName)?> GetFileAsync(string eventCode, int evidenceId, CancellationToken cancellationToken = default)
