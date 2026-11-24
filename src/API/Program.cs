@@ -37,7 +37,6 @@ using Infrastructure.Persistence.Repositories;
 using Domain.Enums;
 using Domain.Services;
 using Application.Payments;
-using Infrastructure.Payments;
 using Application.Dashboard;
 using Application.DayOfTasks;
 using Application.OverdueAlerts;
