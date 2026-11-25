@@ -25,6 +25,7 @@ export const ENDPOINTS = {
   addonCancel: (code, addon) => `/projects/${encodeURIComponent(code)}/addons/${encodeURIComponent(addon)}/cancel`,
   suppliers: (code) => `/projects/${encodeURIComponent(code)}/suppliers`,
   supplierFile: (code, id) => `/projects/${encodeURIComponent(code)}/suppliers/${id}/file`,
+  supplierEvidence: (code, id) => `/projects/${encodeURIComponent(code)}/suppliers/${id}`,
   customerLookup: "/customers/lookup",
   resendCredentials: (code) => `/projects/${encodeURIComponent(code)}/resend-credentials`,
   // Co-management: Primary Manager or Admin adds/removes co-managers.

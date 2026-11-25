@@ -52,6 +52,8 @@ public static class EventFlowEndpoints
                 specItemId, form["note"].ToString(), buffer.ToArray(), file.FileName, file.ContentType ?? "application/octet-stream"), ct);
             return Results.Ok(evidence);
         }).DisableAntiforgery();
+        manager.MapDelete("/suppliers/{evidenceId:int}", async (string id, int evidenceId, RemoveSupplierEvidence remove, CancellationToken ct) =>
+            await remove.HandleAsync(id, evidenceId, ct) is { } board ? Results.Ok(board) : Results.NotFound());
         staff.MapGet("/suppliers/{evidenceId:int}/file", async (string id, int evidenceId, ISupplierEvidenceRepository repo, CancellationToken ct) =>
             await repo.GetFileAsync(id, evidenceId, ct) is { } file ? Results.File(file.Content, file.ContentType, file.FileName) : Results.NotFound());
 

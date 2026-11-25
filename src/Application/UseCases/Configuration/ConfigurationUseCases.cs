@@ -26,7 +26,7 @@ public interface IConfigurationStore
 internal static class CatalogViews
 {
     public static CatalogItemView View(ServiceCatalogItem x) =>
-        new(x.ItemId.ToString(), x.Name, ServiceCategories.Display(x.Category), x.Unit, x.DefaultPrice, x.Status == ServiceCatalogItem.Active);
+        new(x.ItemId.ToString(), x.Name, ServiceCategories.Display(x.Category), x.Unit, x.DefaultPrice, x.Status == ServiceCatalogItem.Active, x.RequiresSupplier);
 }
 
 /// <summary>Use case (UC-37, A-04): the Admin adds a service to the catalog.</summary>
@@ -37,7 +37,7 @@ public sealed class AddCatalogItem(IConfigurationStore store, IUnitOfWork unitOf
         var category = ServiceCategories.Normalize(command.Category);
         var (name, unit) = ConfigurationPolicy.ValidateCatalogItem(command.Name, command.Unit, command.BasePrice);
         ConfigurationPolicy.EnsureNameFree(await store.CatalogNameTakenAsync(category, name, null, cancellationToken));
-        var item = ServiceCatalogItem.Create(name, category, unit, command.BasePrice, command.Active);
+        var item = ServiceCatalogItem.Create(name, category, unit, command.BasePrice, command.Active, command.RequiresSupplier ?? false);
         store.Add(item);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return CatalogViews.View(item);
@@ -54,7 +54,7 @@ public sealed class UpdateCatalogItem(IConfigurationStore store, IUnitOfWork uni
         var category = ServiceCategories.Normalize(command.Category);
         var (name, unit) = ConfigurationPolicy.ValidateCatalogItem(command.Name, command.Unit, command.BasePrice);
         ConfigurationPolicy.EnsureNameFree(await store.CatalogNameTakenAsync(category, name, itemId, cancellationToken));
-        item.Edit(name, category, unit, command.BasePrice, command.Active);
+        item.Edit(name, category, unit, command.BasePrice, command.Active, command.RequiresSupplier);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return CatalogViews.View(item);
     }

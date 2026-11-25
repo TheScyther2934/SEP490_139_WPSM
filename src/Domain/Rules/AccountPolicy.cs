@@ -17,7 +17,8 @@ public static class AccountPolicy
     public static readonly IReadOnlyList<string> StaffRoles = [Manager, Admin];
     public const int MinPasswordLength = 8;
 
-    public static string? PhoneDigits(string? phone) => string.IsNullOrWhiteSpace(phone) ? null : new string(phone.Where(char.IsDigit).ToArray());
+    /// <summary>An optional phone, normalized and checked by <see cref="PhonePolicy"/>.</summary>
+    public static string? PhoneDigits(string? phone) => PhonePolicy.Optional(phone);
 
     public static AccountDetails ValidateDetails(string? fullName, string? email, string? phone)
     {
@@ -26,9 +27,7 @@ public static class AccountPolicy
         var address = email?.Trim() ?? "";
         if (address.Length > 100 || !MailAddress.TryCreate(address, out var parsed) || parsed.Address != address || !address.Contains('.', StringComparison.Ordinal))
             throw new BusinessRuleException("Email không hợp lệ.");
-        var digits = PhoneDigits(phone);
-        if (digits is not null && digits.Length is < 9 or > 11) throw new BusinessRuleException("Số điện thoại phải có 9–11 chữ số.");
-        return new AccountDetails(name, address, digits);
+        return new AccountDetails(name, address, PhoneDigits(phone));
     }
 
     public static void EnsureEmailFree(bool taken)

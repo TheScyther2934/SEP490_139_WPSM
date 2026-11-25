@@ -17,6 +17,7 @@ export function useCoordinationTasks(code) {
   const [editing, setEditing] = useState(undefined); // undefined = closed, null = new, task = edit
   const [newDepartment, setNewDepartment] = useState("Decor");
   const [deleting, setDeleting] = useState(null);
+  const [reopening, setReopening] = useState(null);
   const [viewer, setViewer] = useState(null);       // { title, photos, index }
   const data = board.data;
 
@@ -38,6 +39,9 @@ export function useCoordinationTasks(code) {
   const deleteTask = async () => {
     if (refresh(await run(() => dayOfService.deleteTask(code, deleting.taskId), "Đã xóa nhiệm vụ."))) setDeleting(null);
   };
+  const reopenTask = async () => {
+    if (refresh(await run(() => dayOfService.reopen(code, reopening.taskId), `Đã mở lại "${reopening.taskName}".`))) setReopening(null);
+  };
   const generate = async () => refresh(await run(() => dayOfService.load(code), "Đã tạo nhiệm vụ điều phối từ các dịch vụ đã khóa."));
   const addTask = (department) => { setNewDepartment(department || "Decor"); setEditing(null); };
   const moveViewer = useCallback((index) => setViewer((v) => (v ? { ...v, index } : v)), []);
@@ -48,7 +52,7 @@ export function useCoordinationTasks(code) {
       onComplete={(t) => setProof({ task: t, mode: "complete" })}
       onAddPhotos={(t) => setProof({ task: t, mode: "add" })}
       onOpenPhoto={(t, index) => setViewer({ title: t.taskName, photos: t.photos.filter((p) => p.isImage), index })}
-      onEdit={setEditing} onDelete={setDeleting} />
+      onEdit={setEditing} onDelete={setDeleting} onReopen={setReopening} />
   );
 
   const dialogs = (
@@ -59,6 +63,9 @@ export function useCoordinationTasks(code) {
       <TextDialog open={!!deleting} title="Xóa nhiệm vụ" color="error" confirmText="Xóa" busy={busy}
         description={`Xóa nhiệm vụ "${deleting?.taskName ?? ""}"? Thao tác không hoàn tác được.`}
         onClose={() => setDeleting(null)} onConfirm={deleteTask} />
+      <TextDialog open={!!reopening} title="Hủy hoàn thành nhiệm vụ" confirmText="Mở lại" busy={busy}
+        description={`Mở lại nhiệm vụ "${reopening?.taskName ?? ""}" để làm tiếp? Minh chứng đã tải vẫn được giữ.`}
+        onClose={() => setReopening(null)} onConfirm={reopenTask} />
       <PhotoViewer viewer={viewer} onClose={() => setViewer(null)} onMove={moveViewer} />
     </>
   );

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormLabel, IconButton, InputAdornment,
+  Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, FormControlLabel, FormLabel, IconButton, InputAdornment,
   MenuItem, Radio, RadioGroup, TextField, Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { CATEGORIES } from "../../../../utils/catalog";
 import { moneyInput } from "../../../../utils/format";
 
-const EMPTY = { name: "", category: "", unit: "", basePrice: "", active: true };
+const EMPTY = { name: "", category: "", unit: "", basePrice: "", active: true, requiresSupplier: false };
 
 // A-03 (add or edit). SRS 10.2: name ≤100 and unique per category (checked by the API), unit ≤20, price > 0.
 export function validateCatalogItem(item) {
@@ -28,7 +28,7 @@ export default function CatalogItemDialog({ open, initial, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setItem(initial ? { name: initial.name, category: initial.category, unit: initial.unit, basePrice: String(initial.basePrice), active: initial.active } : EMPTY);
+    setItem(initial ? { name: initial.name, category: initial.category, unit: initial.unit, basePrice: String(initial.basePrice), active: initial.active, requiresSupplier: !!initial.requiresSupplier } : EMPTY);
     setErrors({});
     setServerError("");
   }, [open, initial]);
@@ -39,7 +39,7 @@ export default function CatalogItemDialog({ open, initial, onClose, onSave }) {
     setErrors(next);
     if (Object.keys(next).length) return;
     setSaving(true);
-    const message = await onSave({ name: item.name.trim(), category: item.category, unit: item.unit.trim(), basePrice: moneyInput(item.basePrice), active: item.active });
+    const message = await onSave({ name: item.name.trim(), category: item.category, unit: item.unit.trim(), basePrice: moneyInput(item.basePrice), active: item.active, requiresSupplier: item.requiresSupplier });
     setSaving(false);
     setServerError(message ?? "");
   };
@@ -71,6 +71,9 @@ export default function CatalogItemDialog({ open, initial, onClose, onSave }) {
               <FormControlLabel value="inactive" control={<Radio size="small" />} label="Ngừng dùng" />
             </RadioGroup>
           </FormControl>
+          <FormControlLabel sx={{ gridColumn: "1 / -1" }}
+            control={<Checkbox id="catalogRequiresSupplier" checked={item.requiresSupplier} onChange={(e) => setItem((v) => ({ ...v, requiresSupplier: e.target.checked }))} />}
+            label="Cần nhà cung cấp bên ngoài (Manager phải tải minh chứng nhà cung cấp cho dịch vụ này)" />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           Tên trùng trong cùng danh mục sẽ bị từ chối. Dịch vụ ngừng dùng vẫn được giữ trong các đặc tả đã lập.

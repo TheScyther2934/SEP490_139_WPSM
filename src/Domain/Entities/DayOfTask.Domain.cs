@@ -120,6 +120,19 @@ public partial class DayOfTask
         if (Text.Clip(note, 500) is { } kept) Note = kept;
     }
 
+    /// <summary>
+    /// Undoes a completion marked by mistake: the task waits again (the overdue job flags it if its deadline has passed).
+    /// The proof already uploaded stays on the task.
+    /// </summary>
+    public void Reopen()
+    {
+        if (!IsDone) throw new BusinessRuleException("Nhiệm vụ chưa hoàn thành nên không cần mở lại.");
+        Status = "Pending";
+        CompletedAt = null;
+        CompletedBy = null;
+        OverdueFlaggedAt = null;
+    }
+
     /// <summary>Proof added afterwards (done or not): 1–3 files at a time, up to <see cref="CoordinationTaskPolicy.MaxProofPerTask"/> per task.</summary>
     public void EnsureCanAddProof(int fileCount)
     {

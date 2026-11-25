@@ -11,7 +11,7 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
 {
     public async Task<IReadOnlyList<CatalogItemView>> GetCatalogAsync(CancellationToken cancellationToken = default) =>
         await db.ServiceCatalogItems.AsNoTracking().OrderBy(x => x.Category).ThenBy(x => x.Name)
-            .Select(x => new CatalogItemView(x.ItemId.ToString(), x.Name, WpsmCategoryNames.ToDisplay(x.Category), x.Unit, x.DefaultPrice, x.Status == "Active"))
+            .Select(x => new CatalogItemView(x.ItemId.ToString(), x.Name, WpsmCategoryNames.ToDisplay(x.Category), x.Unit, x.DefaultPrice, x.Status == "Active", x.RequiresSupplier))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<PriceFrameView>> GetPriceFramesAsync(CancellationToken cancellationToken = default)

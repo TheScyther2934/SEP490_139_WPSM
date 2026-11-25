@@ -23,6 +23,7 @@ export const dayOfService = {
   createTask: (code, task) => axiosClient.post(OPS.dayOfTasks(code), task).then(data),
   updateTask: (code, taskId, task) => axiosClient.put(OPS.dayOfTask(code, taskId), task).then(data),
   deleteTask: (code, taskId) => axiosClient.delete(OPS.dayOfTask(code, taskId)).then(data),
+  reopen: (code, taskId) => axiosClient.post(OPS.dayOfReopen(code, taskId)).then(data),
   addPhotos: (code, taskId, photos) => axiosClient.post(OPS.dayOfPhotos(code, taskId), form({ photos })).then(data),
 };
 

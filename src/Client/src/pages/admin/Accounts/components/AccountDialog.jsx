@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, TextField, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { roleLabel } from "../../../../utils/format";
+import { PHONE_MESSAGE, isValidPhone } from "../../../../utils/phone";
 
 const EMPTY = { fullName: "", email: "", phone: "", role: "Manager" };
 const STAFF_ROLES = ["Manager", "Admin"];
 
-// Same limits as the API and the Users table: name ≤100, unique valid email ≤100, phone 9–11 digits (optional).
+// Same limits as the API: name ≤100, unique valid email ≤100, phone optional (PhonePolicy: starts with 0, 10–11 digits).
 export function validateAccount(form) {
   const errors = {};
   if (!form.fullName.trim()) errors.fullName = "Trường Họ tên là bắt buộc.";
@@ -14,8 +15,7 @@ export function validateAccount(form) {
   const email = form.email.trim();
   if (!email) errors.email = "Trường Email là bắt buộc.";
   else if (email.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Email không hợp lệ.";
-  const digits = form.phone.replace(/\D/g, "");
-  if (form.phone.trim() && (digits.length < 9 || digits.length > 11)) errors.phone = "Số điện thoại phải có 9–11 chữ số.";
+  if (form.phone.trim() && !isValidPhone(form.phone)) errors.phone = PHONE_MESSAGE;
   return errors;
 }
 

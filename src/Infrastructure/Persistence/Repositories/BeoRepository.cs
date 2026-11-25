@@ -34,7 +34,9 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
 
         var view = MapBeoView(project);
         var deptItems = view.Items.Where(i => i.Department == normalizedDept).ToList();
-        var pdfBytes = BuildSimplePdf(view, normalizedDept, DepartmentLabel(normalizedDept), deptItems);
+        // The department also gets its coordination tasks (preparation and event day), in deadline order.
+        var deptTasks = project.DayOfTasks.Where(t => t.Department == normalizedDept).OrderBy(t => t.DeadlineTime).ToList();
+        var pdfBytes = BuildSimplePdf(view, normalizedDept, DepartmentLabel(normalizedDept), deptItems, deptTasks);
         var fileName = $"BEO_{view.ProjectCode}_v{view.Version}_{normalizedDept}.pdf";
         return (pdfBytes, "application/pdf", fileName);
     }
@@ -48,6 +50,7 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
             .Include(p => p.AddonContracts).ThenInclude(a => a.Items).ThenInclude(i => i.CatalogItem)
             .Include(p => p.Beos).ThenInclude(b => b.ApprovedByNavigation)
             .Include(p => p.Beos).ThenInclude(b => b.BeodepartmentSheets)
+            .Include(p => p.DayOfTasks)
             .FirstOrDefaultAsync(p => p.ProjectCode == projectCode.Trim() && ((p.ManagerId == managerId || p.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)) || db.Users.Any(u => u.UserId == managerId && u.Role == "Admin")), cancellationToken);
 
     private static ProjectBeoView MapBeoView(WeddingProject project)
@@ -139,7 +142,8 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
         _ => null
     };
 
-    private static byte[] BuildSimplePdf(ProjectBeoView beo, string dept, string deptLabel, IReadOnlyList<BeoItemLineView> items)
+    private static byte[] BuildSimplePdf(ProjectBeoView beo, string dept, string deptLabel, IReadOnlyList<BeoItemLineView> items,
+        IReadOnlyList<DayOfTask> tasks)
     {
         static string AsciiSafe(string text)
         {
@@ -185,53 +189,71 @@ public sealed class BeoRepository(WpsmDbContext db) : IBeoRepository
             lines.Add($"{i + 1,3} | {name,-30} | {item.EffectiveQuantity,3} | {AsciiSafe(item.Unit),-6} | {note}");
         }
 
+        if (items.Count == 0) lines.Add("    (Bo phan khong co hang muc dich vu nao)");
+
+        lines.Add("");
+        lines.Add("NHIEM VU CAN HOAN THANH");
+        lines.Add("------------------------------------------------------------------------");
+        lines.Add("STT | Han              | Nhiem vu                         | Trang thai");
+        lines.Add("------------------------------------------------------------------------");
+        if (tasks.Count == 0) lines.Add("    (Chua tao nhiem vu dieu phoi cho bo phan nay)");
+        for (var i = 0; i < tasks.Count; i++)
+        {
+            var task = tasks[i];
+            var deadline = Domain.Services.VietnamTime.ConvertUtcToVietnam(DateTime.SpecifyKind(task.DeadlineTime, DateTimeKind.Utc));
+            var name = AsciiSafe(task.TaskName) + (task.PhotoRequired ? " *" : "");
+            if (name.Length > 32) name = name[..32];
+            var status = task.Status switch { "Done" => "Da xong", "Overdue" => "Qua han", _ => "Chua xong" };
+            lines.Add($"{i + 1,3} | {deadline:HH:mm dd/MM/yyyy} | {name,-32} | {status}");
+        }
+        if (tasks.Any(t => t.PhotoRequired)) lines.Add("    (*) Nhiem vu can anh hoac tai lieu minh chung khi hoan thanh.");
+
         if (!string.IsNullOrWhiteSpace(beo.Notes))
         {
             lines.Add("------------------------------------------------------------------------");
             lines.Add($"Ghi chu van hanh: {AsciiSafe(beo.Notes)}");
         }
 
-        var contentSb = new StringBuilder();
-        contentSb.AppendLine("BT");
-        contentSb.AppendLine("/F1 10 Tf");
-        var y = 780;
-        foreach (var line in lines)
-        {
-            contentSb.AppendLine($"1 0 0 1 40 {y} Tm ({line}) Tj");
-            y -= 16;
-            if (y < 60) break;
-        }
-        contentSb.AppendLine("ET");
-        var streamBytes = Encoding.ASCII.GetBytes(contentSb.ToString());
+        return SimplePdf(lines);
+    }
 
+    /// <summary>A plain A4 PDF (Courier 10 pt), 45 lines per page, as many pages as needed.</summary>
+    private static byte[] SimplePdf(IReadOnlyList<string> lines)
+    {
+        const int perPage = 45;
+        var pages = lines.Chunk(perPage).ToList();
+        if (pages.Count == 0) pages.Add([]);
+        // Objects: 1 catalog, 2 pages, 3 font, then a page and its content stream for each page.
         var pdf = new StringBuilder();
+        var offsets = new List<int>();
+        void Obj(string body) { offsets.Add(pdf.Length); pdf.AppendLine($"{offsets.Count} 0 obj {body} endobj"); }
+
         pdf.AppendLine("%PDF-1.4");
-        var obj1Offset = pdf.Length;
-        pdf.AppendLine("1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj");
-        var obj2Offset = pdf.Length;
-        pdf.AppendLine("2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj");
-        var obj3Offset = pdf.Length;
-        pdf.AppendLine("3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj");
-        var obj4Offset = pdf.Length;
-        pdf.AppendLine("4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier >> endobj");
-        var obj5Offset = pdf.Length;
-        pdf.AppendLine($"5 0 obj << /Length {streamBytes.Length} >> stream");
-        pdf.Append(Encoding.ASCII.GetString(streamBytes));
-        pdf.AppendLine("endstream endobj");
+        Obj("<< /Type /Catalog /Pages 2 0 R >>");
+        var kids = string.Join(" ", pages.Select((_, i) => $"{4 + i * 2} 0 R"));
+        Obj($"<< /Type /Pages /Kids [{kids}] /Count {pages.Count} >>");
+        Obj("<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>");
+        for (var p = 0; p < pages.Count; p++)
+        {
+            Obj($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents {5 + p * 2} 0 R >>");
+            var content = new StringBuilder("BT\n/F1 10 Tf\n");
+            var y = 780;
+            foreach (var line in pages[p]) { content.AppendLine($"1 0 0 1 40 {y} Tm ({line}) Tj"); y -= 16; }
+            if (pages.Count > 1) content.AppendLine($"1 0 0 1 480 40 Tm (Trang {p + 1}/{pages.Count}) Tj");
+            content.AppendLine("ET");
+            var stream = content.ToString();
+            Obj($"<< /Length {Encoding.ASCII.GetByteCount(stream)} >> stream\n{stream}endstream");
+        }
+
         var xrefOffset = pdf.Length;
         pdf.AppendLine("xref");
-        pdf.AppendLine("0 6");
+        pdf.AppendLine($"0 {offsets.Count + 1}");
         pdf.AppendLine("0000000000 65535 f ");
-        pdf.AppendLine($"{obj1Offset:D10} 00000 n ");
-        pdf.AppendLine($"{obj2Offset:D10} 00000 n ");
-        pdf.AppendLine($"{obj3Offset:D10} 00000 n ");
-        pdf.AppendLine($"{obj4Offset:D10} 00000 n ");
-        pdf.AppendLine($"{obj5Offset:D10} 00000 n ");
-        pdf.AppendLine("trailer << /Size 6 /Root 1 0 R >>");
+        foreach (var offset in offsets) pdf.AppendLine($"{offset:D10} 00000 n ");
+        pdf.AppendLine($"trailer << /Size {offsets.Count + 1} /Root 1 0 R >>");
         pdf.AppendLine("startxref");
         pdf.AppendLine(xrefOffset.ToString());
         pdf.AppendLine("%%EOF");
-
         return Encoding.ASCII.GetBytes(pdf.ToString());
     }
 }

@@ -96,4 +96,11 @@ public static class EventStagePolicy
         if (!hasFile) throw new BusinessRuleException("Hãy chọn tệp minh chứng.");
         return (supplier, string.IsNullOrWhiteSpace(note) ? null : note.Trim());
     }
+
+    /// <summary>A wrong or replaced supplier evidence is removed while the event is still open (locked or held, not settled).</summary>
+    public static void EnsureCanRemoveEvidence(string eventStatus)
+    {
+        if (eventStatus is not (EventStatus.Locked or EventStatus.Completed))
+            throw new BusinessRuleException("Chỉ xóa được minh chứng nhà cung cấp khi sự kiện đã khóa dịch vụ và chưa tất toán.");
+    }
 }

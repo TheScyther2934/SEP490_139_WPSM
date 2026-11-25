@@ -26,9 +26,7 @@ public static class EventBookingPolicy
         var mail = (email ?? "").Trim();
         if (name.Length is 0 or > 100 || mail.Length is 0 or > 100 || !MailAddress.TryCreate(mail, out var address) || address.Address != mail)
             throw new BusinessRuleException("Tên khách hàng hoặc email không hợp lệ.");
-        var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
-        if (digits.Length is < 9 or > 11) throw new BusinessRuleException("Số điện thoại cần có từ 9 đến 11 chữ số.");
-        return new BookingCustomer(name, mail, digits);
+        return new BookingCustomer(name, mail, PhonePolicy.Require(phone));
     }
 
     /// <summary>"Lunch"/"trưa" or "Evening"/"tối", as stored in Slots.</summary>

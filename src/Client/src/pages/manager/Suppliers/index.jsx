@@ -4,6 +4,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DataState from "../../../components/DataState";
 import ServiceBlock from "./components/ServiceBlock";
 import EvidenceDialog from "./components/EvidenceDialog";
+import TextDialog from "../../../components/TextDialog";
 import { useProject } from "../../../hooks/useProject";
 import { useAsync } from "../../../hooks/useAsync";
 import { useAction } from "../../../hooks/useAction";
@@ -25,6 +26,7 @@ export default function Suppliers() {
   const board = useAsync(() => eventFlowService.suppliers(project.id), [project.id]);
   const { busy, run } = useAction();
   const [uploadFor, setUploadFor] = useState(undefined);   // undefined = closed, "" = any service, id = that service
+  const [removing, setRemoving] = useState(null);          // the evidence waiting for the delete confirmation
   const b = board.data;
 
   const lines = b?.lines ?? [];
@@ -38,6 +40,10 @@ export default function Suppliers() {
   const save = async (form) => {
     const ok = await run(() => eventFlowService.uploadEvidence(project.id, form), "Đã lưu minh chứng nhà cung cấp.");
     if (ok) { setUploadFor(undefined); board.reload({ silent: true }); }
+  };
+  const remove = async () => {
+    const updated = await run(() => eventFlowService.removeEvidence(project.id, removing.id), "Đã xóa minh chứng nhà cung cấp.");
+    if (updated) { setRemoving(null); board.setData(updated); }
   };
   const download = async (e) => {
     const blob = await run(() => eventFlowService.downloadEvidence(project.id, e.id));
@@ -85,15 +91,18 @@ export default function Suppliers() {
           <Stack spacing={1.5}>
             {ordered.map((l) => (
               <ServiceBlock key={l.specItemId} line={l} evidences={byService(l.specItemId)} overdue={b.overdue} canUpload={b.canUpload}
-                busy={busy} onUpload={setUploadFor} onDownload={download} />
+                busy={busy} onUpload={setUploadFor} onDownload={download} onRemove={setRemoving} />
             ))}
-            {others.length > 0 && <ServiceBlock line={null} evidences={others} busy={busy} onDownload={download} />}
+            {others.length > 0 && <ServiceBlock line={null} evidences={others} canUpload={b.canUpload} busy={busy} onDownload={download} onRemove={setRemoving} />}
             {lines.length === 0 && others.length === 0 && (
               <Typography color="text.secondary">Sự kiện không có dịch vụ cần nhà cung cấp bên ngoài.</Typography>
             )}
           </Stack>
 
           <EvidenceDialog specItemId={uploadFor} lines={lines} busy={busy} onClose={() => setUploadFor(undefined)} onSave={save} />
+          <TextDialog open={!!removing} title="Xóa minh chứng nhà cung cấp" color="error" confirmText="Xóa" busy={busy}
+            description={`Xóa minh chứng "${removing?.supplierName ?? ""}" (${removing?.fileName ?? ""})? Dịch vụ sẽ quay về trạng thái thiếu minh chứng nếu không còn minh chứng nào khác.`}
+            onClose={() => setRemoving(null)} onConfirm={remove} />
         </Stack>
       )}
     </DataState>

@@ -1,4 +1,5 @@
 import { isoDate, money, moneyInput } from "../../../utils/format";
+import { PHONE_MESSAGE, isValidPhone } from "../../../utils/phone";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
@@ -32,7 +33,7 @@ export function validateProject(form, policy, slots, frames) {
   if (!form.customerEmail.trim()) errors.customerEmail = "Trường Email là bắt buộc.";
   else if (!EMAIL.test(form.customerEmail.trim())) errors.customerEmail = "Email không đúng định dạng.";
   if (!form.customerPhone.trim()) errors.customerPhone = "Trường Số điện thoại là bắt buộc.";
-  else if (!/^\d{9,11}$/.test(form.customerPhone.trim())) errors.customerPhone = "Số điện thoại gồm 9–11 chữ số.";
+  else if (!isValidPhone(form.customerPhone)) errors.customerPhone = PHONE_MESSAGE;
   if (!form.hall) errors.hall = "Trường Sảnh là bắt buộc.";
   const window = bookingWindow(policy);
   if (!form.eventDate) errors.eventDate = "Trường Ngày cưới là bắt buộc.";

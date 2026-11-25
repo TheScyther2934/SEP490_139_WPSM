@@ -7,7 +7,7 @@ import EvidenceItem from "./EvidenceItem";
 
 // One service that needs an outside supplier, with its evidence right below it.
 // `line` is null for the group of evidence not tied to a service. Missing evidence: orange border, red once overdue.
-export default function ServiceBlock({ line, evidences, overdue, canUpload, busy, onUpload, onDownload }) {
+export default function ServiceBlock({ line, evidences, overdue, canUpload, busy, onUpload, onDownload, onRemove }) {
   const other = !line;
   const missing = !other && evidences.length === 0;
   const tone = missing ? (overdue ? "error" : "warning") : other ? "grey" : "success";
@@ -32,7 +32,7 @@ export default function ServiceBlock({ line, evidences, overdue, canUpload, busy
         </Stack>
         {evidences.length > 0 && (
           <Stack spacing={1} sx={{ mt: 1.5, pl: { sm: 4.5 } }}>
-            {evidences.map((e) => <EvidenceItem key={e.id} evidence={e} busy={busy} onDownload={onDownload} />)}
+            {evidences.map((e) => <EvidenceItem key={e.id} evidence={e} busy={busy} onDownload={onDownload} onRemove={canUpload ? onRemove : undefined} />)}
           </Stack>
         )}
       </CardContent>

@@ -43,6 +43,11 @@ public sealed class EventWorkStore(WpsmDbContext db, IFileService files) : IEven
 
     public void Add(SupplierEvidence evidence) => db.SupplierEvidences.Add(evidence);
 
+    public Task<SupplierEvidence?> GetSupplierEvidenceAsync(int projectId, int evidenceId, CancellationToken cancellationToken = default) =>
+        db.SupplierEvidences.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.EvidenceId == evidenceId, cancellationToken);
+
+    public void Remove(SupplierEvidence evidence) => db.SupplierEvidences.Remove(evidence);
+
     public async Task<Guid> StoreSupplierFileAsync(int projectId, string fileName, byte[] content, int uploaderId, CancellationToken cancellationToken = default) =>
         (await files.StoreAsync(projectId, "SupplierEvidence", fileName, content, uploaderId, cancellationToken)).Id;
 

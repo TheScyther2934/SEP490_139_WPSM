@@ -10,7 +10,7 @@ public sealed record CreateProjectRequest(string CoupleName, string CustomerEmai
 public sealed record CreatedProjectResponse(WeddingProjectView Project, string? TemporaryPassword, string EmailStatus = "ExistingAccount");
 public sealed record EmailStatusRequest(string? MessageId, string? Status, string? Error);
 public sealed record SpecificationRequest(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null, string? Note = null, string? NoteType = null);
-public sealed record CatalogItemRequest(string Name, string Category, string Unit, decimal BasePrice, bool Active);
+public sealed record CatalogItemRequest(string Name, string Category, string Unit, decimal BasePrice, bool Active, bool? RequiresSupplier = null);
 public sealed record PriceFrameRequest(decimal MinPrice, decimal MaxPrice, DateOnly? EffectiveFrom = null);
 public sealed record PolicyRequest(decimal DepositRatio, decimal MaxDecreaseRatio, int BookingMinDays, int BookingMaxDays, int LockDays,
     int SupplierDeadlineDays, int SettlementDueDays, string? Hotline = null, DateOnly? EffectiveFrom = null);

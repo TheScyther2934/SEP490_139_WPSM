@@ -13,7 +13,7 @@ public static class ConfigurationEndpoints
         api.MapGet("/catalog", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetCatalogAsync(ct)))
             .RequireAuthorization();
         api.MapPost("/catalog", async (CatalogItemRequest request, AddCatalogItem useCase, CancellationToken ct) =>
-            Results.Ok(await useCase.HandleAsync(new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active), ct)))
+            Results.Ok(await useCase.HandleAsync(new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active, request.RequiresSupplier), ct)))
             .RequireAuthorization(policy => policy.RequireRole("Admin"));
 
         api.MapGet("/price-frames", async (IConfigurationRepository repo, CancellationToken ct) => Results.Ok(await repo.GetPriceFramesAsync(ct)))

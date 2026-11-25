@@ -6,19 +6,23 @@ public partial class ServiceCatalogItem
     public const string Inactive = "Inactive";
 
     /// <summary>A new catalog service; name, unit and price already checked (ConfigurationPolicy.ValidateCatalogItem).</summary>
-    public static ServiceCatalogItem Create(string name, string category, string unit, decimal price, bool active) => new()
+    public static ServiceCatalogItem Create(string name, string category, string unit, decimal price, bool active, bool requiresSupplier = false) => new()
     {
-        Name = name, Category = category, Unit = unit, DefaultPrice = price, Status = active ? Active : Inactive
+        Name = name, Category = category, Unit = unit, DefaultPrice = price, Status = active ? Active : Inactive, RequiresSupplier = requiresSupplier
     };
 
-    /// <summary>Signed service lines keep their own description and price, so editing the catalog never changes a signed contract.</summary>
-    public void Edit(string name, string category, string unit, decimal price, bool active)
+    /// <summary>
+    /// Signed service lines keep their own description and price, so editing the catalog never changes a signed contract.
+    /// RequiresSupplier (null keeps it) applies to every event at once: the supplier tab and the settlement warning read it live.
+    /// </summary>
+    public void Edit(string name, string category, string unit, decimal price, bool active, bool? requiresSupplier = null)
     {
         Name = name;
         Category = category;
         Unit = unit;
         DefaultPrice = price;
         SetActive(active);
+        if (requiresSupplier is { } value) RequiresSupplier = value;
     }
 
     public void SetActive(bool active) => Status = active ? Active : Inactive;

@@ -24,6 +24,7 @@ export const eventFlowService = {
     form.append("file", file);
     return axiosClient.post(ENDPOINTS.suppliers(code), form).then(data);
   },
+  removeEvidence: (code, id) => axiosClient.delete(ENDPOINTS.supplierEvidence(code, id)).then(data),
   downloadEvidence: (code, id) => axiosClient.get(ENDPOINTS.supplierFile(code, id), { responseType: "blob" }).then(data),
 
   lookupCustomers: (q) => axiosClient.get(ENDPOINTS.customerLookup, { params: q ? { q } : {} }).then(data),

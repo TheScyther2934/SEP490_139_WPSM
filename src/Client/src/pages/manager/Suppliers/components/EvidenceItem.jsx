@@ -1,12 +1,13 @@
 import { Box, Button, Chip, Stack, Typography } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { dateTimeVi } from "../../../../utils/format";
 
 export const EVIDENCE_TYPES = { Transfer: "Nội dung chuyển khoản", Invoice: "Hóa đơn", Contract: "Hợp đồng", Other: "Khác" };
 
-// One uploaded evidence: supplier, type, note, who uploaded it and when, download button.
-export default function EvidenceItem({ evidence: e, busy, onDownload }) {
+// One uploaded evidence: supplier, type, note, who uploaded it and when, download and (before settlement) delete buttons.
+export default function EvidenceItem({ evidence: e, busy, onDownload, onRemove }) {
   return (
     <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1, sm: 2 }}
       sx={{ p: 1.5, borderRadius: 1, bgcolor: "action.hover", alignItems: { sm: "center" } }}>
@@ -22,6 +23,12 @@ export default function EvidenceItem({ evidence: e, busy, onDownload }) {
       <Button size="small" startIcon={<DownloadIcon />} disabled={busy} onClick={() => onDownload(e)} sx={{ alignSelf: { xs: "flex-start", sm: "center" }, flexShrink: 0 }}>
         Tải tệp
       </Button>
+      {onRemove && (
+        <Button size="small" color="error" startIcon={<DeleteIcon />} disabled={busy} onClick={() => onRemove(e)} data-action="remove-evidence"
+          sx={{ alignSelf: { xs: "flex-start", sm: "center" }, flexShrink: 0 }}>
+          Xóa
+        </Button>
+      )}
     </Stack>
   );
 }

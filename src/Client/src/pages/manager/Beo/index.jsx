@@ -304,8 +304,8 @@ export default function Beo() {
                 Lịch sử các phiên bản phiếu điều phối của sự kiện
               </Typography>
               <Stack spacing={1.2}>
-                {beo.versionHistory?.length ? (
-                  beo.versionHistory.map((v) => (
+                {beo.history?.length ? (
+                  beo.history.map((v) => (
                     <Box
                       key={v.beoId}
                       sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "grey.50", border: "1px solid", borderColor: "divider" }}
@@ -328,7 +328,7 @@ export default function Beo() {
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">
-                    Chưa có phiên bản phiếu điều phối nào được lưu trong cơ sở dữ liệu.
+                    Chưa chốt phiên bản nào. Mỗi lần chốt hoặc duyệt lại sẽ thêm một phiên bản vào đây.
                   </Typography>
                 )}
               </Stack>

@@ -21,7 +21,10 @@ export default function CatalogTable({ items, total, page, pages, pageSize, onPa
             ) : items.map((item) => (
               <TableRow key={item.id} hover data-item={item.id}>
                 <TableCell sx={{ color: "primary.main", fontWeight: 600 }}>{item.id}</TableCell>
-                <TableCell sx={{ fontWeight: 500 }}>{item.name}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>
+                  {item.name}
+                  {item.requiresSupplier && <Chip size="small" variant="outlined" label="Cần nhà cung cấp" sx={{ ml: 1, height: 20, fontSize: 11 }} />}
+                </TableCell>
                 <TableCell>{item.category}</TableCell>
                 <TableCell>{item.unit}</TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>{money(item.basePrice)}</TableCell>

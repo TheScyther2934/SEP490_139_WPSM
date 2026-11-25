@@ -23,6 +23,9 @@ public interface IEventWorkStore
     void Remove(SpecItem line);
     void Add(StageNote note);
     void Add(SupplierEvidence evidence);
+    /// <summary>A supplier evidence of this event; null when not found.</summary>
+    Task<SupplierEvidence?> GetSupplierEvidenceAsync(int projectId, int evidenceId, CancellationToken cancellationToken = default);
+    void Remove(SupplierEvidence evidence);
     /// <summary>Checks the file by its content and stores it. Saves its own row: call last, right before the use case saves.</summary>
     Task<Guid> StoreSupplierFileAsync(int projectId, string fileName, byte[] content, int uploaderId, CancellationToken cancellationToken = default);
     /// <summary>Locked events whose supplier deadline has come and whose day has not passed, with services and evidence (JOB-01).</summary>
@@ -111,6 +114,25 @@ public sealed class AddSupplierEvidence(IEventWorkStore store, ISupplierEvidence
         store.Add(evidence);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return (await reads.GetBoardAsync(projectCode, cancellationToken))!.Evidences.Single(e => e.Id == evidence.EvidenceId);
+    }
+}
+
+/// <summary>
+/// Use case (stage 3, M-08): the operator removes a supplier evidence uploaded by mistake, before settlement.
+/// The stored file stays in file storage (files are kept); the audit log records who removed it.
+/// </summary>
+public sealed class RemoveSupplierEvidence(IEventWorkStore store, ISupplierEvidenceRepository reads, IUnitOfWork unitOfWork)
+{
+    public async Task<SupplierBoardView?> HandleAsync(string projectCode, int evidenceId, CancellationToken cancellationToken = default)
+    {
+        var project = await store.GetEventAsync(projectCode, cancellationToken);
+        if (project is null) return null;
+        var evidence = await store.GetSupplierEvidenceAsync(project.ProjectId, evidenceId, cancellationToken);
+        if (evidence is null) return null;
+        EventStagePolicy.EnsureCanRemoveEvidence(project.Status);
+        store.Remove(evidence);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return await reads.GetBoardAsync(projectCode, cancellationToken);
     }
 }
 

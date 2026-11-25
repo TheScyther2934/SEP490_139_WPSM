@@ -73,7 +73,8 @@ public sealed record SpecificationLineView(
     decimal UnitPrice,
     decimal LineTotal);
 
-public sealed record CatalogItemView(string Id, string Name, string Category, string Unit, decimal BasePrice, bool Active);
+/// <summary>RequiresSupplier: the event must carry a supplier evidence for this service (supplier tab, before settlement).</summary>
+public sealed record CatalogItemView(string Id, string Name, string Category, string Unit, decimal BasePrice, bool Active, bool RequiresSupplier = false);
 public sealed record PriceFrameView(string Id, string ServiceName, string Variant, decimal MinPrice, decimal MaxPrice, string Currency, int CatalogItemId = 0);
 /// <summary>Event rules Admin can change (PolicyConfigs) plus the hotline shown to customers.</summary>
 public sealed record PolicyView(decimal DepositRatio, decimal MaxDecreaseRatio, int BookingMinDays, int BookingMaxDays,
@@ -97,7 +98,8 @@ public sealed record CreatedProjectView(WeddingProjectView Project, string? Temp
 /// <summary>Stage 2 adjustment: the new service lines and the note explaining what the customer asked for (required).</summary>
 public sealed record SpecificationCommand(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null, string? Note = null, string? NoteType = null);
 public sealed record SpecificationLineCommand(int CatalogItemId, string Description, int Quantity, decimal UnitPrice);
-public sealed record CatalogItemCommand(string Name, string Category, string Unit, decimal BasePrice, bool Active);
+/// <summary>RequiresSupplier null: keep the current value on edit, false on create.</summary>
+public sealed record CatalogItemCommand(string Name, string Category, string Unit, decimal BasePrice, bool Active, bool? RequiresSupplier = null);
 public sealed record PriceFrameCommand(decimal MinPrice, decimal MaxPrice, DateOnly? EffectiveFrom = null);
 public sealed record PolicyCommand(decimal DepositRatio, decimal MaxDecreaseRatio, int BookingMinDays, int BookingMaxDays,
     int LockDays, int SupplierDeadlineDays, int SettlementDueDays, string? Hotline = null, DateOnly? EffectiveFrom = null);

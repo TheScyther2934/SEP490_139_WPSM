@@ -51,6 +51,9 @@ public static class OperationsEndpoints
             var (photos, note, error) = await ReadProofPhotosAsync(request, ct);
             return error ?? OkOrNotFound(WithUrls(await complete.HandleAsync(id, taskId, UserId(user), photos, note, ct), links));
         }).DisableAntiforgery();
+        // Undoes a completion marked by mistake; the proof stays.
+        manager.MapPost("/day-of/{taskId:int}/reopen", async (string id, int taskId, ReopenCoordinationTask reopen, PhotoLinks links, CancellationToken ct) =>
+            OkOrNotFound(WithUrls(await reopen.HandleAsync(id, taskId, ct), links)));
         // Adds proof to a task afterwards (a task completed without it, or more angles of the same work).
         manager.MapPost("/day-of/{taskId:int}/photos", async (string id, int taskId, HttpRequest request, AddCoordinationProof addProof, PhotoLinks links, ClaimsPrincipal user, CancellationToken ct) =>
         {
@@ -109,7 +112,7 @@ public static class OperationsEndpoints
     {
         var admin = api.MapGroup("").RequireAuthorization(policy => policy.RequireRole("Admin"));
         admin.MapPut("/catalog/{itemId:int}", async (int itemId, CatalogItemRequest request, UpdateCatalogItem useCase, CancellationToken ct) =>
-            OkOrNotFound(await useCase.HandleAsync(itemId, new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active), ct)));
+            OkOrNotFound(await useCase.HandleAsync(itemId, new CatalogItemCommand(request.Name, request.Category, request.Unit, request.BasePrice, request.Active, request.RequiresSupplier), ct)));
         admin.MapPost("/catalog/{itemId:int}/status", async (int itemId, CatalogStatusRequest request, SetCatalogItemStatus useCase, CancellationToken ct) =>
             OkOrNotFound(await useCase.HandleAsync(itemId, request.Active, ct)));
         admin.MapGet("/price-frames/history/{itemId:int}", async (int itemId, IConfigurationAdminRepository repo, CancellationToken ct) =>

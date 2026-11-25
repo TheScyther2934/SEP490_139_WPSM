@@ -12,7 +12,7 @@ import { dateTimeVi, timeVi } from "../../utils/format";
 // One coordination task: deadline, status (Overdue is set by the job), who finished it, its proof (photos open the viewer,
 // PDF documents open in a new tab). A done task that needs proof but has none is flagged and can take proof afterwards.
 // `showDate`: preparation tasks fall on other days than the event, so the deadline shows the date too.
-export default function TaskCard({ task, canAct, maxPhotos, showDate, showDepartment, onComplete, onAddPhotos, onOpenPhoto, onEdit, onDelete }) {
+export default function TaskCard({ task, canAct, maxPhotos, showDate, showDepartment, onComplete, onAddPhotos, onOpenPhoto, onEdit, onDelete, onReopen }) {
   const [menu, setMenu] = useState(null);
   const done = task.status === "Done";
   const room = maxPhotos - task.photos.length;
@@ -55,6 +55,7 @@ export default function TaskCard({ task, canAct, maxPhotos, showDate, showDepart
                 <IconButton aria-label="Tùy chọn nhiệm vụ" onClick={(e) => setMenu(e.currentTarget)}><MoreVertIcon /></IconButton>
                 <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
                   <MenuItem onClick={() => { setMenu(null); onEdit(task); }}>Sửa nhiệm vụ</MenuItem>
+                  {done && onReopen && <MenuItem data-action="reopen-task" onClick={() => { setMenu(null); onReopen(task); }}>Hủy hoàn thành (mở lại)</MenuItem>}
                   {canDelete && <MenuItem sx={{ color: "error.main" }} onClick={() => { setMenu(null); onDelete(task); }}>Xóa nhiệm vụ</MenuItem>}
                 </Menu>
               </>

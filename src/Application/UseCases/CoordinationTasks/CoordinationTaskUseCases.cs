@@ -96,6 +96,20 @@ public sealed class CompleteCoordinationTask(ICoordinationTaskStore store, IDayO
     }
 }
 
+/// <summary>Use case: the operator reopens a task completed by mistake, while the event is still open (before settlement).</summary>
+public sealed class ReopenCoordinationTask(ICoordinationTaskStore store, IDayOfRepository board, IUnitOfWork unitOfWork)
+{
+    public async Task<DayOfBoardView?> HandleAsync(string projectCode, int taskId, CancellationToken cancellationToken = default)
+    {
+        var task = await store.GetTaskAsync(projectCode, taskId, cancellationToken);
+        if (task is null) return null;
+        CoordinationTaskPolicy.EnsureOpen(task.Project.Status);
+        task.Reopen();
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return await board.GetBoardAsync(projectCode, cancellationToken);
+    }
+}
+
 /// <summary>Use case: proof added to a task afterwards (a task completed without it, or more angles of the same work).</summary>
 public sealed class AddCoordinationProof(ICoordinationTaskStore store, IDayOfRepository board, IUnitOfWork unitOfWork)
 {

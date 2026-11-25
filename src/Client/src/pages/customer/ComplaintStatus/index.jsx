@@ -90,7 +90,7 @@ export default function ComplaintStatus() {
                         <Chip size="small" label={`Phiếu điều phối v${item.beoVersion} (${item.beoStatus})`} color="primary" variant="outlined" />
                       </Stack>
                       <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="body2" color="text.secondary">Thời점 gửi:</Typography>
+                        <Typography variant="body2" color="text.secondary">Thời gian gửi:</Typography>
                         <Typography variant="body2">{dateTimeVi(item.createdAt)}</Typography>
                       </Stack>
                       <Divider />
