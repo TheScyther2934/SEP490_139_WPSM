@@ -52,6 +52,10 @@ public sealed record EventPolicy(
 {
     public static readonly EventPolicy Default = new();
 
+    /// <summary>Identifies the values (same values, same stamp); the signing form sends it back to detect a policy change.</summary>
+    public string Stamp() => string.Join("|", new[] { DepositRatio, MaxDecreaseRatio, BookingMinDays, BookingMaxDays, LockDays, SupplierDeadlineDays, SettlementDueDays }
+        .Select(v => v.ToString("G29", System.Globalization.CultureInfo.InvariantCulture)));
+
     public static class Keys
     {
         public const string DepositRatio = "DEPOSIT_RATIO";

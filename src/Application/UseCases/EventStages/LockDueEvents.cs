@@ -5,9 +5,8 @@ namespace Application.UseCases.EventStages;
 /// <summary>Reads and writes event stages (no rules: those are in EventStageRules).</summary>
 public interface IEventStageStore
 {
-    Task<EventPolicy> GetPolicyAsync(CancellationToken cancellationToken = default);
-    /// <summary>Events still adjusting whose event date is on or before <paramref name="eventDateUntil"/>.</summary>
-    Task<IReadOnlyList<EventParty>> GetAdjustingEventsAsync(DateOnly eventDateUntil, CancellationToken cancellationToken = default);
+    /// <summary>Events still adjusting whose day has not passed, each with the terms it was signed with.</summary>
+    Task<IReadOnlyList<(EventParty Party, EventPolicy Terms)>> GetAdjustingEventsAsync(CancellationToken cancellationToken = default);
     Task StageLockedAsync(int projectId, DateTime now, CancellationToken cancellationToken = default);
 }
 
@@ -19,17 +18,16 @@ public sealed class LockDueEvents(IEventStageStore store, IEventMessages message
 {
     public async Task<int> HandleAsync(DateOnly today, CancellationToken cancellationToken = default)
     {
-        var policy = await store.GetPolicyAsync(cancellationToken);
-        // Candidates by date in the database, then the rule decides (lock date = event date - LockDays).
-        var candidates = await store.GetAdjustingEventsAsync(today.AddDays(policy.LockDays), cancellationToken);
-        var due = candidates.Where(e => EventStageRules.ShouldLock(e.Status, e.EventDate, today, policy)).ToList();
+        // Lock date = event date - LockDays of the terms each event was signed with (a later policy does not move it).
+        var candidates = await store.GetAdjustingEventsAsync(cancellationToken);
+        var due = candidates.Where(e => EventStageRules.ShouldLock(e.Party.Status, e.Party.EventDate, today, e.Terms)).ToList();
         if (due.Count == 0) return 0;
 
         var now = DateTime.UtcNow;
-        foreach (var party in due)
+        foreach (var (party, terms) in due)
         {
             await store.StageLockedAsync(party.ProjectId, now, cancellationToken);
-            await messages.ServicesLockedAsync(party with { Status = EventStatus.Locked }, policy, cancellationToken);
+            await messages.ServicesLockedAsync(party with { Status = EventStatus.Locked }, terms, cancellationToken);
         }
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return due.Count;

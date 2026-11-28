@@ -20,7 +20,7 @@ public sealed class EventWorkStore(WpsmDbContext db, IFileService files) : IEven
             .FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
 
     public Task<WeddingProject?> GetOperatedEventWithServicesAsync(string projectCode, int managerId, CancellationToken cancellationToken = default) =>
-        db.WeddingProjects.Include(x => x.SpecItems)
+        db.WeddingProjects.Include(x => x.SpecItems).Include(x => x.Terms)
             .FirstOrDefaultAsync(x => x.ProjectCode == projectCode
                 && (x.ManagerId == managerId || x.ProjectManagers.Any(pm => pm.ManagerId == managerId && pm.RemovedAt == null)), cancellationToken);
 
@@ -51,15 +51,13 @@ public sealed class EventWorkStore(WpsmDbContext db, IFileService files) : IEven
     public async Task<Guid> StoreSupplierFileAsync(int projectId, string fileName, byte[] content, int uploaderId, CancellationToken cancellationToken = default) =>
         (await files.StoreAsync(projectId, "SupplierEvidence", fileName, content, uploaderId, cancellationToken)).Id;
 
-    public async Task<IReadOnlyList<WeddingProject>> GetEventsPastSupplierDeadlineAsync(DateOnly todayVn, EventPolicy policy, CancellationToken cancellationToken = default)
-    {
-        var deadlineBefore = todayVn.AddDays(policy.SupplierDeadlineDays);   // supplier deadline <= today
-        return await db.WeddingProjects.AsNoTracking().AsSplitQuery()
+    public async Task<IReadOnlyList<WeddingProject>> GetLockedUpcomingEventsAsync(DateOnly todayVn, CancellationToken cancellationToken = default) =>
+        await db.WeddingProjects.AsNoTracking().AsSplitQuery()
+            .Include(p => p.Terms)
             .Include(p => p.SpecItems).ThenInclude(s => s.CatalogItem)
             .Include(p => p.SupplierEvidences)
-            .Where(p => p.Status == EventStatus.Locked && p.EventDate <= deadlineBefore && p.EventDate >= todayVn)
+            .Where(p => p.Status == EventStatus.Locked && p.EventDate >= todayVn)
             .ToListAsync(cancellationToken);
-    }
 
     public Task<IReadOnlyList<int>> GetOperatorIdsAsync(int projectId, CancellationToken cancellationToken = default) =>
         EventFlowSupport.OperatorIdsAsync(db, projectId, cancellationToken);

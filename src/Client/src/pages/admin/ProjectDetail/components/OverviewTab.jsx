@@ -1,6 +1,7 @@
 import { Alert, Avatar, Box, Card, CardContent, Chip, List, ListItem, ListItemAvatar, ListItemText, Step, StepLabel, Stepper, Typography } from "@mui/material";
 import StatCard from "../../../../components/StatCard";
 import ProjectOperators from "../../../../components/ProjectOperators";
+import EventTermsCard from "../../../../components/EventTermsCard";
 import { dateTimeVi, dateVi, initials, money } from "../../../../utils/format";
 
 // Status history, money at a glance, the creator and everyone operating the event (Admin can add / remove co-managers).
@@ -46,6 +47,7 @@ export default function OverviewTab({ project, onChanged }) {
           </List>
         </CardContent>
       </Card>
+      <EventTermsCard terms={project.terms} />
       <ProjectOperators projectCode={project.projectCode} onChanged={onChanged} />
     </Box>
   );

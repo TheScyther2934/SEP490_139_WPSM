@@ -23,7 +23,8 @@ public sealed class EventBookingStore(WpsmDbContext db) : IEventBookingStore
     public Task<bool> IsSlotTakenAsync(int slotId, DateOnly eventDate, CancellationToken cancellationToken = default) =>
         db.WeddingProjects.AnyAsync(x => x.SlotId == slotId && x.EventDate == eventDate && x.Status != EventStatus.Cancelled, cancellationToken);
 
-    public Task<EventPolicy> GetPolicyAsync(CancellationToken cancellationToken = default) => EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+    public Task<(EventPolicy Policy, DateOnly? EffectiveFrom)> GetPolicyInForceAsync(CancellationToken cancellationToken = default) =>
+        EventFlowSupport.LoadPolicyVersionAsync(db, VietnamTime.GetVietnamToday(), cancellationToken);
 
     public async Task<IReadOnlyDictionary<int, string>> GetActiveServiceNamesAsync(IReadOnlyCollection<int> catalogItemIds, CancellationToken cancellationToken = default) =>
         await db.ServiceCatalogItems.AsNoTracking().Where(x => catalogItemIds.Contains(x.ItemId) && x.Status == "Active")

@@ -22,7 +22,7 @@ public sealed class EventFlowRepository(WpsmDbContext db) : IEventFlowRepository
             .Include(x => x.AddonContracts).ThenInclude(a => a.CreatedByNavigation)
             .FirstOrDefaultAsync(x => x.ProjectCode == eventCode, cancellationToken);
         if (p is null) return null;
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = await EventFlowSupport.LoadEventPolicyAsync(db, p.ProjectId, cancellationToken);   // terms signed with
         var today = VietnamTime.GetVietnamToday();
         return new EventWorkspaceView(p.ProjectCode, p.Customer.FullName, p.Status, EventStatus.Label(p.Status),
             EventStageRules.CurrentStage(p.Status, p.EventDate, today),
@@ -59,7 +59,7 @@ public sealed class EventFlowRepository(WpsmDbContext db) : IEventFlowRepository
             : await query.FirstOrDefaultAsync(x => x.ProjectCode == eventCode, cancellationToken);
         if (p is null) return null;
 
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = await EventFlowSupport.LoadEventPolicyAsync(db, p.ProjectId, cancellationToken);   // terms signed with
         var today = VietnamTime.GetVietnamToday();
         var services = p.SpecItems.OrderBy(s => s.CatalogItem.Category).ThenBy(s => s.CatalogItem.Name)
             .Select(s => new SpecificationLineView(s.CatalogItemId, s.CatalogItem.Name, WpsmCategoryNames.ToDisplay(s.CatalogItem.Category), s.Description,

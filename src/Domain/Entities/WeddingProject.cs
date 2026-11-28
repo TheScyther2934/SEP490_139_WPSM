@@ -76,4 +76,6 @@ public partial class WeddingProject
     public virtual ICollection<SupplierEvidence> SupplierEvidences { get; set; } = new List<SupplierEvidence>();
 
     public virtual SettlementInvoice? SettlementInvoice { get; set; }
+
+    public virtual EventTerms? Terms { get; set; }
 }

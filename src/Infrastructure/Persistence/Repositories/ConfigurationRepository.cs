@@ -27,8 +27,18 @@ public sealed class ConfigurationRepository(WpsmDbContext db) : IConfigurationRe
 
     public async Task<PolicyView> GetPoliciesAsync(CancellationToken cancellationToken = default)
     {
-        var p = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var (p, effectiveFrom) = await EventFlowSupport.LoadPolicyVersionAsync(db, VietnamTime.GetVietnamToday(), cancellationToken);
+        // Running events keep the terms they were signed with; count those whose terms differ from the policy in force.
+        var runningTerms = await db.EventTerms.AsNoTracking()
+            .Where(t => t.Project.Status == EventStatus.Adjusting || t.Project.Status == EventStatus.Locked || t.Project.Status == EventStatus.Completed)
+            .ToListAsync(cancellationToken);
+        var stamp = p.Stamp();
         return new PolicyView(p.DepositRatio, p.MaxDecreaseRatio, p.BookingMinDays, p.BookingMaxDays, p.LockDays, p.SupplierDeadlineDays,
-            p.SettlementDueDays, await EventFlowSupport.LoadHotlineAsync(db, cancellationToken));
+            p.SettlementDueDays, await EventFlowSupport.LoadHotlineAsync(db, cancellationToken))
+        {
+            Stamp = stamp,
+            EffectiveFrom = effectiveFrom,
+            EventsOnOlderTerms = runningTerms.Count(t => t.ToPolicy().Stamp() != stamp)
+        };
     }
 }

@@ -1,20 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using Application.UseCases;
 using Application.UseCases.EventStages;
+using Domain.Entities;
 using Domain.Services;
 using Infrastructure.Persistence;
 
 namespace Infrastructure.UseCases;
 
-/// <summary>Event stage data for the lock job: policy, candidate events, stages the lock.</summary>
+/// <summary>Event stage data for the lock job: adjusting events with their signed terms, stages the lock.</summary>
 public sealed class EventStageStore(WpsmDbContext db) : IEventStageStore
 {
-    public Task<EventPolicy> GetPolicyAsync(CancellationToken cancellationToken = default) => EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
-
-    public async Task<IReadOnlyList<EventParty>> GetAdjustingEventsAsync(DateOnly eventDateUntil, CancellationToken cancellationToken = default) =>
-        await db.WeddingProjects.AsNoTracking().Where(p => p.Status == EventStatus.Adjusting && p.EventDate <= eventDateUntil)
-            .Select(p => new EventParty(p.ProjectId, p.ProjectCode, p.Status, p.EventDate, p.CustomerId, p.Customer.FullName, p.Customer.Email))
+    public async Task<IReadOnlyList<(EventParty Party, EventPolicy Terms)>> GetAdjustingEventsAsync(CancellationToken cancellationToken = default)
+    {
+        var rows = await db.WeddingProjects.AsNoTracking().Include(p => p.Customer).Include(p => p.Terms)
+            .Where(p => p.Status == EventStatus.Adjusting)
             .ToListAsync(cancellationToken);
+        var inForce = rows.All(p => p.Terms is not null) ? EventPolicy.Default : await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        return rows.Select(p => (new EventParty(p.ProjectId, p.ProjectCode, p.Status, p.EventDate, p.CustomerId, p.Customer.FullName, p.Customer.Email),
+            EventTerms.PolicyOf(p.Terms, inForce))).ToList();
+    }
 
     public async Task StageLockedAsync(int projectId, DateTime now, CancellationToken cancellationToken = default)
     {

@@ -53,6 +53,16 @@ public static class EventBookingPolicy
         if (EventStageRules.ValidateBookingDate(eventDate, today, policy) is { } error) throw new BusinessRuleException(error);
     }
 
+    /// <summary>
+    /// The form shows the deposit, the decrease limit and the lock days of the policy it loaded. When the Admin saved another policy
+    /// meanwhile, signing stops so the manager does not sign terms other than the ones told to the customer. No stamp: not checked.
+    /// </summary>
+    public static void EnsurePolicyUnchanged(string? stampShown, EventPolicy policyInForce)
+    {
+        if (!string.IsNullOrWhiteSpace(stampShown) && stampShown != policyInForce.Stamp())
+            throw new BusinessRuleException("Chính sách sự kiện vừa được thay đổi. Vui lòng tải lại trang để xem điều khoản mới trước khi ký hợp đồng.");
+    }
+
     public static void ValidateLines(IReadOnlyList<BookingLine>? lines)
     {
         if (lines is null || lines.Count == 0) throw new BusinessRuleException("Hãy chọn các dịch vụ khách đặt.");

@@ -73,6 +73,8 @@ export default function CreateProject() {
         hall: form.hall, slot: form.slot, eventDate: form.eventDate,
         baseValue: contractValue(form.lines), depositAmount: moneyInput(form.depositAmount) || minimum, paymentMethod: form.paymentMethod,
         items: form.lines.map((l) => ({ catalogItemId: l.catalogItemId, description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice) })),
+        // The policy shown on this form: the API refuses to sign if the Admin changed it meanwhile.
+        policyStamp: policy.data?.stamp,
       });
       setConfirmOpen(false);
       const uploaded = await uploadReceipt(result.project);

@@ -8,7 +8,7 @@ namespace Infrastructure.Persistence;
 public sealed class ProjectReadModel(WpsmDbContext db)
 {
     internal IQueryable<WeddingProject> ProjectViewsQuery() => db.WeddingProjects.AsNoTracking().AsSplitQuery()
-        .Include(x => x.Customer).Include(x => x.Hall).Include(x => x.Slot)
+        .Include(x => x.Customer).Include(x => x.Hall).Include(x => x.Slot).Include(x => x.Terms)
         .Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem)
         .Include(x => x.AddonContracts).ThenInclude(a => a.Items)
         .Include(x => x.Beos)
@@ -17,7 +17,8 @@ public sealed class ProjectReadModel(WpsmDbContext db)
 
     internal async Task<WeddingProjectView> MapProjectAsync(WeddingProject x, CancellationToken cancellationToken)
     {
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var inForce = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = EventTerms.PolicyOf(x.Terms, inForce);   // the policy this event was signed with
         var today = VietnamTime.GetVietnamToday();
         var payments = x.Payments.OrderBy(p => p.PaymentType == PaymentKinds.Deposit ? 0 : 1)
             .Select(p => new PaymentView(p.PaymentType, p.Status, p.Amount ?? 0m, p.DueDate, p.PaidDate, p.ReceiptFilePath != null))
@@ -68,6 +69,7 @@ public sealed class ProjectReadModel(WpsmDbContext db)
             Beos = x.Beos.OrderByDescending(b => b.Version).Select(b => new ProjectModuleItem($"Phiếu điều phối v{b.Version}", b.Status, b.Notes)).ToList(),
             Complaints = x.Complaints.Select(c => new ProjectModuleItem(c.ComplaintCode, c.Status, c.Description)).ToList(),
             DayOfTasks = x.DayOfTasks.OrderBy(t => t.DeadlineTime).Select(t => new ProjectModuleItem(t.TaskName, t.Status, t.DeadlineTime.ToString("dd/MM/yyyy HH:mm"))).ToList(),
+            Terms = EventFlowSupport.TermsView(x, inForce),
             CredentialEmailStatus = credentialStatus
         };
     }

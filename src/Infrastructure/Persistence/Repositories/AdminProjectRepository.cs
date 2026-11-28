@@ -74,6 +74,7 @@ public sealed class AdminProjectRepository(WpsmDbContext db) : IAdminProjectRepo
     {
         var p = await db.WeddingProjects.AsNoTracking().AsSplitQuery()
             .Include(x => x.Customer).Include(x => x.Hall).Include(x => x.Slot).Include(x => x.Manager).Include(x => x.CreatedByNavigation)
+            .Include(x => x.Terms)
             .Include(x => x.ProjectManagers).ThenInclude(x => x.Manager)
             .Include(x => x.SpecItems).ThenInclude(x => x.CatalogItem)
             .Include(x => x.AddonContracts).ThenInclude(x => x.Items)
@@ -89,7 +90,8 @@ public sealed class AdminProjectRepository(WpsmDbContext db) : IAdminProjectRepo
             .FirstOrDefaultAsync(x => x.ProjectCode == projectCode, cancellationToken);
         if (p is null) return null;
 
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var inForce = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = EventTerms.PolicyOf(p.Terms, inForce);   // the policy this event was signed with
         var paid = p.Payments.Where(x => x.Status == "Paid").Sum(x => x.Amount ?? 0);
         var addonTotal = p.AddonContracts.Where(a => a.Status == "Confirmed").Sum(a => a.Items.Sum(i => i.Quantity * i.UnitPrice));
         var grand = p.CurrentTotal + addonTotal;
@@ -133,7 +135,8 @@ public sealed class AdminProjectRepository(WpsmDbContext db) : IAdminProjectRepo
             evidence, complaints)
         {
             StatusLabel = EventStatus.Label(p.Status),
-            CancelReason = p.CancelReason
+            CancelReason = p.CancelReason,
+            Terms = EventFlowSupport.TermsView(p, inForce)
         };
     }
 }

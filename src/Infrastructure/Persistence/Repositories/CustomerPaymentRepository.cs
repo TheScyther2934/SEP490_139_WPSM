@@ -215,7 +215,7 @@ public sealed class CustomerPaymentRepository(
     private async Task<IReadOnlyList<CustomerPaymentMilestoneView>> BuildMilestonesAsync(
         WeddingProject project, CustomerPaymentSummaryView summary, DateOnly today, CancellationToken cancellationToken)
     {
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = await EventFlowSupport.LoadEventPolicyAsync(db, project.ProjectId, cancellationToken);   // terms signed with
         var code = Uri.EscapeDataString(project.ProjectCode);
 
         var deposit = project.Payments.FirstOrDefault(p => p.PaymentType == PaymentKinds.Deposit);

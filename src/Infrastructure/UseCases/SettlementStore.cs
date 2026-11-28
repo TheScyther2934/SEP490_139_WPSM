@@ -19,7 +19,7 @@ public sealed class SettlementStore(WpsmDbContext db, IFileService files) : ISet
         EventFlowSupport.ConfirmedAddonTotalAsync(db, projectId, cancellationToken);
 
     public async Task<SettlementInvoice> StageInvoiceAsync(WeddingProject project, int? issuedBy, CancellationToken cancellationToken = default) =>
-        await EventFlowSupport.IssueInvoiceAsync(db, project, issuedBy, await EventFlowSupport.LoadPolicyAsync(db, cancellationToken), cancellationToken);
+        await EventFlowSupport.IssueInvoiceAsync(db, project, issuedBy, await EventFlowSupport.LoadEventPolicyAsync(db, project.ProjectId, cancellationToken), cancellationToken);
 
     public async Task<StoredReceipt> StoreReceiptAsync(int projectId, string fileName, byte[] content, int uploaderId, CancellationToken cancellationToken = default)
     {

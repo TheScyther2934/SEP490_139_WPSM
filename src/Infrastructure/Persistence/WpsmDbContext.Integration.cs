@@ -34,6 +34,8 @@ public partial class WpsmDbContext
 
     public virtual DbSet<SystemSetting> SystemSettings { get; set; }
 
+    public virtual DbSet<EventTerms> EventTerms { get; set; }
+
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ProjectManager>(entity =>
@@ -213,6 +215,22 @@ public partial class WpsmDbContext
             entity.HasOne(d => d.SpecItem).WithMany().HasForeignKey(d => d.SpecItemId).OnDelete(DeleteBehavior.ClientSetNull);
             entity.HasOne(d => d.File).WithMany().HasForeignKey(d => d.FileId).OnDelete(DeleteBehavior.ClientSetNull);
             entity.HasOne(d => d.UploadedByNavigation).WithMany().HasForeignKey(d => d.UploadedBy).OnDelete(DeleteBehavior.ClientSetNull);
+        });
+
+        modelBuilder.Entity<EventTerms>(entity =>
+        {
+            // One row per event, written at signing and never updated: the policy the event was signed with.
+            entity.ToTable("EventTerms", t =>
+            {
+                t.HasCheckConstraint("CK_EventTerms_Ratios", "\"DepositRatio\" > 0 AND \"DepositRatio\" <= 100 AND \"MaxDecreaseRatio\" >= 0 AND \"MaxDecreaseRatio\" < 100");
+                t.HasCheckConstraint("CK_EventTerms_Days", "\"SupplierDeadlineDays\" >= 1 AND \"LockDays\" >= \"SupplierDeadlineDays\" AND \"SettlementDueDays\" >= 0");
+            });
+            entity.HasKey(e => e.ProjectId);
+            entity.Property(e => e.ProjectId).ValueGeneratedNever();
+            entity.Property(e => e.DepositRatio).HasColumnType("decimal(5, 2)");
+            entity.Property(e => e.MaxDecreaseRatio).HasColumnType("decimal(5, 2)");
+            entity.Property(e => e.CreatedAt).HasPrecision(0).HasDefaultValueSql(UtcNowSql);
+            entity.HasOne(d => d.Project).WithOne(p => p.Terms).HasForeignKey<EventTerms>(d => d.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SettlementInvoice>(entity =>

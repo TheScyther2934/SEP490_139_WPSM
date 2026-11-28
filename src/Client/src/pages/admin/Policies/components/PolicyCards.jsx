@@ -1,4 +1,4 @@
-import { Box, Button, Card, CardContent, Divider, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Divider, Stack, Typography } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 
 const Row = ({ label, value }) => (
@@ -12,6 +12,12 @@ const Row = ({ label, value }) => (
 export default function PolicyCards({ policy: p, onEdit }) {
   return (
     <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { md: "1fr 1fr" }, alignItems: "start" }}>
+      <Alert id="policyTermsNote" severity="info" sx={{ gridColumn: { md: "1 / -1" } }}>
+        Đang áp dụng cho hợp đồng ký từ {p.effectiveFrom ? new Date(p.effectiveFrom).toLocaleDateString("vi-VN") : "đầu"}.{" "}
+        {p.eventsOnOlderTerms > 0
+          ? <>Có <b data-field="events-on-older-terms">{p.eventsOnOlderTerms}</b> sự kiện đang diễn ra theo điều khoản cũ (giữ nguyên điều khoản lúc ký).</>
+          : "Mọi sự kiện đang diễn ra đều theo chính sách này."}
+      </Alert>
       <Card>
         <CardContent sx={{ p: 3 }}>
           <Typography variant="h6">Thanh toán</Typography>

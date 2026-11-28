@@ -6,7 +6,7 @@ namespace API.Endpoints;
 // differently shaped records with the same names in API (WpsmPortalStore.cs).
 public sealed record CreateProjectRequest(string CoupleName, string CustomerEmail, string CustomerPhone, string Hall, string Slot,
     DateOnly EventDate, decimal BaseValue, decimal DepositAmount, string PaymentMethod = "Cash", string? ReceiptFilePath = null,
-    IReadOnlyList<SpecificationLineCommand>? Items = null);
+    IReadOnlyList<SpecificationLineCommand>? Items = null, string? PolicyStamp = null);
 public sealed record CreatedProjectResponse(WeddingProjectView Project, string? TemporaryPassword, string EmailStatus = "ExistingAccount");
 public sealed record EmailStatusRequest(string? MessageId, string? Status, string? Error);
 public sealed record SpecificationRequest(string Summary, int GuestCount, IReadOnlyList<SpecificationLineCommand>? Items = null, string? Note = null, string? NoteType = null);

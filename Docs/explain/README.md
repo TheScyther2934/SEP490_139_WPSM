@@ -18,5 +18,7 @@ Mỗi chức năng có một file, viết theo `_TEMPLATE.md`.
 | SEED-EXTRA | Dữ liệu mẫu bổ sung: phụ phí CR, sảnh, dịch vụ, tài nguyên, 6 dự án mẫu | [seed-extra-data.md](seed-extra-data.md) |
 | A-19 | Admin quản lý tài khoản: danh sách, tạo Manager/Admin, sửa, khóa/mở khóa, cấp lại mật khẩu | [A-19-account-management.md](A-19-account-management.md) |
 | EMAIL-SMTP | Gửi email thật qua SMTP (Brevo relay): một đường gửi qua outbox, không lộ mật khẩu khi có SMTP, link trỏ React | [EMAIL-SMTP-real-email.md](EMAIL-SMTP-real-email.md) |
-| CLEAN-ARCH | Clean Architecture: entity ở Domain, quy tắc ở `Domain/Rules`, use case cho phiếu điều phối, hợp đồng phát sinh, khóa dịch vụ; bảng đã chuyển / chưa chuyển | [clean-architecture.md](clean-architecture.md) |
+| CLEAN-ARCH | Clean Architecture: entity ở Domain, quy tắc ở `Domain/Rules`, use case cho mọi luồng ghi (12 khu vực, trừ JOB-04/05); bảng đã chuyển / chưa chuyển, hành vi đã đổi | [clean-architecture.md](clean-architecture.md) |
 | BUG-DISCORD-1125 | Sửa lỗi đợt test 22–24/11: cờ "cần nhà cung cấp", xóa minh chứng, mở lại nhiệm vụ, lịch sử phiếu, PDF bộ phận có nhiệm vụ, quy tắc số điện thoại | [bug-discord-1125.md](bug-discord-1125.md) |
+| EVENT-TERMS | Chính sách mới chỉ áp dụng cho hợp đồng ký sau: bảng EventTerms chép chính sách lúc ký, job và màn hình tính mốc theo điều khoản của từng tiệc | [event-terms.md](event-terms.md) |
+| REPORT5-IT | Integration test qua API cho Report 5: tài nguyên, ngoại lệ, đánh giá, khiếu nại, phạm vi dữ liệu (30 ca, chạy trên database tạm) | [integration-test-api.md](integration-test-api.md) |

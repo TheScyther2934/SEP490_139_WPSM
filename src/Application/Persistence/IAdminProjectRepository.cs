@@ -37,6 +37,8 @@ public sealed record AdminProjectDetail(string ProjectCode, string CoupleName, s
 {
     public string StatusLabel { get; init; } = "";
     public string? CancelReason { get; init; }
+    /// <summary>The policy the event was signed with.</summary>
+    public EventTermsView? Terms { get; init; }
 }
 
 public interface IAdminProjectRepository

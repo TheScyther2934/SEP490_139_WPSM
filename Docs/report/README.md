@@ -27,8 +27,11 @@ Trạng thái: ⏳ Chưa làm · 🔄 Đang làm · ⚠️ Xong code, còn đi�
 | A-19 | Admin quản lý tài khoản (ngoài SRS) | ✅ Xong | 100% | - | 2026-11-16 | [A-19.md](A-19.md) |
 | DB-LOCALHOST | Chuyển API sang SQL Server đầy đủ (localhost) | ✅ Xong | 100% | - | 2026-11-16 | [DB-LOCALHOST.md](DB-LOCALHOST.md) |
 | EMAIL-SMTP | Gửi email thật qua SMTP (Brevo relay) | ⚠️ Xong code, chờ SMTP key Brevo | 80% | - | 2026-11-16 | [EMAIL-SMTP.md](EMAIL-SMTP.md) |
-| CLEAN-ARCH | Đưa backend về đúng Clean Architecture (bước 1–3, nhiệm vụ điều phối, ký sự kiện) | ⚠️ Đang chuyển từng phần, chưa chạy e2e (script còn dùng SQL Server) | 80% | - | 2026-11-22 | [CLEAN-ARCH.md](CLEAN-ARCH.md) |
+| CLEAN-ARCH | Đưa backend về đúng Clean Architecture (mọi luồng ghi qua use case, trừ JOB-04/05) | ⚠️ Xong code, đã commit/push; chưa chạy e2e, 6 cụm chưa chạy thật | 80% | - | 2026-11-23 | [CLEAN-ARCH.md](CLEAN-ARCH.md) |
 | BUG-DISCORD-1125 | Sửa 8 lỗi nhóm báo trên Discord #sep-code (22–24/11) | ⚠️ Xong code và test, chưa commit | 80% | - | 2026-11-25 | [BUG-DISCORD-1125.md](BUG-DISCORD-1125.md) |
+| EVENT-TERMS | Điều khoản chính sách chỉ áp dụng cho hợp đồng ký sau ngày hiệu lực | ⚠️ Xong code và test, đã chạy migration trên DB chính (28/11), chưa commit | 90% | 2 | 2026-11-26 | [EVENT-TERMS.md](EVENT-TERMS.md) |
+| DOC-REPORT3-4-1126 | Report 3: sơ đồ cho tính năng mới; Report 4: 15 class diagram theo feature, activation bar, rà nội dung (v3) | ⚠️ Report 3 v6 và Report 4 v4 khớp code (Word và sơ đồ), Context Diagram tách theo nhóm dữ liệu; chờ mở bằng Word kiểm tra | 90% | 1.5 | 2026-11-27 | [DOC-REPORT3-4-1126.md](DOC-REPORT3-4-1126.md) |
+| REPORT5-TEST-1127 | Report 5: kế hoạch kiểm thử, ca kiểm thử (Excel), kết quả vòng 1–2, danh sách lỗi | ⚠️ Xong vòng 1–2 (unit 227/227, integration 30/30, hệ thống 78/85 rồi 22/22), còn vòng 3 và kiểm thử chấp nhận | 70% | 2 | 2026-11-27 | [REPORT5-TEST-1127.md](REPORT5-TEST-1127.md) |
 
 **Tổng ước lượng phần được giao:** 9.5 PD. C-09 làm thêm, không tính vào tổng.
 

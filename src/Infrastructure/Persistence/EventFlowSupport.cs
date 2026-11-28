@@ -11,14 +11,45 @@ public static class EventFlowSupport
     public const string HotlineKey = SystemSetting.HotlineKey;
     public const string DefaultHotline = "0976586668";
 
-    public static async Task<EventPolicy> LoadPolicyAsync(WpsmDbContext db, CancellationToken cancellationToken)
+    /// <summary>The policy in force today: only for signing new events and for the Admin policy screen.</summary>
+    public static async Task<EventPolicy> LoadPolicyAsync(WpsmDbContext db, CancellationToken cancellationToken) =>
+        (await LoadPolicyVersionAsync(db, VietnamTime.GetVietnamToday(), cancellationToken)).Policy;
+
+    /// <summary>The policy in force on a date and the effective date of its newest row (null when only defaults apply).</summary>
+    public static async Task<(EventPolicy Policy, DateOnly? EffectiveFrom)> LoadPolicyVersionAsync(WpsmDbContext db, DateOnly onDate,
+        CancellationToken cancellationToken)
     {
-        var today = VietnamTime.GetVietnamToday();
-        var rows = await db.PolicyConfigs.AsNoTracking().Where(p => p.EffectiveFrom <= today)
+        var rows = await db.PolicyConfigs.AsNoTracking().Where(p => p.EffectiveFrom <= onDate)
             .Select(p => new { p.PolicyType, p.Value, p.EffectiveFrom, p.PolicyId }).ToListAsync(cancellationToken);
-        var latest = rows.GroupBy(r => r.PolicyType)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.EffectiveFrom).ThenByDescending(r => r.PolicyId).First().Value);
-        return EventPolicy.From(latest);
+        var latest = rows.Where(r => EventPolicy.Keys.All.Contains(r.PolicyType)).GroupBy(r => r.PolicyType)
+            .Select(g => g.OrderByDescending(r => r.EffectiveFrom).ThenByDescending(r => r.PolicyId).First()).ToList();
+        DateOnly? effective = latest.Count == 0 ? null : latest.Max(r => r.EffectiveFrom);
+        return (EventPolicy.From(latest.ToDictionary(r => r.PolicyType, r => r.Value)), effective);
+    }
+
+    /// <summary>The terms one event was signed with (EventTerms); the policy in force only when the event has none.</summary>
+    public static async Task<EventPolicy> LoadEventPolicyAsync(WpsmDbContext db, int projectId, CancellationToken cancellationToken)
+    {
+        var terms = await db.EventTerms.AsNoTracking().FirstOrDefaultAsync(t => t.ProjectId == projectId, cancellationToken);
+        return terms?.ToPolicy() ?? await LoadPolicyAsync(db, cancellationToken);
+    }
+
+    /// <summary>The signed terms of several events; events without terms get the policy in force.</summary>
+    public static async Task<Func<int, EventPolicy>> LoadEventPoliciesAsync(WpsmDbContext db, IReadOnlyCollection<int> projectIds,
+        CancellationToken cancellationToken)
+    {
+        var terms = await db.EventTerms.AsNoTracking().Where(t => projectIds.Contains(t.ProjectId)).ToListAsync(cancellationToken);
+        var byProject = terms.ToDictionary(t => t.ProjectId, t => t.ToPolicy());
+        var inForce = byProject.Count == projectIds.Distinct().Count() ? EventPolicy.Default : await LoadPolicyAsync(db, cancellationToken);
+        return id => byProject.TryGetValue(id, out var p) ? p : inForce;
+    }
+
+    /// <summary>What the screens show about the terms of an event; the policy in force decides whether they are older.</summary>
+    public static EventTermsView TermsView(WeddingProject project, EventPolicy inForce)
+    {
+        var terms = EventTerms.PolicyOf(project.Terms, inForce);
+        return new EventTermsView(terms.DepositRatio, terms.MaxDecreaseRatio, terms.LockDays, terms.SupplierDeadlineDays, terms.SettlementDueDays,
+            project.Terms?.PolicyEffectiveFrom, DateOnly.FromDateTime(project.CreatedAt), terms.Stamp() != inForce.Stamp());
     }
 
     public static async Task<string> LoadHotlineAsync(WpsmDbContext db, CancellationToken cancellationToken) =>

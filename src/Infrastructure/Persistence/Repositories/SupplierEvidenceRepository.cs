@@ -20,7 +20,7 @@ public sealed class SupplierEvidenceRepository(WpsmDbContext db, IFileService fi
             .Include(x => x.SupplierEvidences).ThenInclude(e => e.UploadedByNavigation)
             .FirstOrDefaultAsync(x => x.ProjectCode == eventCode, cancellationToken);
         if (p is null) return null;
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = await EventFlowSupport.LoadEventPolicyAsync(db, p.ProjectId, cancellationToken);   // terms signed with
         var today = VietnamTime.GetVietnamToday();
         var deadline = EventStageRules.SupplierDeadline(p.EventDate, policy);
         var lines = p.SpecItems.Where(s => s.CatalogItem.RequiresSupplier).OrderBy(s => s.CatalogItem.Category).ThenBy(s => s.CatalogItem.Name)

@@ -28,7 +28,8 @@ public static class ProjectEndpoints
         api.MapPost("/projects", async (CreateProjectRequest request, BookEvent book, EmailOptions email, IWebHostEnvironment environment, ClaimsPrincipal user, CancellationToken ct) =>
         {
             var created = await book.HandleAsync(new CreateProjectCommand(request.CoupleName, request.CustomerEmail, request.CustomerPhone,
-                request.Hall, request.Slot, request.EventDate, request.BaseValue, request.DepositAmount, request.PaymentMethod, request.ReceiptFilePath, request.Items),
+                request.Hall, request.Slot, request.EventDate, request.BaseValue, request.DepositAmount, request.PaymentMethod, request.ReceiptFilePath, request.Items,
+                request.PolicyStamp),
                 UserId(user), ct);
             // Without SMTP the credentials email is only saved as a file: say so, the Manager hands the password over.
             var emailStatus = created.TemporaryPassword is null ? "ExistingAccount" : string.IsNullOrWhiteSpace(email.Host) ? "NotConfigured" : "Pending";

@@ -102,7 +102,7 @@ public sealed class ManagerPaymentRepository(WpsmDbContext db, IFileService file
     {
         var today = PaymentCalculator.GetVietnamToday();
         var money = await ComputeMoneyAsync(project, cancellationToken);
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = await EventFlowSupport.LoadEventPolicyAsync(db, project.ProjectId, cancellationToken);   // terms signed with
         var completed = PaymentCalculator.IsEventCompleted(project.EventDate, project.Status, today);
         var settled = project.Status == EventStatus.Settled;
         var summary = new ManagerPaymentSummaryView(project.ProjectId, project.ProjectCode, project.Customer.FullName, project.Hall.Name, project.Slot.SlotName,

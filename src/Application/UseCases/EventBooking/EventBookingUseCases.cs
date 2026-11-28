@@ -14,7 +14,8 @@ public interface IEventBookingStore
     Task<Slot?> GetSlotAsync(int hallId, string slotName, CancellationToken cancellationToken = default);
     /// <summary>True when an event that is not cancelled already uses this slot on this date.</summary>
     Task<bool> IsSlotTakenAsync(int slotId, DateOnly eventDate, CancellationToken cancellationToken = default);
-    Task<EventPolicy> GetPolicyAsync(CancellationToken cancellationToken = default);
+    /// <summary>The policy in force today and the effective date of its newest row (null: built-in defaults).</summary>
+    Task<(EventPolicy Policy, DateOnly? EffectiveFrom)> GetPolicyInForceAsync(CancellationToken cancellationToken = default);
     /// <summary>Names of the requested services that are active (missing ids are inactive or unknown).</summary>
     Task<IReadOnlyDictionary<int, string>> GetActiveServiceNamesAsync(IReadOnlyCollection<int> catalogItemIds, CancellationToken cancellationToken = default);
     /// <summary>The price frame in force on <paramref name="day"/> for each service that has one.</summary>
@@ -53,7 +54,8 @@ public sealed class BookEvent(IEventBookingStore store, IPasswordService passwor
         EventBookingPolicy.EnsurePaymentMethod(command.PaymentMethod);
         EventBookingPolicy.EnsureSlotFree(await store.IsSlotTakenAsync(slot.SlotId, command.EventDate, cancellationToken));
 
-        var policy = await store.GetPolicyAsync(cancellationToken);
+        var (policy, policyEffectiveFrom) = await store.GetPolicyInForceAsync(cancellationToken);
+        EventBookingPolicy.EnsurePolicyUnchanged(command.PolicyStamp, policy);
         var todayVn = VietnamTime.GetVietnamToday();
         EventBookingPolicy.EnsureBookingDate(command.EventDate, todayVn, policy);
         var lines = (command.Items ?? []).Select(i => new BookingLine(i.CatalogItemId, i.Description, i.Quantity, i.UnitPrice)).ToList();
@@ -78,7 +80,8 @@ public sealed class BookEvent(IEventBookingStore store, IPasswordService passwor
 
         var code = EventBookingPolicy.NextProjectCode(now.Year, await store.GetProjectCodesAsync($"WPSM-{now.Year}-", cancellationToken));
         var described = lines.Select(l => (l, string.IsNullOrWhiteSpace(l.Description) ? names[l.CatalogItemId] : l.Description.Trim())).ToList();
-        var project = WeddingProject.Book(code, account, managerId, hall.HallId, slot.SlotId, command.EventDate, described, deposit, command.PaymentMethod, now, todayVn);
+        var project = WeddingProject.Book(code, account, managerId, hall.HallId, slot.SlotId, command.EventDate, described, deposit, command.PaymentMethod, now, todayVn,
+            EventTerms.Capture(policy, policyEffectiveFrom, now));
         store.Add(project);
         // Saved first so the event and the account have their keys; the messages below refer to them.
         await unitOfWork.SaveChangesAsync(cancellationToken);

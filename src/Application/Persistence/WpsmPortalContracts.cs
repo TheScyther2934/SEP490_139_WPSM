@@ -59,7 +59,16 @@ public sealed record WeddingProjectView(
     public IReadOnlyList<ProjectModuleItem> Complaints { get; init; } = [];
     public IReadOnlyList<ProjectModuleItem> DayOfTasks { get; init; } = [];
     public string CredentialEmailStatus { get; init; } = "ExistingAccount";
+    /// <summary>The policy the event was signed with (EventTerms).</summary>
+    public EventTermsView? Terms { get; init; }
 }
+
+/// <summary>
+/// The policy values an event was signed with. DiffersFromCurrent: the policy in force today has other values,
+/// which apply to new contracts only.
+/// </summary>
+public sealed record EventTermsView(decimal DepositRatio, decimal MaxDecreaseRatio, int LockDays, int SupplierDeadlineDays,
+    int SettlementDueDays, DateOnly? PolicyEffectiveFrom, DateOnly SignedOn, bool DiffersFromCurrent);
 public sealed record PaymentView(string Type, string Status, decimal Amount, DateOnly? DueDate, DateOnly? PaidDate, bool HasReceipt);
 public sealed record ProjectModuleItem(string Title, string Status, string? Detail = null);
 
@@ -77,8 +86,17 @@ public sealed record SpecificationLineView(
 public sealed record CatalogItemView(string Id, string Name, string Category, string Unit, decimal BasePrice, bool Active, bool RequiresSupplier = false);
 public sealed record PriceFrameView(string Id, string ServiceName, string Variant, decimal MinPrice, decimal MaxPrice, string Currency, int CatalogItemId = 0);
 /// <summary>Event rules Admin can change (PolicyConfigs) plus the hotline shown to customers.</summary>
+/// <summary>
+/// The policy in force. Stamp identifies these values: the create-event form sends it back so signing stops when the policy changed
+/// meanwhile. EventsOnOlderTerms: running events signed with other values (they keep them).
+/// </summary>
 public sealed record PolicyView(decimal DepositRatio, decimal MaxDecreaseRatio, int BookingMinDays, int BookingMaxDays,
-    int LockDays, int SupplierDeadlineDays, int SettlementDueDays, string Hotline);
+    int LockDays, int SupplierDeadlineDays, int SettlementDueDays, string Hotline)
+{
+    public string Stamp { get; init; } = "";
+    public DateOnly? EffectiveFrom { get; init; }
+    public int EventsOnOlderTerms { get; init; }
+}
 public sealed record ProfileView(string FullName, string Email, string Phone, string Role);
 
 public sealed record CreateProjectCommand(
@@ -92,7 +110,8 @@ public sealed record CreateProjectCommand(
     decimal DepositAmount,
     string PaymentMethod,
     string? ReceiptFilePath,
-    IReadOnlyList<SpecificationLineCommand>? Items = null);
+    IReadOnlyList<SpecificationLineCommand>? Items = null,
+    string? PolicyStamp = null);
 public sealed record CreatedProjectView(WeddingProjectView Project, string? TemporaryPassword);
 
 /// <summary>Stage 2 adjustment: the new service lines and the note explaining what the customer asked for (required).</summary>

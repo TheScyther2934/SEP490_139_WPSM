@@ -11,7 +11,8 @@ public partial class WeddingProject
     /// Lines and deposit must already be checked with <see cref="EventBookingPolicy"/>.
     /// </summary>
     public static WeddingProject Book(string projectCode, User customer, int managerId, int hallId, int slotId, DateOnly eventDate,
-        IReadOnlyList<(BookingLine Line, string Description)> lines, decimal deposit, string paymentMethod, DateTime nowUtc, DateOnly todayVn)
+        IReadOnlyList<(BookingLine Line, string Description)> lines, decimal deposit, string paymentMethod, DateTime nowUtc, DateOnly todayVn,
+        EventTerms? terms = null)
     {
         var contractValue = EventBookingPolicy.ContractValue(lines.Select(x => x.Line).ToList());
         var project = new WeddingProject
@@ -28,7 +29,9 @@ public partial class WeddingProject
             // Signed in stage 1, adjustable in stage 2 until the lock date; CurrentTotal follows the service lines.
             CurrentTotal = contractValue,
             Status = EventStatus.Adjusting,
-            CreatedAt = nowUtc
+            CreatedAt = nowUtc,
+            // The policy in force at signing; later policy versions do not change this event.
+            Terms = terms
         };
         // The creator is the Primary operator; co-managers are added later from M-04 or by an Admin.
         project.ProjectManagers.Add(new ProjectManager { ManagerId = managerId, Role = "Primary", AssignedBy = managerId, AssignedAt = nowUtc, Reason = "Người tạo sự kiện" });

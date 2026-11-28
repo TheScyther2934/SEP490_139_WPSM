@@ -56,7 +56,7 @@ public sealed class CustomerDashboardRepository(WpsmDbContext db) : ICustomerDas
         };
 
         // ── 3. Stages, money, addon contracts waiting for the customer ──────
-        var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
+        var policy = await EventFlowSupport.LoadEventPolicyAsync(db, project.ProjectId, cancellationToken);   // terms signed with
         var stages = Domain.Services.EventStageRules.Timeline(project.Status, project.EventDate, DateOnly.FromDateTime(project.CreatedAt), today, policy);
         var currentStage = Domain.Services.EventStageRules.CurrentStage(project.Status, project.EventDate, today);
         var pendingAddons = project.AddonContracts.Count(a => a.Status == "PendingCustomer");

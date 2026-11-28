@@ -58,6 +58,7 @@ export default function PolicyDialog({ open, policy, onClose, onSave }) {
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
       <DialogTitle>Chính sách sự kiện</DialogTitle>
       <DialogContent>
+        <Alert severity="info" sx={{ mb: 2 }}>Chính sách mới chỉ áp dụng cho hợp đồng ký từ ngày hiệu lực. Sự kiện đã ký vẫn giữ điều khoản lúc ký.</Alert>
         {serverError && <Alert severity="error" sx={{ mb: 2 }}>{serverError}</Alert>}
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { md: "1fr 1fr" }, pt: 1 }}>
           {FIELDS.map((f) => (

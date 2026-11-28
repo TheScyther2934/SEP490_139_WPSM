@@ -8,6 +8,7 @@ namespace Application.UseCases.EventStages;
 /// <summary>Data access for the stage use cases besides locking; implemented in Infrastructure. Entities come back tracked.</summary>
 public interface IEventWorkStore
 {
+    /// <summary>The policy in force today (only for events without signed terms).</summary>
     Task<EventPolicy> GetPolicyAsync(CancellationToken cancellationToken = default);
     Task<WeddingProject?> GetEventAsync(string projectCode, CancellationToken cancellationToken = default);
     /// <summary>The event with its pending addon contracts and its resource allocations, to cancel it.</summary>
@@ -28,8 +29,8 @@ public interface IEventWorkStore
     void Remove(SupplierEvidence evidence);
     /// <summary>Checks the file by its content and stores it. Saves its own row: call last, right before the use case saves.</summary>
     Task<Guid> StoreSupplierFileAsync(int projectId, string fileName, byte[] content, int uploaderId, CancellationToken cancellationToken = default);
-    /// <summary>Locked events whose supplier deadline has come and whose day has not passed, with services and evidence (JOB-01).</summary>
-    Task<IReadOnlyList<WeddingProject>> GetEventsPastSupplierDeadlineAsync(DateOnly todayVn, EventPolicy policy, CancellationToken cancellationToken = default);
+    /// <summary>Locked events whose day has not passed, with their signed terms, services and evidence (JOB-01).</summary>
+    Task<IReadOnlyList<WeddingProject>> GetLockedUpcomingEventsAsync(DateOnly todayVn, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<int>> GetOperatorIdsAsync(int projectId, CancellationToken cancellationToken = default);
     Task<bool> SupplierReminderSentTodayAsync(int operatorId, string projectCode, CancellationToken cancellationToken = default);
 }
@@ -78,7 +79,8 @@ public sealed class AdjustServices(IEventWorkStore store, IProjectRepository rea
     {
         var project = await store.GetOperatedEventWithServicesAsync(projectCode, managerId, cancellationToken);
         if (project is null) return null;
-        var policy = await store.GetPolicyAsync(cancellationToken);
+        // The lock date and the decrease floor come from the terms the event was signed with.
+        var policy = EventTerms.PolicyOf(project.Terms, await store.GetPolicyAsync(cancellationToken));
         var today = VietnamTime.GetVietnamToday();
         EventStagePolicy.EnsureCanAdjust(project.Status, project.EventDate, today, policy);
         var lines = command.Items?.Select(i => new AdjustedLine(i.CatalogItemId, i.Description, i.Quantity, i.UnitPrice)).ToList();
@@ -141,10 +143,12 @@ public sealed class RemindSupplierDeadlines(IEventWorkStore store, IEventMessage
 {
     public async Task<int> HandleAsync(DateOnly today, CancellationToken cancellationToken = default)
     {
-        var policy = await store.GetPolicyAsync(cancellationToken);
+        var inForce = await store.GetPolicyAsync(cancellationToken);
         var reminded = 0;
-        foreach (var project in await store.GetEventsPastSupplierDeadlineAsync(today, policy, cancellationToken))
+        foreach (var project in await store.GetLockedUpcomingEventsAsync(today, cancellationToken))
         {
+            // Each event has its own supplier deadline (signed terms).
+            if (EventStageRules.SupplierDeadline(project.EventDate, EventTerms.PolicyOf(project.Terms, inForce)) > today) continue;
             var missing = project.ServicesMissingSupplierEvidence();
             if (missing.Count == 0) continue;
             foreach (var operatorId in await store.GetOperatorIdsAsync(project.ProjectId, cancellationToken))

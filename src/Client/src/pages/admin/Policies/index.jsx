@@ -23,7 +23,7 @@ export default function Policies() {
   };
   return (
     <>
-      <PageHeader title="Chính sách của trung tâm" subtitle="Thay đổi áp dụng từ ngày hiệu lực cho các bước tiếp theo của mọi sự kiện." />
+      <PageHeader title="Chính sách của trung tâm" subtitle="Thay đổi chỉ áp dụng cho hợp đồng ký từ ngày hiệu lực. Sự kiện đã ký giữ nguyên điều khoản lúc ký." />
       <DataState loading={loading} error={error} onRetry={reload}>
         {policy && <PolicyCards policy={policy} onEdit={() => setOpen(true)} />}
       </DataState>

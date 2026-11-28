@@ -10,6 +10,7 @@ import StageNotes from "./components/StageNotes";
 import MoneyLimits from "./components/MoneyLimits";
 import EventStages from "../../../components/EventStages";
 import ProjectOperators from "../../../components/ProjectOperators";
+import EventTermsCard from "../../../components/EventTermsCard";
 import TextDialog from "../../../components/TextDialog";
 import DataState from "../../../components/DataState";
 import { useProject } from "../../../hooks/useProject";
@@ -64,6 +65,7 @@ export default function ProjectHub() {
             </Stack>
             <Stack spacing={2}>
               <CustomerAccountCard project={project} />
+              <EventTermsCard terms={project.terms} />
               <ProjectOperators projectCode={project.id} />
             </Stack>
           </Box>

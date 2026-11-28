@@ -152,7 +152,8 @@ public sealed class DevelopmentDatabaseSeeder(
                     ProjectCode = p.Code, CustomerId = customer.UserId, ManagerId = manager.UserId, CreatedBy = manager.UserId,
                     HallId = hall.HallId, SlotId = slot.SlotId, EventDate = p.EventDate,
                     BaseContractValue = p.Value, DepositAmount = EventStageRules.DepositFor(p.Value, policy), CurrentTotal = p.Value,
-                    Status = EventStatus.Adjusting, CreatedAt = signedOn.ToDateTime(new TimeOnly(2, 0))
+                    Status = EventStatus.Adjusting, CreatedAt = signedOn.ToDateTime(new TimeOnly(2, 0)),
+                    Terms = EventTerms.Capture(policy, null, signedOn.ToDateTime(new TimeOnly(2, 0)))
                 };
                 db.WeddingProjects.Add(project);
                 await db.SaveChangesAsync(cancellationToken);

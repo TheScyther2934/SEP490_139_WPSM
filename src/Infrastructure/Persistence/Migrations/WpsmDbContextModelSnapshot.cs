@@ -519,6 +519,51 @@ namespace Infrastructure.Persistence.Migrations
                     b.ToTable("EmailOutbox", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Entities.EventTerms", b =>
+                {
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BookingMaxDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("BookingMinDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(0)
+                        .HasColumnType("timestamp(0) without time zone")
+                        .HasDefaultValueSql("(now() at time zone 'utc')");
+
+                    b.Property<decimal>("DepositRatio")
+                        .HasColumnType("decimal(5, 2)");
+
+                    b.Property<int>("LockDays")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("MaxDecreaseRatio")
+                        .HasColumnType("decimal(5, 2)");
+
+                    b.Property<DateOnly?>("PolicyEffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<int>("SettlementDueDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SupplierDeadlineDays")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ProjectId");
+
+                    b.ToTable("EventTerms", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_EventTerms_Days", "\"SupplierDeadlineDays\" >= 1 AND \"LockDays\" >= \"SupplierDeadlineDays\" AND \"SettlementDueDays\" >= 0");
+
+                            t.HasCheckConstraint("CK_EventTerms_Ratios", "\"DepositRatio\" > 0 AND \"DepositRatio\" <= 100 AND \"MaxDecreaseRatio\" >= 0 AND \"MaxDecreaseRatio\" < 100");
+                        });
+                });
+
             modelBuilder.Entity("Domain.Entities.ExceptionRequest", b =>
                 {
                     b.Property<int>("ExceptionRequestId")
@@ -1795,6 +1840,17 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("Domain.Entities.EventTerms", b =>
+                {
+                    b.HasOne("Domain.Entities.WeddingProject", "Project")
+                        .WithOne("Terms")
+                        .HasForeignKey("Domain.Entities.EventTerms", "ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("Domain.Entities.ExceptionRequest", b =>
                 {
                     b.HasOne("Domain.Entities.ResourceAllocation", "Allocation")
@@ -2270,6 +2326,8 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("StageNotes");
 
                     b.Navigation("SupplierEvidences");
+
+                    b.Navigation("Terms");
                 });
 #pragma warning restore 612, 618
         }

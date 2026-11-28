@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Application.Dashboard;
 using Application.Persistence;
+using Domain.Entities;
 using Domain.Services;
 using Infrastructure.Persistence;
 
@@ -22,7 +23,7 @@ public sealed class ManagerDashboardService(WpsmDbContext db) : IManagerDashboar
         var policy = await EventFlowSupport.LoadPolicyAsync(db, cancellationToken);
 
         var projects = await db.WeddingProjects.AsNoTracking().AsSplitQuery()
-            .Include(p => p.Customer).Include(p => p.Hall)
+            .Include(p => p.Customer).Include(p => p.Hall).Include(p => p.Terms)
             .Include(p => p.Beos)
             .Include(p => p.AddonContracts)
             .Include(p => p.SpecItems).ThenInclude(s => s.CatalogItem)
@@ -56,8 +57,9 @@ public sealed class ManagerDashboardService(WpsmDbContext db) : IManagerDashboar
         var taskId = 0;
         foreach (var p in active.OrderBy(p => p.EventDate))
         {
-            var lockDate = EventStageRules.LockDate(p.EventDate, policy);
-            var supplierDeadline = EventStageRules.SupplierDeadline(p.EventDate, policy);
+            var terms = EventTerms.PolicyOf(p.Terms, policy);   // the policy this event was signed with
+            var lockDate = EventStageRules.LockDate(p.EventDate, terms);
+            var supplierDeadline = EventStageRules.SupplierDeadline(p.EventDate, terms);
             var missingSuppliers = p.SpecItems.Count(s => s.CatalogItem.RequiresSupplier && p.SupplierEvidences.All(e => e.SpecItemId != s.SpecItemId));
             var pendingAddons = p.AddonContracts.Where(a => a.Status == "PendingCustomer").ToList();
             void Add(string title, string stage, DateOnly due, string type) =>
@@ -70,7 +72,7 @@ public sealed class ManagerDashboardService(WpsmDbContext db) : IManagerDashboar
             foreach (var addon in pendingAddons)
                 Add($"Nhắc khách xác nhận hợp đồng phát sinh {addon.AddonCode}", "Hợp đồng phát sinh", today, "Addon");
             if (p.Status == EventStatus.Completed && p.Payments.All(x => x.PaymentType != PaymentKinds.Settlement || x.Status != "Paid"))
-                Add("Thu tất toán theo hóa đơn cuối", EventStageRules.StageTitle(EventStageRules.Settlement), EventStageRules.SettlementDueDate(p.EventDate, policy), "Settlement");
+                Add("Thu tất toán theo hóa đơn cuối", EventStageRules.StageTitle(EventStageRules.Settlement), EventStageRules.SettlementDueDate(p.EventDate, terms), "Settlement");
 
             if (p.EventDate < today || upcoming.Count >= 8) continue;
             var stage = EventStageRules.CurrentStage(p.Status, p.EventDate, today);
